@@ -1,0 +1,1260 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Orientación Service",
+    "version": "1.0.0",
+    "description": "Provee una API para gestionar las orientaciones, y las áreas y materias que las componen.\n\n**Modelos del dominio:** Orientación, Área, Materia.\n\nConvenciones: una ruta por función; `POST` para commands y `GET` para queries; el id de la entidad principal va en la ruta y el resto de los datos en el body. Los datos relacionados de un solo elemento vienen anidados en la entidad.\n\n> No hay backend detrás de este contrato: el servidor es ilustrativo y \"Try it out\" no va a obtener respuesta.\n\n**Dependencias (Invokes):**\n- `profesor_suplencias.get_profesor` → usado por: `get_profesores_materia`, `get_profesores_area`, `get_area`\n- `planificacion.get_clase` → usado por: `asignar_clase_a_materia`\n- `planificacion.get_curso` → usado por: `asignar_curso_a_orientacion`\n- `planificacion.get_anio_academico` → usado por: `asignar_anio_academico_a_materia`",
+    "x-dependencias": [
+      {
+        "servicio": "profesor_suplencias",
+        "endpoint": "get_profesor",
+        "usado_por": [
+          "get_profesores_materia",
+          "get_profesores_area",
+          "get_area"
+        ]
+      },
+      {
+        "servicio": "planificacion",
+        "endpoint": "get_clase",
+        "usado_por": [
+          "asignar_clase_a_materia"
+        ]
+      },
+      {
+        "servicio": "planificacion",
+        "endpoint": "get_curso",
+        "usado_por": [
+          "asignar_curso_a_orientacion"
+        ]
+      },
+      {
+        "servicio": "planificacion",
+        "endpoint": "get_anio_academico",
+        "usado_por": [
+          "asignar_anio_academico_a_materia"
+        ]
+      }
+    ]
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8085",
+      "description": "Servidor ilustrativo (sin backend)"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Health",
+      "description": "Estado del servicio"
+    },
+    {
+      "name": "Orientación",
+      "description": "Orientaciones (planes de estudio)"
+    },
+    {
+      "name": "Área",
+      "description": "Áreas que agrupan materias"
+    },
+    {
+      "name": "Materia",
+      "description": "Materias"
+    }
+  ],
+  "paths": {
+    "/actuator/health": {
+      "get": {
+        "tags": [
+          "Health"
+        ],
+        "operationId": "health",
+        "summary": "Health check del servicio",
+        "responses": {
+          "200": {
+            "description": "Servicio disponible",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/orientacion/crear_materia": {
+      "post": {
+        "tags": [
+          "Materia"
+        ],
+        "operationId": "crear_materia",
+        "summary": "Crear materia",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "nombre_materia": {
+                    "type": "string",
+                    "example": "Matemática"
+                  },
+                  "descripcion_materia": {
+                    "type": "string",
+                    "example": "Matemática de 1° año"
+                  },
+                  "horas_semanales": {
+                    "type": "integer",
+                    "format": "int64",
+                    "example": 5
+                  },
+                  "id_area": {
+                    "type": "integer",
+                    "format": "int64",
+                    "nullable": true,
+                    "example": 1
+                  },
+                  "id_orientacion": {
+                    "type": "integer",
+                    "format": "int64",
+                    "example": 2
+                  },
+                  "id_anio_academico": {
+                    "type": "integer",
+                    "format": "int64",
+                    "example": 1
+                  }
+                },
+                "required": [
+                  "nombre_materia",
+                  "horas_semanales",
+                  "id_orientacion"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Creado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Materia"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          }
+        }
+      }
+    },
+    "/orientacion/eliminar_materia/{id}": {
+      "delete": {
+        "tags": [
+          "Materia"
+        ],
+        "operationId": "eliminar_materia",
+        "summary": "Eliminar materia",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Id de la materia",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Eliminado"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/orientacion/crear_area": {
+      "post": {
+        "tags": [
+          "Área"
+        ],
+        "operationId": "crear_area",
+        "summary": "Crear área",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "nombre_area": {
+                    "type": "string",
+                    "example": "Exactas"
+                  },
+                  "descripcion_area": {
+                    "type": "string",
+                    "example": "Matemática y ciencias"
+                  },
+                  "id_profesor_coordinador": {
+                    "type": "integer",
+                    "format": "int64",
+                    "nullable": true,
+                    "example": 12
+                  }
+                },
+                "required": [
+                  "nombre_area"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Creado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Area"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          }
+        }
+      }
+    },
+    "/orientacion/crear_orientacion": {
+      "post": {
+        "tags": [
+          "Orientación"
+        ],
+        "operationId": "crear_orientacion",
+        "summary": "Crear orientación",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "nombre_orientacion": {
+                    "type": "string",
+                    "example": "Economía"
+                  },
+                  "descripcion_orientacion": {
+                    "type": "string",
+                    "example": "Bachiller en Economía"
+                  },
+                  "codigo": {
+                    "type": "string",
+                    "example": "ECO"
+                  }
+                },
+                "required": [
+                  "nombre_orientacion",
+                  "codigo"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Creado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Orientacion"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          }
+        }
+      }
+    },
+    "/orientacion/asignar_materia_area/{id}": {
+      "post": {
+        "tags": [
+          "Área"
+        ],
+        "operationId": "asignar_materia_area",
+        "summary": "Asignar una materia al área",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Id del área",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id_materia": {
+                    "type": "integer",
+                    "format": "int64",
+                    "example": 3
+                  }
+                },
+                "required": [
+                  "id_materia"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Materia"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/orientacion/asignar_materia_orientacion/{id}": {
+      "put": {
+        "tags": [
+          "Materia"
+        ],
+        "operationId": "asignar_materia_orientacion",
+        "summary": "Asignar la orientación de la materia (reemplaza la anterior)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Id de la materia",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id_orientacion": {
+                    "type": "integer",
+                    "format": "int64",
+                    "example": 2
+                  }
+                },
+                "required": [
+                  "id_orientacion"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Materia"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/orientacion/eliminar_orientacion/{id}": {
+      "delete": {
+        "tags": [
+          "Orientación"
+        ],
+        "operationId": "eliminar_orientacion",
+        "summary": "Eliminar orientación",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Id de la orientación",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Eliminado"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/orientacion/eliminar_area/{id}": {
+      "delete": {
+        "tags": [
+          "Área"
+        ],
+        "operationId": "eliminar_area",
+        "summary": "Eliminar área",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Id del área",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Eliminado"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/orientacion/quitar_materia_area/{id}/{id_materia}": {
+      "delete": {
+        "tags": [
+          "Área"
+        ],
+        "operationId": "quitar_materia_area",
+        "summary": "Quitar una materia del área",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Id del área",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "id_materia",
+            "in": "path",
+            "required": true,
+            "description": "Id de la materia a quitar",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Materia"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/orientacion/asignar_curso_a_orientacion/{id}": {
+      "post": {
+        "tags": [
+          "Orientación"
+        ],
+        "operationId": "asignar_curso_a_orientacion",
+        "summary": "Asignar un curso a la orientación",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Id de la orientación",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id_curso": {
+                    "type": "integer",
+                    "format": "int64",
+                    "example": 4
+                  }
+                },
+                "required": [
+                  "id_curso"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Orientacion"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "description": "Invoca: planificacion.get_curso"
+      }
+    },
+    "/orientacion/asignar_clase_a_materia/{id}": {
+      "post": {
+        "tags": [
+          "Materia"
+        ],
+        "operationId": "asignar_clase_a_materia",
+        "summary": "Asignar una clase a la materia",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Id de la materia",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id_clase": {
+                    "type": "integer",
+                    "format": "int64",
+                    "example": 40
+                  }
+                },
+                "required": [
+                  "id_clase"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Materia"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "description": "Invoca: planificacion.get_clase"
+      }
+    },
+    "/orientacion/asignar_anio_academico_a_materia/{id}": {
+      "put": {
+        "tags": [
+          "Materia"
+        ],
+        "operationId": "asignar_anio_academico_a_materia",
+        "summary": "Asignar el año académico de la materia",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Id de la materia",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id_anio_academico": {
+                    "type": "integer",
+                    "format": "int64",
+                    "example": 1
+                  }
+                },
+                "required": [
+                  "id_anio_academico"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Materia"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "description": "Invoca: planificacion.get_anio_academico"
+      }
+    },
+    "/orientacion/get_materia/{id}": {
+      "get": {
+        "tags": [
+          "Materia"
+        ],
+        "operationId": "get_materia",
+        "summary": "Obtener materia (área y orientación anidadas)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Id de la materia",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Materia"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/orientacion/get_materias": {
+      "get": {
+        "tags": [
+          "Materia"
+        ],
+        "operationId": "get_materias",
+        "summary": "Listar materias",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Materia"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/orientacion/get_orientacion/{id}": {
+      "get": {
+        "tags": [
+          "Orientación"
+        ],
+        "operationId": "get_orientacion",
+        "summary": "Obtener orientación",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Id de la orientación",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Orientacion"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/orientacion/get_orientaciones": {
+      "get": {
+        "tags": [
+          "Orientación"
+        ],
+        "operationId": "get_orientaciones",
+        "summary": "Listar orientaciones",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Orientacion"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/orientacion/get_area/{id}": {
+      "get": {
+        "tags": [
+          "Área"
+        ],
+        "operationId": "get_area",
+        "summary": "Obtener área (con su coordinador)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Id del área",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Area"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "description": "Invoca: profesor_suplencias.get_profesor"
+      }
+    },
+    "/orientacion/get_areas": {
+      "get": {
+        "tags": [
+          "Área"
+        ],
+        "operationId": "get_areas",
+        "summary": "Listar áreas",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Area"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/orientacion/get_materias_orientacion/{id}": {
+      "get": {
+        "tags": [
+          "Orientación"
+        ],
+        "operationId": "get_materias_orientacion",
+        "summary": "Materias de la orientación",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Id de la orientación",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Materia"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/orientacion/get_materias_area/{id}": {
+      "get": {
+        "tags": [
+          "Área"
+        ],
+        "operationId": "get_materias_area",
+        "summary": "Materias del área",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Id del área",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Materia"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/orientacion/get_profesores_area/{id}": {
+      "get": {
+        "tags": [
+          "Área"
+        ],
+        "operationId": "get_profesores_area",
+        "summary": "Profesores del área",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Id del área",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ProfesorResumen"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "description": "Invoca: profesor_suplencias.get_profesor"
+      }
+    },
+    "/orientacion/get_profesores_materia/{id}": {
+      "get": {
+        "tags": [
+          "Materia"
+        ],
+        "operationId": "get_profesores_materia",
+        "summary": "Profesores habilitados para la materia",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Id de la materia",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ProfesorResumen"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "description": "Invoca: profesor_suplencias.get_profesor"
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "properties": {
+          "codigo": {
+            "type": "string",
+            "example": "NO_ENCONTRADO"
+          },
+          "mensaje": {
+            "type": "string",
+            "example": "No existe el recurso pedido"
+          }
+        },
+        "required": [
+          "codigo",
+          "mensaje"
+        ]
+      },
+      "Health": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "example": "UP"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "ProfesorResumen": {
+        "type": "object",
+        "properties": {
+          "id_profesor": {
+            "type": "integer",
+            "format": "int64",
+            "example": 12
+          },
+          "nombre": {
+            "type": "string",
+            "example": "Juan"
+          },
+          "apellido": {
+            "type": "string",
+            "example": "Ramírez"
+          },
+          "legajo": {
+            "type": "string",
+            "example": "L-0042"
+          }
+        },
+        "description": "Resumen de PROFESOR (servicio Profesor y Suplencias)."
+      },
+      "Orientacion": {
+        "type": "object",
+        "properties": {
+          "id_orientacion": {
+            "type": "integer",
+            "format": "int64",
+            "example": 2,
+            "readOnly": true
+          },
+          "nombre_orientacion": {
+            "type": "string",
+            "example": "Economía"
+          },
+          "descripcion_orientacion": {
+            "type": "string",
+            "example": "Bachiller en Economía y Administración"
+          },
+          "codigo": {
+            "type": "string",
+            "example": "ECO"
+          },
+          "ids_cursos": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int64",
+              "example": 4
+            }
+          }
+        },
+        "required": [
+          "id_orientacion",
+          "nombre_orientacion",
+          "codigo"
+        ]
+      },
+      "Area": {
+        "type": "object",
+        "properties": {
+          "id_area": {
+            "type": "integer",
+            "format": "int64",
+            "example": 1,
+            "readOnly": true
+          },
+          "nombre_area": {
+            "type": "string",
+            "example": "Exactas"
+          },
+          "descripcion_area": {
+            "type": "string",
+            "example": "Matemática, ciencias naturales e informática"
+          },
+          "id_profesor_coordinador": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true,
+            "example": 12
+          },
+          "coordinador": {
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ProfesorResumen"
+              }
+            ],
+            "nullable": true,
+            "description": "Profesor que coordina el área",
+            "readOnly": true
+          }
+        },
+        "required": [
+          "id_area",
+          "nombre_area"
+        ]
+      },
+      "Materia": {
+        "type": "object",
+        "properties": {
+          "id_materia": {
+            "type": "integer",
+            "format": "int64",
+            "example": 3,
+            "readOnly": true
+          },
+          "nombre_materia": {
+            "type": "string",
+            "example": "Matemática"
+          },
+          "descripcion_materia": {
+            "type": "string",
+            "example": "Matemática de 1° año"
+          },
+          "horas_semanales": {
+            "type": "integer",
+            "format": "int64",
+            "example": 5
+          },
+          "id_area": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true,
+            "example": 1,
+            "description": "Una materia puede no tener área"
+          },
+          "area": {
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Area"
+              }
+            ],
+            "nullable": true,
+            "readOnly": true
+          },
+          "id_orientacion": {
+            "type": "integer",
+            "format": "int64",
+            "example": 2,
+            "description": "Orientación de la materia. Dos materias con el mismo nombre en distintas orientaciones son materias distintas."
+          },
+          "orientacion": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Orientacion"
+              }
+            ],
+            "readOnly": true
+          },
+          "id_anio_academico": {
+            "type": "integer",
+            "format": "int64",
+            "example": 1
+          },
+          "ids_clases": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int64",
+              "example": 40
+            }
+          }
+        },
+        "required": [
+          "id_materia",
+          "nombre_materia",
+          "horas_semanales",
+          "id_orientacion"
+        ]
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "Datos inválidos",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "No existe el recurso",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,917 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Usuario Service",
+    "version": "1.0.0",
+    "description": "Provee una API para gestionar usuarios y roles. Cada usuario tiene un solo rol.\n\n**Modelos del dominio:** Usuario, Rol, Privilegio.\n\nConvenciones: una ruta por función; `POST` para commands y `GET` para queries; el id de la entidad principal va en la ruta y el resto de los datos en el body. Los datos relacionados de un solo elemento vienen anidados en la entidad.\n\n> No hay backend detrás de este contrato: el servidor es ilustrativo y \"Try it out\" no va a obtener respuesta.\n\n**Dependencias (Invokes):** ninguna.",
+    "x-dependencias": []
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8081",
+      "description": "Servidor ilustrativo (sin backend)"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Health",
+      "description": "Estado del servicio"
+    },
+    {
+      "name": "Acceso",
+      "description": "Ingreso al sistema"
+    },
+    {
+      "name": "Usuario",
+      "description": "Cuentas de usuario"
+    },
+    {
+      "name": "Rol",
+      "description": "Roles"
+    },
+    {
+      "name": "Privilegio",
+      "description": "Privilegios de los roles"
+    }
+  ],
+  "paths": {
+    "/actuator/health": {
+      "get": {
+        "tags": [
+          "Health"
+        ],
+        "operationId": "health",
+        "summary": "Health check del servicio",
+        "responses": {
+          "200": {
+            "description": "Servicio disponible",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/usuario/login": {
+      "post": {
+        "tags": [
+          "Acceso"
+        ],
+        "operationId": "login",
+        "summary": "Ingresar al sistema",
+        "description": "Sin esquema de seguridad por ahora: el token se devuelve como texto simple.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "example": "jramirez@donbosco.edu.ar"
+                  },
+                  "contrasenia": {
+                    "type": "string",
+                    "format": "password",
+                    "example": "secreta123",
+                    "writeOnly": true
+                  }
+                },
+                "required": [
+                  "email",
+                  "contrasenia"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginRespuesta"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          }
+        }
+      }
+    },
+    "/usuario/crear_usuario": {
+      "post": {
+        "tags": [
+          "Usuario"
+        ],
+        "operationId": "crear_usuario",
+        "summary": "Crear usuario",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "nombre_user": {
+                    "type": "string",
+                    "example": "jramirez"
+                  },
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "example": "jramirez@donbosco.edu.ar"
+                  },
+                  "contrasenia": {
+                    "type": "string",
+                    "format": "password",
+                    "example": "secreta123",
+                    "writeOnly": true
+                  },
+                  "id_rol": {
+                    "type": "integer",
+                    "format": "int64",
+                    "example": 2,
+                    "description": "Opcional: se puede asignar después con asignar_rol"
+                  }
+                },
+                "required": [
+                  "nombre_user",
+                  "email",
+                  "contrasenia"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Creado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Usuario"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          }
+        }
+      }
+    },
+    "/usuario/asignar_rol/{id}": {
+      "put": {
+        "tags": [
+          "Usuario"
+        ],
+        "operationId": "asignar_rol",
+        "summary": "Asignar el rol del usuario (reemplaza el anterior)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Id del usuario",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id_rol": {
+                    "type": "integer",
+                    "format": "int64",
+                    "example": 2
+                  }
+                },
+                "required": [
+                  "id_rol"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Usuario"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/usuario/editar_usuario/{id}": {
+      "put": {
+        "tags": [
+          "Usuario"
+        ],
+        "operationId": "editar_usuario",
+        "summary": "Editar usuario (nombre de usuario y email)",
+        "description": "Reemplaza el nombre de usuario y el email. No cambia la contraseña (`cambiar_contrasenia`) ni el rol (`asignar_rol`).",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Id del usuario",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "nombre_user": {
+                    "type": "string",
+                    "example": "jramirez"
+                  },
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "example": "juan.ramirez@donbosco.edu.ar"
+                  }
+                },
+                "required": [
+                  "nombre_user",
+                  "email"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Usuario"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/usuario/cambiar_contrasenia/{id}": {
+      "patch": {
+        "tags": [
+          "Usuario"
+        ],
+        "operationId": "cambiar_contrasenia",
+        "summary": "Cambiar contraseña",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Id del usuario",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "contrasenia": {
+                    "type": "string",
+                    "format": "password",
+                    "example": "secreta123",
+                    "writeOnly": true
+                  }
+                },
+                "required": [
+                  "contrasenia"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Usuario"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/usuario/eliminar_usuario/{id}": {
+      "delete": {
+        "tags": [
+          "Usuario"
+        ],
+        "operationId": "eliminar_usuario",
+        "summary": "Eliminar usuario",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Id del usuario",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Eliminado"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/usuario/crear_rol": {
+      "post": {
+        "tags": [
+          "Rol"
+        ],
+        "operationId": "crear_rol",
+        "summary": "Crear rol",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "nombre_rol": {
+                    "type": "string",
+                    "example": "Administrativo"
+                  }
+                },
+                "required": [
+                  "nombre_rol"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Creado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rol"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          }
+        }
+      }
+    },
+    "/usuario/asignar_privilegio/{id}": {
+      "post": {
+        "tags": [
+          "Rol"
+        ],
+        "operationId": "asignar_privilegio",
+        "summary": "Asignar un privilegio al rol",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Id del rol",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id_privilegio": {
+                    "type": "integer",
+                    "format": "int64",
+                    "example": 5
+                  }
+                },
+                "required": [
+                  "id_privilegio"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rol"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/usuario/quitar_privilegio/{id}/{id_privilegio}": {
+      "delete": {
+        "tags": [
+          "Rol"
+        ],
+        "operationId": "quitar_privilegio",
+        "summary": "Quitar un privilegio del rol",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Id del rol",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "id_privilegio",
+            "in": "path",
+            "required": true,
+            "description": "Id del privilegio a quitar",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rol"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/usuario/eliminar_rol/{id}": {
+      "delete": {
+        "tags": [
+          "Rol"
+        ],
+        "operationId": "eliminar_rol",
+        "summary": "Eliminar rol",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Id del rol",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Eliminado"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/usuario/cambiar_nombre_rol/{id}": {
+      "patch": {
+        "tags": [
+          "Rol"
+        ],
+        "operationId": "cambiar_nombre_rol",
+        "summary": "Cambiar nombre del rol",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Id del rol",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "nombre_rol": {
+                    "type": "string",
+                    "example": "Docente"
+                  }
+                },
+                "required": [
+                  "nombre_rol"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rol"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/usuario/get_usuario/{id}": {
+      "get": {
+        "tags": [
+          "Usuario"
+        ],
+        "operationId": "get_usuario",
+        "summary": "Obtener usuario (con su rol anidado)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Id del usuario",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Usuario"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/usuario/get_usuarios": {
+      "get": {
+        "tags": [
+          "Usuario"
+        ],
+        "operationId": "get_usuarios",
+        "summary": "Listar usuarios",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Usuario"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/usuario/get_privilegios": {
+      "get": {
+        "tags": [
+          "Privilegio"
+        ],
+        "operationId": "get_privilegios",
+        "summary": "Listar privilegios",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Privilegio"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/usuario/get_roles": {
+      "get": {
+        "tags": [
+          "Rol"
+        ],
+        "operationId": "get_roles",
+        "summary": "Listar roles",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Rol"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/usuario/get_rol_privilegios/{id}": {
+      "get": {
+        "tags": [
+          "Rol"
+        ],
+        "operationId": "get_rol_privilegios",
+        "summary": "Privilegios del rol",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Id del rol",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Privilegio"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "properties": {
+          "codigo": {
+            "type": "string",
+            "example": "NO_ENCONTRADO"
+          },
+          "mensaje": {
+            "type": "string",
+            "example": "No existe el recurso pedido"
+          }
+        },
+        "required": [
+          "codigo",
+          "mensaje"
+        ]
+      },
+      "Health": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "example": "UP"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "Rol": {
+        "type": "object",
+        "properties": {
+          "id_rol": {
+            "type": "integer",
+            "format": "int64",
+            "example": 2,
+            "readOnly": true
+          },
+          "nombre_rol": {
+            "type": "string",
+            "example": "Profesor"
+          }
+        },
+        "required": [
+          "id_rol",
+          "nombre_rol"
+        ]
+      },
+      "Privilegio": {
+        "type": "object",
+        "properties": {
+          "id_privilegio": {
+            "type": "integer",
+            "format": "int64",
+            "example": 5,
+            "readOnly": true
+          },
+          "descripcion_privilegio": {
+            "type": "string",
+            "example": "Firmar recibos de sueldo"
+          }
+        },
+        "required": [
+          "id_privilegio",
+          "descripcion_privilegio"
+        ]
+      },
+      "Usuario": {
+        "type": "object",
+        "properties": {
+          "id_usuario": {
+            "type": "integer",
+            "format": "int64",
+            "example": 10,
+            "readOnly": true
+          },
+          "nombre_user": {
+            "type": "string",
+            "example": "jramirez"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "example": "jramirez@donbosco.edu.ar"
+          },
+          "id_rol": {
+            "type": "integer",
+            "format": "int64",
+            "example": 2
+          },
+          "rol": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Rol"
+              }
+            ],
+            "readOnly": true
+          }
+        },
+        "required": [
+          "id_usuario",
+          "nombre_user",
+          "email",
+          "id_rol"
+        ]
+      },
+      "LoginRespuesta": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string",
+            "example": "eyJhbGciOiJIUzI1NiJ9..."
+          },
+          "usuario": {
+            "$ref": "#/components/schemas/Usuario"
+          }
+        },
+        "required": [
+          "token",
+          "usuario"
+        ]
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "Datos inválidos",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "No existe el recurso",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      }
+    }
+  }
+}

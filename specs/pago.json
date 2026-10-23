@@ -1,0 +1,717 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Pago Service",
+    "version": "1.0.0",
+    "description": "Provee una API para gestionar los recibos de sueldo y cálculos de pagos a liquidar.\n\n**Modelos del dominio:** Pago, Recibo de Sueldo.\n\nConvenciones: una ruta por función; `POST` para commands y `GET` para queries; el id de la entidad principal va en la ruta y el resto de los datos en el body. Los datos relacionados de un solo elemento vienen anidados en la entidad.\n\n> No hay backend detrás de este contrato: el servidor es ilustrativo y \"Try it out\" no va a obtener respuesta.\n\n**Dependencias (Invokes):**\n- `profesor_suplencias.get_profesor` → usado por: `crear_pago`, `calcular_monto_a_liquidar`",
+    "x-dependencias": [
+      {
+        "servicio": "profesor_suplencias",
+        "endpoint": "get_profesor",
+        "usado_por": [
+          "crear_pago",
+          "calcular_monto_a_liquidar"
+        ]
+      }
+    ]
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8082",
+      "description": "Servidor ilustrativo (sin backend)"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Health",
+      "description": "Estado del servicio"
+    },
+    {
+      "name": "Pago",
+      "description": "Pagos a liquidar por profesor y período"
+    },
+    {
+      "name": "Recibo de sueldo",
+      "description": "Recibos de sueldo, firma y descarga"
+    }
+  ],
+  "paths": {
+    "/actuator/health": {
+      "get": {
+        "tags": [
+          "Health"
+        ],
+        "operationId": "health",
+        "summary": "Health check del servicio",
+        "responses": {
+          "200": {
+            "description": "Servicio disponible",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/pago/crear_pago": {
+      "post": {
+        "tags": [
+          "Pago"
+        ],
+        "operationId": "crear_pago",
+        "summary": "Crear pago del profesor para un período",
+        "description": "Genera también el único recibo de sueldo del pago, con sus conceptos y el neto de calcular_monto_a_liquidar.\n\nInvoca: profesor_suplencias.get_profesor",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id_profesor": {
+                    "type": "integer",
+                    "format": "int64",
+                    "example": 12
+                  },
+                  "periodo": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+                    "description": "Período liquidado (AAAA-MM)",
+                    "example": "2026-03"
+                  }
+                },
+                "required": [
+                  "id_profesor",
+                  "periodo"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Creado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Pago"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          }
+        }
+      }
+    },
+    "/pago/validar_pago/{id}": {
+      "post": {
+        "tags": [
+          "Pago"
+        ],
+        "operationId": "validar_pago",
+        "summary": "Validar pago (administrativo)",
+        "description": "Deja `validado` en true y completa `firma_emisor` en el recibo del pago.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Id del pago",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id_usuario": {
+                    "type": "integer",
+                    "format": "int64",
+                    "example": 1,
+                    "description": "Administrativo que valida"
+                  }
+                },
+                "required": [
+                  "id_usuario"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Pago"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/pago/bajar_recibo_sueldo/{id}": {
+      "get": {
+        "tags": [
+          "Recibo de sueldo"
+        ],
+        "operationId": "bajar_recibo_sueldo",
+        "summary": "Descargar el recibo en PDF",
+        "description": "Es GET porque solo descarga el PDF (en el documento figura como command).",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Id del recibo de sueldo",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "PDF del recibo",
+            "content": {
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/pago/calcular_monto_a_liquidar/{id}": {
+      "get": {
+        "tags": [
+          "Pago"
+        ],
+        "operationId": "calcular_monto_a_liquidar",
+        "summary": "Calcular monto a liquidar",
+        "description": "El cálculo es interno del servicio; solo recibe el profesor y el período. Es GET porque no guarda nada (en el documento figura como command).\n\nInvoca: profesor_suplencias.get_profesor",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Id del profesor",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "periodo",
+            "in": "query",
+            "required": true,
+            "description": "Período a liquidar (AAAA-MM)",
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+              "description": "Período liquidado (AAAA-MM)",
+              "example": "2026-03"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MontoLiquidar"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/pago/firmar_recibo_de_sueldo/{id}": {
+      "post": {
+        "tags": [
+          "Recibo de sueldo"
+        ],
+        "operationId": "firmar_recibo_de_sueldo",
+        "summary": "Firmar recibo (profesor)",
+        "description": "Completa `firma_receptor` con el usuario y la fecha. La firma es definitiva: no hay operación para revertirla.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Id del recibo de sueldo",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id_usuario": {
+                    "type": "integer",
+                    "format": "int64",
+                    "example": 10,
+                    "description": "Usuario del profesor que firma"
+                  }
+                },
+                "required": [
+                  "id_usuario"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReciboSueldo"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/pago/get_pagos": {
+      "get": {
+        "tags": [
+          "Pago"
+        ],
+        "operationId": "get_pagos",
+        "summary": "Listar pagos (con su recibo anidado)",
+        "parameters": [
+          {
+            "name": "id_profesor",
+            "in": "query",
+            "required": false,
+            "description": "Profesor liquidado (filtro opcional)",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "example": 12
+            }
+          },
+          {
+            "name": "periodo",
+            "in": "query",
+            "required": false,
+            "description": "Período liquidado (AAAA-MM) (filtro opcional)",
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+              "description": "Período liquidado (AAAA-MM)",
+              "example": "2026-03"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Pago"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          }
+        }
+      }
+    },
+    "/pago/get_recibos_de_sueldo": {
+      "get": {
+        "tags": [
+          "Recibo de sueldo"
+        ],
+        "operationId": "get_recibos_de_sueldo",
+        "summary": "Listar recibos de sueldo",
+        "parameters": [
+          {
+            "name": "id_profesor",
+            "in": "query",
+            "required": false,
+            "description": "Profesor liquidado (filtro opcional)",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "example": 12
+            }
+          },
+          {
+            "name": "periodo",
+            "in": "query",
+            "required": false,
+            "description": "Período liquidado (AAAA-MM) (filtro opcional)",
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+              "description": "Período liquidado (AAAA-MM)",
+              "example": "2026-03"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ReciboSueldo"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "properties": {
+          "codigo": {
+            "type": "string",
+            "example": "NO_ENCONTRADO"
+          },
+          "mensaje": {
+            "type": "string",
+            "example": "No existe el recurso pedido"
+          }
+        },
+        "required": [
+          "codigo",
+          "mensaje"
+        ]
+      },
+      "Health": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "example": "UP"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "Firma": {
+        "type": "object",
+        "properties": {
+          "id_usuario": {
+            "type": "integer",
+            "format": "int64",
+            "example": 10,
+            "description": "Usuario que firmó"
+          },
+          "fecha": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-04-05T10:15:00-03:00"
+          }
+        },
+        "required": [
+          "id_usuario",
+          "fecha"
+        ]
+      },
+      "Emisor": {
+        "type": "object",
+        "properties": {
+          "razon_social": {
+            "type": "string",
+            "example": "Colegio Don Bosco"
+          },
+          "cuit": {
+            "type": "string",
+            "example": "30-12345678-9"
+          }
+        },
+        "required": [
+          "razon_social",
+          "cuit"
+        ],
+        "description": "Institución que emite el recibo."
+      },
+      "ConceptoRecibo": {
+        "type": "object",
+        "properties": {
+          "descripcion": {
+            "type": "string",
+            "example": "Horas cátedra · Matemática"
+          },
+          "cantidad": {
+            "type": "number",
+            "format": "double",
+            "nullable": true,
+            "example": 10,
+            "description": "Cantidad del concepto (horas, años de antigüedad…); null si no aplica"
+          },
+          "importe": {
+            "type": "number",
+            "format": "double",
+            "example": 520000.0,
+            "description": "Importe positivo; el tipo indica si suma o resta"
+          },
+          "tipo": {
+            "type": "string",
+            "enum": [
+              "haber",
+              "descuento"
+            ],
+            "example": "haber"
+          }
+        },
+        "required": [
+          "descripcion",
+          "importe",
+          "tipo"
+        ],
+        "description": "Línea del recibo: un haber o un descuento."
+      },
+      "ReciboSueldo": {
+        "type": "object",
+        "properties": {
+          "id_recibo_sueldo": {
+            "type": "integer",
+            "format": "int64",
+            "example": 300,
+            "readOnly": true
+          },
+          "id_pago": {
+            "type": "integer",
+            "format": "int64",
+            "example": 90
+          },
+          "id_profesor": {
+            "type": "integer",
+            "format": "int64",
+            "example": 12,
+            "description": "Copiado del pago, para filtrar los recibos"
+          },
+          "periodo": {
+            "type": "string",
+            "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+            "description": "Período liquidado (AAAA-MM)",
+            "example": "2026-03"
+          },
+          "fecha_pago": {
+            "type": "string",
+            "format": "date",
+            "example": "2026-04-01"
+          },
+          "emisor": {
+            "$ref": "#/components/schemas/Emisor"
+          },
+          "conceptos": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConceptoRecibo"
+            }
+          },
+          "total_bruto": {
+            "type": "number",
+            "format": "double",
+            "example": 1050000.0,
+            "description": "Suma de los haberes"
+          },
+          "total_descuentos": {
+            "type": "number",
+            "format": "double",
+            "example": 205000.0,
+            "description": "Suma de los descuentos"
+          },
+          "neto": {
+            "type": "number",
+            "format": "double",
+            "example": 845000.0,
+            "description": "total_bruto - total_descuentos"
+          },
+          "firma_emisor": {
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Firma"
+              }
+            ],
+            "nullable": true,
+            "description": "Firma del administrativo (se completa en validar_pago)"
+          },
+          "firma_receptor": {
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Firma"
+              }
+            ],
+            "nullable": true,
+            "description": "Firma del profesor (se completa en firmar_recibo_de_sueldo)"
+          }
+        },
+        "required": [
+          "id_recibo_sueldo",
+          "id_pago",
+          "id_profesor",
+          "periodo",
+          "fecha_pago",
+          "emisor",
+          "conceptos",
+          "total_bruto",
+          "total_descuentos",
+          "neto"
+        ]
+      },
+      "Pago": {
+        "type": "object",
+        "properties": {
+          "id_pago": {
+            "type": "integer",
+            "format": "int64",
+            "example": 90,
+            "readOnly": true
+          },
+          "id_profesor": {
+            "type": "integer",
+            "format": "int64",
+            "example": 12
+          },
+          "periodo": {
+            "type": "string",
+            "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+            "description": "Período liquidado (AAAA-MM)",
+            "example": "2026-03"
+          },
+          "validado": {
+            "type": "boolean",
+            "example": false
+          },
+          "recibo_sueldo": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ReciboSueldo"
+              }
+            ],
+            "readOnly": true
+          }
+        },
+        "required": [
+          "id_pago",
+          "id_profesor",
+          "periodo",
+          "validado"
+        ],
+        "description": "Cada pago tiene un único recibo de sueldo, que viene anidado."
+      },
+      "MontoLiquidar": {
+        "type": "object",
+        "properties": {
+          "id_profesor": {
+            "type": "integer",
+            "format": "int64",
+            "example": 12
+          },
+          "periodo": {
+            "type": "string",
+            "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+            "description": "Período liquidado (AAAA-MM)",
+            "example": "2026-03"
+          },
+          "monto": {
+            "type": "number",
+            "format": "double",
+            "example": 845000.0
+          }
+        },
+        "required": [
+          "id_profesor",
+          "periodo",
+          "monto"
+        ]
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "Datos inválidos",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "No existe el recurso",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      }
+    }
+  }
+}

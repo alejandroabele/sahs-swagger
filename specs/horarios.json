@@ -1,0 +1,753 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Horarios Service",
+    "version": "1.0.0",
+    "description": "Provee una API que define estructuralmente los bloques de franja horaria y turnos.\n\n**Modelos del dominio:** Día_lectivo, Franja_horaria, Turno.\n\nConvenciones: una ruta por función; `POST` para commands y `GET` para queries; el id de la entidad principal va en la ruta y el resto de los datos en el body. Los datos relacionados de un solo elemento vienen anidados en la entidad.\n\n> No hay backend detrás de este contrato: el servidor es ilustrativo y \"Try it out\" no va a obtener respuesta.\n\n**Dependencias (Invokes):** ninguna.",
+    "x-dependencias": []
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8083",
+      "description": "Servidor ilustrativo (sin backend)"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Health",
+      "description": "Estado del servicio"
+    },
+    {
+      "name": "Día lectivo",
+      "description": "Días de la semana con clase"
+    },
+    {
+      "name": "Franja horaria",
+      "description": "Bloques horarios (incluye recreos)"
+    },
+    {
+      "name": "Turno",
+      "description": "Turnos y sus franjas"
+    }
+  ],
+  "paths": {
+    "/actuator/health": {
+      "get": {
+        "tags": [
+          "Health"
+        ],
+        "operationId": "health",
+        "summary": "Health check del servicio",
+        "responses": {
+          "200": {
+            "description": "Servicio disponible",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/horarios/crear_dia_lectivo": {
+      "post": {
+        "tags": [
+          "Día lectivo"
+        ],
+        "operationId": "crear_dia_lectivo",
+        "summary": "Crear día lectivo",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "nombre_dia_lectivo": {
+                    "type": "string",
+                    "example": "Lunes"
+                  }
+                },
+                "required": [
+                  "nombre_dia_lectivo"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Creado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiaLectivo"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          }
+        }
+      }
+    },
+    "/horarios/eliminar_dia_lectivo/{id}": {
+      "delete": {
+        "tags": [
+          "Día lectivo"
+        ],
+        "operationId": "eliminar_dia_lectivo",
+        "summary": "Eliminar día lectivo",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Id del día lectivo",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Eliminado"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/horarios/crear_franja_horaria": {
+      "post": {
+        "tags": [
+          "Franja horaria"
+        ],
+        "operationId": "crear_franja_horaria",
+        "summary": "Crear franja horaria",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "hora_inicio": {
+                    "type": "string",
+                    "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
+                    "example": "07:30"
+                  },
+                  "hora_fin": {
+                    "type": "string",
+                    "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
+                    "example": "08:10"
+                  },
+                  "descripcion": {
+                    "type": "string",
+                    "example": "1° módulo"
+                  },
+                  "es_recreo": {
+                    "type": "boolean",
+                    "example": false
+                  },
+                  "id_dia_lectivo": {
+                    "type": "integer",
+                    "format": "int64",
+                    "example": 1
+                  }
+                },
+                "required": [
+                  "hora_inicio",
+                  "hora_fin",
+                  "es_recreo",
+                  "id_dia_lectivo"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Creado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FranjaHoraria"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          }
+        }
+      }
+    },
+    "/horarios/crear_turno": {
+      "post": {
+        "tags": [
+          "Turno"
+        ],
+        "operationId": "crear_turno",
+        "summary": "Crear turno",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "nombre": {
+                    "type": "string",
+                    "example": "Mañana"
+                  },
+                  "cantidad_franjas_total": {
+                    "type": "integer",
+                    "format": "int64",
+                    "example": 8
+                  }
+                },
+                "required": [
+                  "nombre",
+                  "cantidad_franjas_total"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Creado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Turno"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          }
+        }
+      }
+    },
+    "/horarios/eliminar_turno/{id}": {
+      "delete": {
+        "tags": [
+          "Turno"
+        ],
+        "operationId": "eliminar_turno",
+        "summary": "Eliminar turno",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Id del turno",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Eliminado"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/horarios/asignar_franja_a_turno/{id}": {
+      "post": {
+        "tags": [
+          "Turno"
+        ],
+        "operationId": "asignar_franja_a_turno",
+        "summary": "Asignar franja horaria al turno",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Id del turno",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id_franja_horaria": {
+                    "type": "integer",
+                    "format": "int64",
+                    "example": 7
+                  }
+                },
+                "required": [
+                  "id_franja_horaria"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Turno"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/horarios/eliminar_franja_horaria_turno/{id}/{id_franja_horaria}": {
+      "delete": {
+        "tags": [
+          "Turno"
+        ],
+        "operationId": "eliminar_franja_horaria_turno",
+        "summary": "Quitar franja horaria del turno",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Id del turno",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "id_franja_horaria",
+            "in": "path",
+            "required": true,
+            "description": "Id de la franja horaria a quitar",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Turno"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/horarios/get_dia_lectivo/{id}": {
+      "get": {
+        "tags": [
+          "Día lectivo"
+        ],
+        "operationId": "get_dia_lectivo",
+        "summary": "Obtener día lectivo",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Id del día lectivo",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiaLectivo"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/horarios/get_dias_lectivos": {
+      "get": {
+        "tags": [
+          "Día lectivo"
+        ],
+        "operationId": "get_dias_lectivos",
+        "summary": "Listar días lectivos",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DiaLectivo"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/horarios/get_franja_horaria_dia_lectivo/{id}": {
+      "get": {
+        "tags": [
+          "Día lectivo"
+        ],
+        "operationId": "get_franja_horaria_dia_lectivo",
+        "summary": "Franjas horarias del día lectivo",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Id del día lectivo",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/FranjaHoraria"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/horarios/get_turno/{id}": {
+      "get": {
+        "tags": [
+          "Turno"
+        ],
+        "operationId": "get_turno",
+        "summary": "Obtener turno (con sus franjas)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Id del turno",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Turno"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/horarios/get_turnos": {
+      "get": {
+        "tags": [
+          "Turno"
+        ],
+        "operationId": "get_turnos",
+        "summary": "Listar turnos",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Turno"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/horarios/get_franja_horaria/{id}": {
+      "get": {
+        "tags": [
+          "Franja horaria"
+        ],
+        "operationId": "get_franja_horaria",
+        "summary": "Obtener franja horaria",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Id de la franja horaria",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FranjaHoraria"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/horarios/get_franjas_horarias": {
+      "get": {
+        "tags": [
+          "Franja horaria"
+        ],
+        "operationId": "get_franjas_horarias",
+        "summary": "Listar franjas horarias",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/FranjaHoraria"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "properties": {
+          "codigo": {
+            "type": "string",
+            "example": "NO_ENCONTRADO"
+          },
+          "mensaje": {
+            "type": "string",
+            "example": "No existe el recurso pedido"
+          }
+        },
+        "required": [
+          "codigo",
+          "mensaje"
+        ]
+      },
+      "Health": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "example": "UP"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "DiaLectivo": {
+        "type": "object",
+        "properties": {
+          "id_dia_lectivo": {
+            "type": "integer",
+            "format": "int64",
+            "example": 1,
+            "readOnly": true
+          },
+          "nombre_dia_lectivo": {
+            "type": "string",
+            "description": "Día de la semana",
+            "example": "Lunes"
+          }
+        },
+        "required": [
+          "id_dia_lectivo",
+          "nombre_dia_lectivo"
+        ]
+      },
+      "FranjaHoraria": {
+        "type": "object",
+        "properties": {
+          "id_franja_horaria": {
+            "type": "integer",
+            "format": "int64",
+            "example": 7,
+            "readOnly": true
+          },
+          "hora_inicio": {
+            "type": "string",
+            "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
+            "description": "HH:mm",
+            "example": "07:30"
+          },
+          "hora_fin": {
+            "type": "string",
+            "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
+            "description": "HH:mm",
+            "example": "08:10"
+          },
+          "descripcion": {
+            "type": "string",
+            "example": "1° módulo"
+          },
+          "es_recreo": {
+            "type": "boolean",
+            "example": false
+          },
+          "id_dia_lectivo": {
+            "type": "integer",
+            "format": "int64",
+            "example": 1
+          },
+          "dia_lectivo": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DiaLectivo"
+              }
+            ],
+            "readOnly": true
+          }
+        },
+        "required": [
+          "id_franja_horaria",
+          "hora_inicio",
+          "hora_fin",
+          "es_recreo",
+          "id_dia_lectivo"
+        ]
+      },
+      "Turno": {
+        "type": "object",
+        "properties": {
+          "id_turno": {
+            "type": "integer",
+            "format": "int64",
+            "example": 1,
+            "readOnly": true
+          },
+          "nombre": {
+            "type": "string",
+            "example": "Mañana"
+          },
+          "cantidad_franjas_total": {
+            "type": "integer",
+            "format": "int64",
+            "example": 8
+          },
+          "franjas_horarias": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FranjaHoraria"
+            },
+            "readOnly": true
+          }
+        },
+        "required": [
+          "id_turno",
+          "nombre",
+          "cantidad_franjas_total"
+        ]
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "Datos inválidos",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "No existe el recurso",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      }
+    }
+  }
+}

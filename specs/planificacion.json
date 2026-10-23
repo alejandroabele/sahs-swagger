@@ -1,0 +1,1905 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Planificación Service",
+    "version": "1.0.0",
+    "description": "Provee una API para gestionar las planificaciones de las clases de los cursos.\n\n**Modelos del dominio:** Clase, Año_académico, Curso, Propuesta, Estado_Propuesta, Ciclo_Lectivo.\n\nConvenciones: una ruta por función; `POST` para commands y `GET` para queries; el id de la entidad principal va en la ruta y el resto de los datos en el body. Los datos relacionados de un solo elemento vienen anidados en la entidad.\n\n> No hay backend detrás de este contrato: el servidor es ilustrativo y \"Try it out\" no va a obtener respuesta.\n\n**Dependencias (Invokes):**\n- `orientacion.get_materia` → usado por: `get_clase`, `get_clases`, `get_curso`, `get_curso_clases`, `asignar_materia_a_curso`\n- `orientacion.get_orientacion` → usado por: `get_curso`, `crear_curso`\n- `horarios.get_franja_horaria` → usado por: `get_clase`, `get_curso`\n- `horarios.get_turno` → usado por: `get_curso`\n- `profesor_suplencias.get_profesor` → usado por: `get_clase`\n- `profesor_suplencias.get_suplencias` → usado por: `get_clase`\n- `profesor_suplencias.get_disponibilidad_profesor` → usado por: `crear_clase`",
+    "x-dependencias": [
+      {
+        "servicio": "orientacion",
+        "endpoint": "get_materia",
+        "usado_por": [
+          "get_clase",
+          "get_clases",
+          "get_curso",
+          "get_curso_clases",
+          "asignar_materia_a_curso"
+        ]
+      },
+      {
+        "servicio": "orientacion",
+        "endpoint": "get_orientacion",
+        "usado_por": [
+          "get_curso",
+          "crear_curso"
+        ]
+      },
+      {
+        "servicio": "horarios",
+        "endpoint": "get_franja_horaria",
+        "usado_por": [
+          "get_clase",
+          "get_curso"
+        ]
+      },
+      {
+        "servicio": "horarios",
+        "endpoint": "get_turno",
+        "usado_por": [
+          "get_curso"
+        ]
+      },
+      {
+        "servicio": "profesor_suplencias",
+        "endpoint": "get_profesor",
+        "usado_por": [
+          "get_clase"
+        ]
+      },
+      {
+        "servicio": "profesor_suplencias",
+        "endpoint": "get_suplencias",
+        "usado_por": [
+          "get_clase"
+        ]
+      },
+      {
+        "servicio": "profesor_suplencias",
+        "endpoint": "get_disponibilidad_profesor",
+        "usado_por": [
+          "crear_clase"
+        ]
+      }
+    ]
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8084",
+      "description": "Servidor ilustrativo (sin backend)"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Health",
+      "description": "Estado del servicio"
+    },
+    {
+      "name": "Propuesta",
+      "description": "Propuestas de planificación (grilla de la escuela)"
+    },
+    {
+      "name": "Estado de propuesta",
+      "description": "Estados posibles de una propuesta (Borrador, En revisión, Validada, Cerrada)"
+    },
+    {
+      "name": "Ciclo lectivo",
+      "description": "Ciclos lectivos"
+    },
+    {
+      "name": "Año académico",
+      "description": "Años curriculares"
+    },
+    {
+      "name": "Curso",
+      "description": "Cursos"
+    },
+    {
+      "name": "Clase",
+      "description": "Clases de cada curso"
+    }
+  ],
+  "paths": {
+    "/actuator/health": {
+      "get": {
+        "tags": [
+          "Health"
+        ],
+        "operationId": "health",
+        "summary": "Health check del servicio",
+        "responses": {
+          "200": {
+            "description": "Servicio disponible",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/planificacion/crear_propuesta": {
+      "post": {
+        "tags": [
+          "Propuesta"
+        ],
+        "operationId": "crear_propuesta",
+        "summary": "Crear propuesta (queda en estado Borrador)",
+        "description": "La propuesta nace en Borrador (BOR) y se valida completa, no curso por curso.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "nombre": {
+                    "type": "string",
+                    "example": "Propuesta 2026 v1"
+                  },
+                  "descripcion_propuesta": {
+                    "type": "string",
+                    "example": "Primera versión"
+                  },
+                  "codigo": {
+                    "type": "string",
+                    "example": "P-2026-01"
+                  },
+                  "id_ciclo_lectivo": {
+                    "type": "integer",
+                    "format": "int64",
+                    "example": 2026
+                  }
+                },
+                "required": [
+                  "nombre",
+                  "codigo",
+                  "id_ciclo_lectivo"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Creado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Propuesta"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          }
+        }
+      }
+    },
+    "/planificacion/crear_estado_propuesta": {
+      "post": {
+        "tags": [
+          "Estado de propuesta"
+        ],
+        "operationId": "crear_estado_propuesta",
+        "summary": "Crear estado de propuesta",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "nombre": {
+                    "type": "string",
+                    "example": "Validada"
+                  },
+                  "codigo": {
+                    "type": "string",
+                    "example": "VAL"
+                  }
+                },
+                "required": [
+                  "nombre",
+                  "codigo"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Creado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EstadoPropuesta"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          }
+        }
+      }
+    },
+    "/planificacion/asignar_estado_a_propuesta/{id}": {
+      "put": {
+        "tags": [
+          "Propuesta"
+        ],
+        "operationId": "asignar_estado_a_propuesta",
+        "summary": "Asignar estado a la propuesta",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Id de la propuesta",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id_estado": {
+                    "type": "integer",
+                    "format": "int64",
+                    "example": 2
+                  }
+                },
+                "required": [
+                  "id_estado"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Propuesta"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/planificacion/crear_ciclo_lectivo": {
+      "post": {
+        "tags": [
+          "Ciclo lectivo"
+        ],
+        "operationId": "crear_ciclo_lectivo",
+        "summary": "Crear ciclo lectivo",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "anio_calendario": {
+                    "type": "integer",
+                    "format": "int64",
+                    "example": 2026
+                  }
+                },
+                "required": [
+                  "anio_calendario"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Creado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CicloLectivo"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          }
+        }
+      }
+    },
+    "/planificacion/crear_curso": {
+      "post": {
+        "tags": [
+          "Curso"
+        ],
+        "operationId": "crear_curso",
+        "summary": "Crear curso",
+        "description": "El año académico se asigna con asignar_curso_a_anio_academico. La orientación se cambia después desde el servicio Orientación (asignar_curso_a_orientacion).\n\nInvoca: orientacion.get_orientacion",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "division": {
+                    "type": "string",
+                    "example": "A"
+                  },
+                  "id_ciclo_lectivo": {
+                    "type": "integer",
+                    "format": "int64",
+                    "example": 2026
+                  },
+                  "id_turno": {
+                    "type": "integer",
+                    "format": "int64",
+                    "example": 1
+                  },
+                  "id_orientacion": {
+                    "type": "integer",
+                    "format": "int64",
+                    "example": 2,
+                    "description": "Obligatoria; el ciclo básico usa su propia orientación"
+                  }
+                },
+                "required": [
+                  "division",
+                  "id_ciclo_lectivo",
+                  "id_turno",
+                  "id_orientacion"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Creado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Curso"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          }
+        }
+      }
+    },
+    "/planificacion/crear_clase": {
+      "post": {
+        "tags": [
+          "Clase"
+        ],
+        "operationId": "crear_clase",
+        "summary": "Crear clase",
+        "description": "Verifica que los profesores estén disponibles en las franjas indicadas.\n\nInvoca: profesor_suplencias.get_disponibilidad_profesor",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "descripcion": {
+                    "type": "string",
+                    "example": "Matemática 1° A"
+                  },
+                  "codigo": {
+                    "type": "string",
+                    "example": "CL-1A-MAT"
+                  },
+                  "id_curso": {
+                    "type": "integer",
+                    "format": "int64",
+                    "example": 1
+                  },
+                  "id_materia": {
+                    "type": "integer",
+                    "format": "int64",
+                    "example": 3
+                  },
+                  "ids_franjas_horarias": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer",
+                      "format": "int64",
+                      "example": 7
+                    }
+                  },
+                  "ids_profesores": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer",
+                      "format": "int64",
+                      "example": 12
+                    }
+                  }
+                },
+                "required": [
+                  "codigo",
+                  "id_curso",
+                  "id_materia",
+                  "ids_franjas_horarias",
+                  "ids_profesores"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Creado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Clase"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          }
+        }
+      }
+    },
+    "/planificacion/asignar_materia_a_curso/{id}": {
+      "post": {
+        "tags": [
+          "Curso"
+        ],
+        "operationId": "asignar_materia_a_curso",
+        "summary": "Agregar una materia al plan del curso",
+        "description": "Si no se indican las horas, se toman las de la materia.\n\nInvoca: orientacion.get_materia",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Id del curso",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id_materia": {
+                    "type": "integer",
+                    "format": "int64",
+                    "example": 3
+                  },
+                  "horas_semanales": {
+                    "type": "integer",
+                    "format": "int64",
+                    "example": 4,
+                    "description": "Horas semanales de la materia en el curso"
+                  }
+                },
+                "required": [
+                  "id_materia"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Curso"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/planificacion/cambiar_horas_materia_curso/{id}": {
+      "patch": {
+        "tags": [
+          "Curso"
+        ],
+        "operationId": "cambiar_horas_materia_curso",
+        "summary": "Cambiar las horas de una materia en el curso",
+        "description": "Solo cambia las horas en este curso; la materia no se modifica.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Id del curso",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id_materia": {
+                    "type": "integer",
+                    "format": "int64",
+                    "example": 3
+                  },
+                  "horas_semanales": {
+                    "type": "integer",
+                    "format": "int64",
+                    "example": 4,
+                    "description": "Horas semanales de la materia en el curso"
+                  }
+                },
+                "required": [
+                  "id_materia",
+                  "horas_semanales"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Curso"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/planificacion/quitar_materia_curso/{id}/{id_materia}": {
+      "delete": {
+        "tags": [
+          "Curso"
+        ],
+        "operationId": "quitar_materia_curso",
+        "summary": "Quitar una materia del plan del curso",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Id del curso",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "id_materia",
+            "in": "path",
+            "required": true,
+            "description": "Id de la materia a quitar",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Curso"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/planificacion/asignar_curso_a_clase/{id}": {
+      "put": {
+        "tags": [
+          "Clase"
+        ],
+        "operationId": "asignar_curso_a_clase",
+        "summary": "Asignar curso a la clase",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Id de la clase",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id_curso": {
+                    "type": "integer",
+                    "format": "int64",
+                    "example": 1
+                  }
+                },
+                "required": [
+                  "id_curso"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Clase"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/planificacion/crear_anio_academico": {
+      "post": {
+        "tags": [
+          "Año académico"
+        ],
+        "operationId": "crear_anio_academico",
+        "summary": "Crear año académico",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "anio_curricular": {
+                    "type": "string",
+                    "example": "1° año"
+                  },
+                  "codigo": {
+                    "type": "string",
+                    "example": "1ER"
+                  }
+                },
+                "required": [
+                  "anio_curricular",
+                  "codigo"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Creado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnioAcademico"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          }
+        }
+      }
+    },
+    "/planificacion/asignar_clase_a_propuesta/{id}": {
+      "post": {
+        "tags": [
+          "Propuesta"
+        ],
+        "operationId": "asignar_clase_a_propuesta",
+        "summary": "Agregar una clase a la propuesta",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Id de la propuesta",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id_clase": {
+                    "type": "integer",
+                    "format": "int64",
+                    "example": 40
+                  }
+                },
+                "required": [
+                  "id_clase"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Propuesta"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/planificacion/asignar_curso_a_anio_academico/{id}": {
+      "post": {
+        "tags": [
+          "Año académico"
+        ],
+        "operationId": "asignar_curso_a_anio_academico",
+        "summary": "Asignar un curso al año académico",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Id del año académico",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id_curso": {
+                    "type": "integer",
+                    "format": "int64",
+                    "example": 1
+                  }
+                },
+                "required": [
+                  "id_curso"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Curso"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/planificacion/get_posibles_estados_de_propuestas": {
+      "get": {
+        "tags": [
+          "Estado de propuesta"
+        ],
+        "operationId": "get_posibles_estados_de_propuestas",
+        "summary": "Listar estados posibles",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EstadoPropuesta"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/planificacion/get_estado_actual_de_propuesta/{id}": {
+      "get": {
+        "tags": [
+          "Propuesta"
+        ],
+        "operationId": "get_estado_actual_de_propuesta",
+        "summary": "Estado actual de la propuesta",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Id de la propuesta",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EstadoPropuesta"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/planificacion/get_propuestas": {
+      "get": {
+        "tags": [
+          "Propuesta"
+        ],
+        "operationId": "get_propuestas",
+        "summary": "Listar propuestas",
+        "parameters": [
+          {
+            "name": "id_ciclo_lectivo",
+            "in": "query",
+            "required": false,
+            "description": "Ciclo lectivo de la propuesta (filtro opcional)",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "example": 2026
+            }
+          },
+          {
+            "name": "id_estado",
+            "in": "query",
+            "required": false,
+            "description": "Estado actual de la propuesta (filtro opcional)",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "example": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Propuesta"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          }
+        }
+      }
+    },
+    "/planificacion/get_propuesta/{id}": {
+      "get": {
+        "tags": [
+          "Propuesta"
+        ],
+        "operationId": "get_propuesta",
+        "summary": "Obtener propuesta",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Id de la propuesta",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Propuesta"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/planificacion/get_ciclo_lectivo/{id}": {
+      "get": {
+        "tags": [
+          "Ciclo lectivo"
+        ],
+        "operationId": "get_ciclo_lectivo",
+        "summary": "Obtener ciclo lectivo",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Id del ciclo lectivo",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CicloLectivo"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/planificacion/get_ciclos_lectivos": {
+      "get": {
+        "tags": [
+          "Ciclo lectivo"
+        ],
+        "operationId": "get_ciclos_lectivos",
+        "summary": "Listar ciclos lectivos",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CicloLectivo"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/planificacion/get_curso_clases/{id}": {
+      "get": {
+        "tags": [
+          "Curso"
+        ],
+        "operationId": "get_curso_clases",
+        "summary": "Clases del curso",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Id del curso",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Clase"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "description": "Invoca: orientacion.get_materia"
+      }
+    },
+    "/planificacion/get_curso/{id}": {
+      "get": {
+        "tags": [
+          "Curso"
+        ],
+        "operationId": "get_curso",
+        "summary": "Obtener curso (turno, orientación, materias y franjas anidados)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Id del curso",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Curso"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "description": "Invoca: orientacion.get_materia, orientacion.get_orientacion, horarios.get_franja_horaria, horarios.get_turno"
+      }
+    },
+    "/planificacion/get_cursos": {
+      "get": {
+        "tags": [
+          "Curso"
+        ],
+        "operationId": "get_cursos",
+        "summary": "Listar cursos",
+        "parameters": [
+          {
+            "name": "id_ciclo_lectivo",
+            "in": "query",
+            "required": false,
+            "description": "Ciclo lectivo del curso (filtro opcional)",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "example": 2026
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Curso"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          }
+        }
+      }
+    },
+    "/planificacion/get_clase/{id}": {
+      "get": {
+        "tags": [
+          "Clase"
+        ],
+        "operationId": "get_clase",
+        "summary": "Obtener clase (materia, franjas, profesores y suplencia anidados)",
+        "description": "La suplencia vigente se obtiene con `get_suplencias?id_clase=<id>` y la fecha del día: la referencia entre suplencia y clase la guarda la suplencia.\n\nInvoca: orientacion.get_materia, horarios.get_franja_horaria, profesor_suplencias.get_profesor, profesor_suplencias.get_suplencias",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Id de la clase",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Clase"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/planificacion/get_clases": {
+      "get": {
+        "tags": [
+          "Clase"
+        ],
+        "operationId": "get_clases",
+        "summary": "Listar clases",
+        "description": "Con `id_profesor` e `id_propuesta` se arma la grilla de un profesor.\n\nInvoca: orientacion.get_materia",
+        "parameters": [
+          {
+            "name": "id_profesor",
+            "in": "query",
+            "required": false,
+            "description": "Profesor que figura en `ids_profesores` (filtro opcional)",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "example": 12
+            }
+          },
+          {
+            "name": "id_curso",
+            "in": "query",
+            "required": false,
+            "description": "Curso de la clase (filtro opcional)",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "example": 1
+            }
+          },
+          {
+            "name": "id_propuesta",
+            "in": "query",
+            "required": false,
+            "description": "Propuesta que incluye la clase (filtro opcional)",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "example": 5
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Clase"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          }
+        }
+      }
+    },
+    "/planificacion/get_anio_academico/{id}": {
+      "get": {
+        "tags": [
+          "Año académico"
+        ],
+        "operationId": "get_anio_academico",
+        "summary": "Obtener año académico",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Id del año académico",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnioAcademico"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/planificacion/get_anios_academicos": {
+      "get": {
+        "tags": [
+          "Año académico"
+        ],
+        "operationId": "get_anios_academicos",
+        "summary": "Listar años académicos",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AnioAcademico"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/planificacion/get_cursos_anio_academico/{id}": {
+      "get": {
+        "tags": [
+          "Año académico"
+        ],
+        "operationId": "get_cursos_anio_academico",
+        "summary": "Cursos del año académico",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Id del año académico",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Curso"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "properties": {
+          "codigo": {
+            "type": "string",
+            "example": "NO_ENCONTRADO"
+          },
+          "mensaje": {
+            "type": "string",
+            "example": "No existe el recurso pedido"
+          }
+        },
+        "required": [
+          "codigo",
+          "mensaje"
+        ]
+      },
+      "Health": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "example": "UP"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "MateriaResumen": {
+        "type": "object",
+        "properties": {
+          "id_materia": {
+            "type": "integer",
+            "format": "int64",
+            "example": 3
+          },
+          "nombre_materia": {
+            "type": "string",
+            "example": "Matemática"
+          },
+          "horas_semanales": {
+            "type": "integer",
+            "format": "int64",
+            "example": 5
+          }
+        },
+        "description": "Resumen de MATERIA (servicio Orientación)."
+      },
+      "FranjaHorariaResumen": {
+        "type": "object",
+        "properties": {
+          "id_franja_horaria": {
+            "type": "integer",
+            "format": "int64",
+            "example": 7
+          },
+          "hora_inicio": {
+            "type": "string",
+            "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
+            "example": "07:30"
+          },
+          "hora_fin": {
+            "type": "string",
+            "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
+            "example": "08:10"
+          },
+          "es_recreo": {
+            "type": "boolean",
+            "example": false
+          },
+          "nombre_dia_lectivo": {
+            "type": "string",
+            "example": "Lunes"
+          }
+        },
+        "description": "Resumen de FRANJA_HORARIA (servicio Horarios)."
+      },
+      "ProfesorResumen": {
+        "type": "object",
+        "properties": {
+          "id_profesor": {
+            "type": "integer",
+            "format": "int64",
+            "example": 12
+          },
+          "nombre": {
+            "type": "string",
+            "example": "Juan"
+          },
+          "apellido": {
+            "type": "string",
+            "example": "Ramírez"
+          },
+          "legajo": {
+            "type": "string",
+            "example": "L-0042"
+          }
+        },
+        "description": "Resumen de PROFESOR (servicio Profesor y Suplencias)."
+      },
+      "TurnoResumen": {
+        "type": "object",
+        "properties": {
+          "id_turno": {
+            "type": "integer",
+            "format": "int64",
+            "example": 1
+          },
+          "nombre": {
+            "type": "string",
+            "example": "Mañana"
+          }
+        },
+        "description": "Resumen de TURNO (servicio Horarios)."
+      },
+      "OrientacionResumen": {
+        "type": "object",
+        "properties": {
+          "id_orientacion": {
+            "type": "integer",
+            "format": "int64",
+            "example": 2
+          },
+          "nombre_orientacion": {
+            "type": "string",
+            "example": "Economía"
+          },
+          "codigo": {
+            "type": "string",
+            "example": "ECO"
+          }
+        },
+        "description": "Resumen de ORIENTACIÓN (servicio Orientación)."
+      },
+      "SuplenciaResumen": {
+        "type": "object",
+        "properties": {
+          "id_suplencia": {
+            "type": "integer",
+            "format": "int64",
+            "example": 15
+          },
+          "fecha_inicio": {
+            "type": "string",
+            "format": "date",
+            "example": "2026-05-04"
+          },
+          "fecha_fin": {
+            "type": "string",
+            "format": "date",
+            "example": "2026-05-08"
+          },
+          "motivo": {
+            "type": "string",
+            "example": "Licencia médica"
+          },
+          "profesor": {
+            "$ref": "#/components/schemas/ProfesorResumen"
+          }
+        },
+        "description": "Resumen de SUPLENCIA (servicio Profesor y Suplencias)."
+      },
+      "MateriaCurso": {
+        "type": "object",
+        "properties": {
+          "id_materia": {
+            "type": "integer",
+            "format": "int64",
+            "example": 3
+          },
+          "nombre_materia": {
+            "type": "string",
+            "example": "Matemática"
+          },
+          "horas_semanales": {
+            "type": "integer",
+            "format": "int64",
+            "example": 4,
+            "description": "Horas de la materia en este curso. Si no se definen, se toman las de la materia."
+          }
+        },
+        "required": [
+          "id_materia",
+          "nombre_materia",
+          "horas_semanales"
+        ],
+        "description": "Materia que se dicta en el curso, con sus horas."
+      },
+      "EstadoPropuesta": {
+        "type": "object",
+        "properties": {
+          "id_estado": {
+            "type": "integer",
+            "format": "int64",
+            "example": 1,
+            "readOnly": true
+          },
+          "nombre": {
+            "type": "string",
+            "example": "Borrador"
+          },
+          "codigo": {
+            "type": "string",
+            "example": "BOR"
+          }
+        },
+        "required": [
+          "id_estado",
+          "nombre",
+          "codigo"
+        ],
+        "description": "Catálogo gestionado con crear_estado_propuesta. Carga inicial: Borrador (BOR), En revisión (REV), Validada (VAL) y Cerrada (CER). El estado es de toda la propuesta, no de cada curso."
+      },
+      "CicloLectivo": {
+        "type": "object",
+        "properties": {
+          "id_ciclo_lectivo": {
+            "type": "integer",
+            "format": "int64",
+            "example": 2026,
+            "readOnly": true
+          },
+          "anio_calendario": {
+            "type": "integer",
+            "format": "int64",
+            "example": 2026
+          }
+        },
+        "required": [
+          "id_ciclo_lectivo",
+          "anio_calendario"
+        ]
+      },
+      "AnioAcademico": {
+        "type": "object",
+        "properties": {
+          "id_anio_academico": {
+            "type": "integer",
+            "format": "int64",
+            "example": 1,
+            "readOnly": true
+          },
+          "anio_curricular": {
+            "type": "string",
+            "example": "1° año"
+          },
+          "codigo": {
+            "type": "string",
+            "example": "1ER"
+          }
+        },
+        "required": [
+          "id_anio_academico",
+          "anio_curricular",
+          "codigo"
+        ]
+      },
+      "Propuesta": {
+        "type": "object",
+        "properties": {
+          "id_propuesta": {
+            "type": "integer",
+            "format": "int64",
+            "example": 5,
+            "readOnly": true
+          },
+          "nombre": {
+            "type": "string",
+            "example": "Propuesta 2026 v1"
+          },
+          "descripcion_propuesta": {
+            "type": "string",
+            "example": "Primera versión de la grilla 2026"
+          },
+          "fecha_creacion": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-02-10T09:00:00-03:00",
+            "readOnly": true
+          },
+          "fecha_modificacion": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-02-12T18:30:00-03:00",
+            "readOnly": true
+          },
+          "codigo": {
+            "type": "string",
+            "example": "P-2026-01"
+          },
+          "id_ciclo_lectivo": {
+            "type": "integer",
+            "format": "int64",
+            "example": 2026
+          },
+          "estado": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/EstadoPropuesta"
+              }
+            ],
+            "readOnly": true
+          },
+          "ids_clases": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int64",
+              "example": 40
+            }
+          }
+        },
+        "required": [
+          "id_propuesta",
+          "nombre",
+          "codigo",
+          "id_ciclo_lectivo"
+        ]
+      },
+      "Curso": {
+        "type": "object",
+        "properties": {
+          "id_curso": {
+            "type": "integer",
+            "format": "int64",
+            "example": 1,
+            "readOnly": true
+          },
+          "division": {
+            "type": "string",
+            "example": "A"
+          },
+          "id_anio_academico": {
+            "type": "integer",
+            "format": "int64",
+            "example": 1
+          },
+          "id_ciclo_lectivo": {
+            "type": "integer",
+            "format": "int64",
+            "example": 2026
+          },
+          "id_turno": {
+            "type": "integer",
+            "format": "int64",
+            "example": 1
+          },
+          "turno": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TurnoResumen"
+              }
+            ],
+            "readOnly": true
+          },
+          "id_orientacion": {
+            "type": "integer",
+            "format": "int64",
+            "example": 2
+          },
+          "orientacion": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/OrientacionResumen"
+              }
+            ],
+            "readOnly": true
+          },
+          "materias": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MateriaCurso"
+            },
+            "readOnly": true
+          },
+          "franjas_horarias": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FranjaHorariaResumen"
+            },
+            "readOnly": true
+          }
+        },
+        "required": [
+          "id_curso",
+          "division",
+          "id_ciclo_lectivo",
+          "id_turno",
+          "id_orientacion"
+        ],
+        "description": "Muestra las materias del curso con sus horas, pero no sus clases (para eso está get_curso_clases)."
+      },
+      "Clase": {
+        "type": "object",
+        "properties": {
+          "id_clase": {
+            "type": "integer",
+            "format": "int64",
+            "example": 40,
+            "readOnly": true
+          },
+          "descripcion": {
+            "type": "string",
+            "example": "Matemática 1° A"
+          },
+          "codigo": {
+            "type": "string",
+            "example": "CL-1A-MAT"
+          },
+          "id_curso": {
+            "type": "integer",
+            "format": "int64",
+            "example": 1
+          },
+          "id_materia": {
+            "type": "integer",
+            "format": "int64",
+            "example": 3
+          },
+          "materia": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MateriaResumen"
+              }
+            ],
+            "readOnly": true
+          },
+          "ids_franjas_horarias": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int64",
+              "example": 7
+            }
+          },
+          "franjas_horarias": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FranjaHorariaResumen"
+            },
+            "readOnly": true
+          },
+          "ids_profesores": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int64",
+              "example": 12
+            }
+          },
+          "profesores": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProfesorResumen"
+            },
+            "readOnly": true
+          },
+          "suplencia": {
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SuplenciaResumen"
+              }
+            ],
+            "nullable": true,
+            "description": "Suplencia vigente de la clase, si la hay",
+            "readOnly": true
+          }
+        },
+        "required": [
+          "id_clase",
+          "codigo",
+          "id_curso",
+          "id_materia"
+        ]
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "Datos inválidos",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "No existe el recurso",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      }
+    }
+  }
+}

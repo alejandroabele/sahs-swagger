@@ -1,0 +1,8 @@
+# Configuración del linter (redocly/cli) para los contratos SAHS.
+extends:
+  - recommended
+rules:
+  security-defined: off          # Decisión: sin seguridad por ahora
+  no-server-example.com: off     # Servidores ilustrativos en localhost
+  info-license: off              # Trabajo académico, sin licencia
+  operation-4xx-response: off    # Los listados sin filtros no tienen respuestas 4xx

@@ -1,0 +1,998 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Profesor y Suplencias Service",
+    "version": "1.0.0",
+    "description": "Provee una API para gestionar los profesores y las suplencias.\n\n**Modelos del dominio:** Suplencia, Profesor.\n\nConvenciones: una ruta por función; `POST` para commands y `GET` para queries; el id de la entidad principal va en la ruta y el resto de los datos en el body. Los datos relacionados de un solo elemento vienen anidados en la entidad.\n\n> No hay backend detrás de este contrato: el servidor es ilustrativo y \"Try it out\" no va a obtener respuesta.\n\n**Dependencias (Invokes):**\n- `usuario.get_usuario` → usado por: `asignar_usuario_profesor`\n- `orientacion.get_materia` → usado por: `asignar_materias_habilitadas`, `get_profesor`\n- `planificacion.get_clase` → usado por: `crear_suplencia`, `get_suplencias`\n- `horarios.get_franja_horaria` → usado por: `asignar_disponibilidad`, `get_disponibilidad_profesor`",
+    "x-dependencias": [
+      {
+        "servicio": "usuario",
+        "endpoint": "get_usuario",
+        "usado_por": [
+          "asignar_usuario_profesor"
+        ]
+      },
+      {
+        "servicio": "orientacion",
+        "endpoint": "get_materia",
+        "usado_por": [
+          "asignar_materias_habilitadas",
+          "get_profesor"
+        ]
+      },
+      {
+        "servicio": "planificacion",
+        "endpoint": "get_clase",
+        "usado_por": [
+          "crear_suplencia",
+          "get_suplencias"
+        ]
+      },
+      {
+        "servicio": "horarios",
+        "endpoint": "get_franja_horaria",
+        "usado_por": [
+          "asignar_disponibilidad",
+          "get_disponibilidad_profesor"
+        ]
+      }
+    ]
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8086",
+      "description": "Servidor ilustrativo (sin backend)"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Health",
+      "description": "Estado del servicio"
+    },
+    {
+      "name": "Profesor",
+      "description": "Profesores, su usuario, materias habilitadas y disponibilidad"
+    },
+    {
+      "name": "Suplencia",
+      "description": "Suplencias: quién cubre qué clases"
+    }
+  ],
+  "paths": {
+    "/actuator/health": {
+      "get": {
+        "tags": [
+          "Health"
+        ],
+        "operationId": "health",
+        "summary": "Health check del servicio",
+        "responses": {
+          "200": {
+            "description": "Servicio disponible",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/profesor_suplencias/crear_suplencia": {
+      "post": {
+        "tags": [
+          "Suplencia"
+        ],
+        "operationId": "crear_suplencia",
+        "summary": "Crear suplencia (suplente y clases que cubre)",
+        "description": "La suplencia se crea completa: un suplente y las clases que cubre en el período.\n\nInvoca: planificacion.get_clase",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "fecha_inicio": {
+                    "type": "string",
+                    "format": "date",
+                    "example": "2026-05-04"
+                  },
+                  "fecha_fin": {
+                    "type": "string",
+                    "format": "date",
+                    "example": "2026-05-08"
+                  },
+                  "motivo": {
+                    "type": "string",
+                    "example": "Licencia médica"
+                  },
+                  "id_profesor": {
+                    "type": "integer",
+                    "format": "int64",
+                    "example": 12,
+                    "description": "Profesor que cubre la suplencia"
+                  },
+                  "ids_clases": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer",
+                      "format": "int64",
+                      "example": 40
+                    },
+                    "minItems": 1,
+                    "description": "Clases que cubre"
+                  }
+                },
+                "required": [
+                  "fecha_inicio",
+                  "fecha_fin",
+                  "motivo",
+                  "id_profesor",
+                  "ids_clases"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Creado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Suplencia"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          }
+        }
+      }
+    },
+    "/profesor_suplencias/crear_profesor": {
+      "post": {
+        "tags": [
+          "Profesor"
+        ],
+        "operationId": "crear_profesor",
+        "summary": "Crear profesor",
+        "description": "No crea el usuario: se asigna después con `asignar_usuario_profesor`.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "nombre": {
+                    "type": "string",
+                    "example": "Juan"
+                  },
+                  "apellido": {
+                    "type": "string",
+                    "example": "Ramírez"
+                  },
+                  "documento": {
+                    "type": "string",
+                    "example": "30123456"
+                  },
+                  "correo_electronico": {
+                    "type": "string",
+                    "format": "email",
+                    "example": "jramirez@donbosco.edu.ar"
+                  },
+                  "telefono": {
+                    "type": "string",
+                    "example": "+54 299 555-1234"
+                  },
+                  "direccion": {
+                    "type": "string",
+                    "example": "Av. Argentina 123, Neuquén"
+                  }
+                },
+                "required": [
+                  "nombre",
+                  "apellido",
+                  "documento",
+                  "correo_electronico"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Creado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Profesor"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          }
+        }
+      }
+    },
+    "/profesor_suplencias/editar_profesor/{id}": {
+      "put": {
+        "tags": [
+          "Profesor"
+        ],
+        "operationId": "editar_profesor",
+        "summary": "Editar los datos del profesor",
+        "description": "Reemplaza todos los datos editables del profesor. `null` en `legajo` o `cargo_asociado` lo deja sin legajo o sin cargo.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Id del profesor",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "nombre": {
+                    "type": "string",
+                    "example": "Juan"
+                  },
+                  "apellido": {
+                    "type": "string",
+                    "example": "Ramírez"
+                  },
+                  "documento": {
+                    "type": "string",
+                    "example": "30123456"
+                  },
+                  "correo_electronico": {
+                    "type": "string",
+                    "format": "email",
+                    "example": "jramirez@donbosco.edu.ar"
+                  },
+                  "telefono": {
+                    "type": "string",
+                    "example": "+54 299 555-1234"
+                  },
+                  "direccion": {
+                    "type": "string",
+                    "example": "Av. Argentina 123, Neuquén"
+                  },
+                  "legajo": {
+                    "type": "string",
+                    "example": "L-0042",
+                    "nullable": true
+                  },
+                  "cargo_asociado": {
+                    "type": "string",
+                    "example": "Profesor titular",
+                    "nullable": true
+                  }
+                },
+                "required": [
+                  "nombre",
+                  "apellido",
+                  "documento",
+                  "correo_electronico",
+                  "telefono",
+                  "direccion",
+                  "legajo",
+                  "cargo_asociado"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Profesor"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/profesor_suplencias/asignar_usuario_profesor/{id}": {
+      "put": {
+        "tags": [
+          "Profesor"
+        ],
+        "operationId": "asignar_usuario_profesor",
+        "summary": "Asignar el usuario del profesor (reemplaza el anterior)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Id del profesor",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id_usuario": {
+                    "type": "integer",
+                    "format": "int64",
+                    "example": 10
+                  }
+                },
+                "required": [
+                  "id_usuario"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Profesor"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "description": "Invoca: usuario.get_usuario"
+      }
+    },
+    "/profesor_suplencias/asignar_materias_habilitadas/{id}": {
+      "put": {
+        "tags": [
+          "Profesor"
+        ],
+        "operationId": "asignar_materias_habilitadas",
+        "summary": "Asignar materias que puede dictar",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Id del profesor",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "ids_materias": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer",
+                      "format": "int64",
+                      "example": 3
+                    }
+                  }
+                },
+                "required": [
+                  "ids_materias"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Profesor"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "description": "Invoca: orientacion.get_materia"
+      }
+    },
+    "/profesor_suplencias/asignar_disponibilidad/{id}": {
+      "put": {
+        "tags": [
+          "Profesor"
+        ],
+        "operationId": "asignar_disponibilidad",
+        "summary": "Asignar disponibilidad horaria",
+        "description": "Reemplaza la disponibilidad del profesor por las franjas indicadas.\n\nInvoca: horarios.get_franja_horaria",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Id del profesor",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "ids_franjas_horarias": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer",
+                      "format": "int64",
+                      "example": 7
+                    }
+                  }
+                },
+                "required": [
+                  "ids_franjas_horarias"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Profesor"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/profesor_suplencias/get_profesor/{id}": {
+      "get": {
+        "tags": [
+          "Profesor"
+        ],
+        "operationId": "get_profesor",
+        "summary": "Obtener profesor",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Id del profesor",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Profesor"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "description": "Invoca: orientacion.get_materia"
+      }
+    },
+    "/profesor_suplencias/get_profesores": {
+      "get": {
+        "tags": [
+          "Profesor"
+        ],
+        "operationId": "get_profesores",
+        "summary": "Listar profesores",
+        "description": "Con `id_usuario` se obtiene el profesor del usuario que inició sesión.",
+        "parameters": [
+          {
+            "name": "id_usuario",
+            "in": "query",
+            "required": false,
+            "description": "Usuario del profesor (filtro opcional)",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "example": 10
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Profesor"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          }
+        }
+      }
+    },
+    "/profesor_suplencias/get_suplencias": {
+      "get": {
+        "tags": [
+          "Suplencia"
+        ],
+        "operationId": "get_suplencias",
+        "summary": "Listar suplencias",
+        "description": "Con `fecha_desde` y `fecha_hasta` devuelve las suplencias cuyo período se superpone con el rango.\n\nInvoca: planificacion.get_clase",
+        "parameters": [
+          {
+            "name": "fecha_desde",
+            "in": "query",
+            "required": false,
+            "description": "Inicio del rango (filtro opcional)",
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "example": "2026-05-11"
+            }
+          },
+          {
+            "name": "fecha_hasta",
+            "in": "query",
+            "required": false,
+            "description": "Fin del rango (filtro opcional)",
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "example": "2026-05-15"
+            }
+          },
+          {
+            "name": "id_profesor",
+            "in": "query",
+            "required": false,
+            "description": "Profesor que cubre (filtro opcional)",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "example": 12
+            }
+          },
+          {
+            "name": "id_curso",
+            "in": "query",
+            "required": false,
+            "description": "Curso de alguna de las clases cubiertas (filtro opcional)",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "example": 1
+            }
+          },
+          {
+            "name": "id_clase",
+            "in": "query",
+            "required": false,
+            "description": "Clase incluida en la suplencia (filtro opcional)",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "example": 40
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Suplencia"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          }
+        }
+      }
+    },
+    "/profesor_suplencias/get_disponibilidad_profesor/{id}": {
+      "get": {
+        "tags": [
+          "Profesor"
+        ],
+        "operationId": "get_disponibilidad_profesor",
+        "summary": "Disponibilidad horaria del profesor",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Id del profesor",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/FranjaHorariaResumen"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "description": "Invoca: horarios.get_franja_horaria"
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "properties": {
+          "codigo": {
+            "type": "string",
+            "example": "NO_ENCONTRADO"
+          },
+          "mensaje": {
+            "type": "string",
+            "example": "No existe el recurso pedido"
+          }
+        },
+        "required": [
+          "codigo",
+          "mensaje"
+        ]
+      },
+      "Health": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "example": "UP"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "MateriaResumen": {
+        "type": "object",
+        "properties": {
+          "id_materia": {
+            "type": "integer",
+            "format": "int64",
+            "example": 3
+          },
+          "nombre_materia": {
+            "type": "string",
+            "example": "Matemática"
+          },
+          "horas_semanales": {
+            "type": "integer",
+            "format": "int64",
+            "example": 5
+          }
+        },
+        "description": "Resumen de MATERIA (servicio Orientación)."
+      },
+      "FranjaHorariaResumen": {
+        "type": "object",
+        "properties": {
+          "id_franja_horaria": {
+            "type": "integer",
+            "format": "int64",
+            "example": 7
+          },
+          "hora_inicio": {
+            "type": "string",
+            "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
+            "example": "07:30"
+          },
+          "hora_fin": {
+            "type": "string",
+            "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
+            "example": "08:10"
+          },
+          "es_recreo": {
+            "type": "boolean",
+            "example": false
+          },
+          "nombre_dia_lectivo": {
+            "type": "string",
+            "example": "Lunes"
+          }
+        },
+        "description": "Resumen de FRANJA_HORARIA (servicio Horarios)."
+      },
+      "ClaseResumen": {
+        "type": "object",
+        "properties": {
+          "id_clase": {
+            "type": "integer",
+            "format": "int64",
+            "example": 40
+          },
+          "codigo": {
+            "type": "string",
+            "example": "CL-1A-MAT"
+          },
+          "descripcion": {
+            "type": "string",
+            "example": "Matemática 1° A"
+          },
+          "id_curso": {
+            "type": "integer",
+            "format": "int64",
+            "example": 1
+          }
+        },
+        "description": "Resumen de CLASE (servicio Planificación)."
+      },
+      "ProfesorResumen": {
+        "type": "object",
+        "properties": {
+          "id_profesor": {
+            "type": "integer",
+            "format": "int64",
+            "example": 12
+          },
+          "nombre": {
+            "type": "string",
+            "example": "Juan"
+          },
+          "apellido": {
+            "type": "string",
+            "example": "Ramírez"
+          },
+          "legajo": {
+            "type": "string",
+            "example": "L-0042"
+          }
+        },
+        "description": "Resumen de PROFESOR (servicio Profesor y Suplencias)."
+      },
+      "Profesor": {
+        "type": "object",
+        "properties": {
+          "id_profesor": {
+            "type": "integer",
+            "format": "int64",
+            "example": 12,
+            "readOnly": true
+          },
+          "nombre": {
+            "type": "string",
+            "example": "Juan"
+          },
+          "apellido": {
+            "type": "string",
+            "example": "Ramírez"
+          },
+          "documento": {
+            "type": "string",
+            "example": "30123456"
+          },
+          "legajo": {
+            "type": "string",
+            "example": "L-0042",
+            "nullable": true
+          },
+          "cargo_asociado": {
+            "type": "string",
+            "example": "Profesor titular",
+            "nullable": true
+          },
+          "correo_electronico": {
+            "type": "string",
+            "format": "email",
+            "example": "jramirez@donbosco.edu.ar"
+          },
+          "telefono": {
+            "type": "string",
+            "example": "+54 299 555-1234"
+          },
+          "direccion": {
+            "type": "string",
+            "example": "Av. Argentina 123, Neuquén"
+          },
+          "id_usuario": {
+            "type": "integer",
+            "format": "int64",
+            "example": 10,
+            "description": "Usuario para ingresar al sistema. Se asigna con asignar_usuario_profesor",
+            "nullable": true
+          },
+          "lista_materias_habilitadas": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MateriaResumen"
+            },
+            "readOnly": true
+          },
+          "disponibilidad": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FranjaHorariaResumen"
+            },
+            "readOnly": true
+          }
+        },
+        "required": [
+          "id_profesor",
+          "nombre",
+          "apellido",
+          "documento"
+        ]
+      },
+      "Suplencia": {
+        "type": "object",
+        "properties": {
+          "id_suplencia": {
+            "type": "integer",
+            "format": "int64",
+            "example": 15,
+            "readOnly": true
+          },
+          "fecha_inicio": {
+            "type": "string",
+            "format": "date",
+            "example": "2026-05-04"
+          },
+          "fecha_fin": {
+            "type": "string",
+            "format": "date",
+            "example": "2026-05-08"
+          },
+          "motivo": {
+            "type": "string",
+            "example": "Licencia médica"
+          },
+          "id_profesor": {
+            "type": "integer",
+            "format": "int64",
+            "example": 12,
+            "description": "Profesor que cubre la suplencia"
+          },
+          "profesor": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ProfesorResumen"
+              }
+            ],
+            "readOnly": true
+          },
+          "ids_clases": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int64",
+              "example": 40
+            }
+          },
+          "clases": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ClaseResumen"
+            },
+            "readOnly": true
+          }
+        },
+        "required": [
+          "id_suplencia",
+          "fecha_inicio",
+          "fecha_fin",
+          "motivo",
+          "id_profesor",
+          "ids_clases"
+        ]
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "Datos inválidos",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "No existe el recurso",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      }
+    }
+  }
+}
