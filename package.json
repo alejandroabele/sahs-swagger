@@ -1,11 +1,43 @@
 {
-  "name": "swagger",
+  "name": "sahs",
   "version": "1.0.0",
-  "main": "index.js",
+  "private": true,
+  "description": "SAHS: microservicios NestJS, base SQLite y app web React en un monorepo",
+  "workspaces": [
+    "libs/contratos",
+    "libs/comun",
+    "libs/entidades",
+    "apps/db",
+    "apps/usuario",
+    "apps/pago",
+    "apps/horarios",
+    "apps/planificacion",
+    "apps/orientacion",
+    "apps/profesor-suplencias",
+    "apps/web"
+  ],
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "npm run build:libs && npm run build:apps",
+    "build:libs": "npm run build -w libs/contratos -w libs/comun -w libs/entidades",
+    "build:apps": "npm run build -w apps/db -w apps/usuario -w apps/pago -w apps/horarios -w apps/planificacion -w apps/orientacion -w apps/profesor-suplencias -w apps/web",
+    "lint": "npm run lint --workspaces --if-present",
+    "test": "node --test --test-concurrency=1 tests/e2e/*.test.mjs",
+    "verificar-contratos": "node tools/verificar_contratos.mjs",
+    "db:init": "npm run db-init -w apps/db",
+    "dev:usuario": "npm run dev -w apps/usuario",
+    "dev:pago": "npm run dev -w apps/pago",
+    "dev:horarios": "npm run dev -w apps/horarios",
+    "dev:planificacion": "npm run dev -w apps/planificacion",
+    "dev:orientacion": "npm run dev -w apps/orientacion",
+    "dev:profesor-suplencias": "npm run dev -w apps/profesor-suplencias",
+    "dev:web": "npm run dev -w apps/web",
+    "test:web": "npm run test -w apps/web --if-present"
   },
-  "author": "",
-  "license": "ISC",
-  "description": ""
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "typescript": "~5.9.3"
+  },
+  "engines": {
+    "node": ">=22"
+  }
 }

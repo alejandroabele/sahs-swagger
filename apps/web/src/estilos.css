@@ -1,0 +1,30 @@
+/* Estilos globales: los mismos que el prototipo (prototipo/index.html). */
+* { box-sizing: border-box; }
+html, body, #raiz { height: 100%; }
+body {
+  margin: 0; background: #f4f6f8; color: #14181f;
+  font-family: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased; overflow: hidden;
+}
+a { color: #2f5fd0; text-decoration: none; }
+a:hover { color: #1e4099; text-decoration: underline; }
+.mono { font-family: "IBM Plex Mono", ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+button { font-family: inherit; cursor: pointer; }
+button:disabled { cursor: default; }
+input, select, textarea { font-family: inherit; }
+input:focus, select:focus, textarea:focus { outline: none; border-color: #9fb4dd; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: #cdd4dd; border-radius: 6px; }
+.slot { transition: background 0.12s, border-color 0.12s, box-shadow 0.12s; }
+.slot-libre:hover { background: #d3ebdd !important; border-color: #3f8f63 !important; box-shadow: 0 1px 4px rgba(47,107,69,0.22); }
+.slot-puesta:hover { box-shadow: 0 2px 6px rgba(20,24,31,0.18); }
+.slot-bloq { cursor: default; }
+.fila-off { cursor: default; }
+
+/* Armazón: la pantalla de ancho fijo (como en el diseño) se escala al ancho de la ventana. */
+.escena { height: 100vh; overflow: auto; display: flex; justify-content: center; align-items: flex-start; }
+.marco { flex-shrink: 0; overflow: hidden; }
+.lienzo { transform-origin: top left; }
+
+/* Estado de carga y errores dentro de las pantallas */
+.cargando { padding: 40px 44px; font-size: 13px; color: #6b7482; }

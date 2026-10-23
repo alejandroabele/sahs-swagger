@@ -1,0 +1,21 @@
+{
+  "name": "@sahs/db",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Base de datos de SAHS: data source de TypeORM, migraciones y seeds (contenedor db-init)",
+  "main": "dist/db-init.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "db-init": "node dist/db-init.js",
+    "migration:generate": "typeorm migration:generate -d dist/data-source.js",
+    "migration:run": "typeorm migration:run -d dist/data-source.js"
+  },
+  "dependencies": {
+    "@sahs/comun": "1.0.0",
+    "@sahs/entidades": "1.0.0",
+    "bcryptjs": "^3.0.2",
+    "better-sqlite3": "^11.10.0",
+    "reflect-metadata": "^0.2.2",
+    "typeorm": "^0.3.27"
+  }
+}

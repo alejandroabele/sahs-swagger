@@ -1,0 +1,167 @@
+# SAHS · aplicación completa en modo producción.
+#
+#   docker compose -f docker-compose.app.yml up -d --build    # construye y levanta todo
+#   docker compose -f docker-compose.app.yml down             # baja todo (los datos quedan en el volumen)
+#   docker compose -f docker-compose.app.yml down -v          # baja todo y borra la base
+#
+#   Web:          http://localhost:8100   (usuario secretaria, contraseña sahs2026)
+#   Swagger UI:   http://localhost:8180   (los 6 servicios)
+#
+# Convive con docker-compose.yml (Swagger UI de los contratos en :8080 y el prototipo en :8090).
+
+name: sahs-app
+
+x-entorno-servicios: &entorno
+  NODE_ENV: production
+  PORT: "3000"
+  DB_PATH: /data/sahs.sqlite
+  JWT_SECRET: ${JWT_SECRET:-cambiar-este-secreto}
+  CORS_ORIGEN: http://localhost:8180,http://localhost:8100
+  URL_USUARIO: http://usuario:3000
+  URL_PAGO: http://pago:3000
+  URL_HORARIOS: http://horarios:3000
+  URL_PLANIFICACION: http://planificacion:3000
+  URL_ORIENTACION: http://orientacion:3000
+  URL_PROFESOR_SUPLENCIAS: http://profesor-suplencias:3000
+
+x-servicio: &servicio
+  restart: unless-stopped
+  environment: *entorno
+  volumes:
+    - sahs-data:/data
+  networks: [interna]
+  depends_on:
+    db-init:
+      condition: service_completed_successfully
+  healthcheck:
+    test: ["CMD", "node", "-e", "fetch('http://localhost:3000/actuator/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+    interval: 10s
+    timeout: 5s
+    retries: 6
+    start_period: 10s
+
+services:
+  # Crea o actualiza la base (migraciones) y carga los datos iniciales; después termina.
+  db-init:
+    build:
+      context: .
+      dockerfile: apps/Dockerfile.servicio
+      args: { APP: db, ENTRADA: db-init.js }
+    image: sahs-app/db-init:1.0.0
+    container_name: sahs-app-db-init
+    environment:
+      DB_PATH: /data/sahs.sqlite
+    volumes:
+      - sahs-data:/data
+    networks: [interna]
+    restart: "no"
+
+  usuario:
+    <<: *servicio
+    build:
+      context: .
+      dockerfile: apps/Dockerfile.servicio
+      args: { APP: usuario }
+    image: sahs-app/usuario:1.0.0
+    container_name: sahs-app-usuario
+
+  pago:
+    <<: *servicio
+    build:
+      context: .
+      dockerfile: apps/Dockerfile.servicio
+      args: { APP: pago }
+    image: sahs-app/pago:1.0.0
+    container_name: sahs-app-pago
+
+  horarios:
+    <<: *servicio
+    build:
+      context: .
+      dockerfile: apps/Dockerfile.servicio
+      args: { APP: horarios }
+    image: sahs-app/horarios:1.0.0
+    container_name: sahs-app-horarios
+
+  planificacion:
+    <<: *servicio
+    build:
+      context: .
+      dockerfile: apps/Dockerfile.servicio
+      args: { APP: planificacion }
+    image: sahs-app/planificacion:1.0.0
+    container_name: sahs-app-planificacion
+
+  orientacion:
+    <<: *servicio
+    build:
+      context: .
+      dockerfile: apps/Dockerfile.servicio
+      args: { APP: orientacion }
+    image: sahs-app/orientacion:1.0.0
+    container_name: sahs-app-orientacion
+
+  profesor-suplencias:
+    <<: *servicio
+    build:
+      context: .
+      dockerfile: apps/Dockerfile.servicio
+      args: { APP: profesor-suplencias }
+    image: sahs-app/profesor-suplencias:1.0.0
+    container_name: sahs-app-profesor-suplencias
+
+  # Build de React servido por nginx, con proxy por prefijo hacia los servicios.
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    image: sahs-app/web:1.0.0
+    container_name: sahs-app-web
+    restart: unless-stopped
+    ports:
+      - "8100:80"
+    networks: [interna]
+    depends_on:
+      usuario:
+        condition: service_healthy
+      pago:
+        condition: service_healthy
+      horarios:
+        condition: service_healthy
+      planificacion:
+        condition: service_healthy
+      orientacion:
+        condition: service_healthy
+      profesor-suplencias:
+        condition: service_healthy
+
+  # Swagger UI con los 6 servicios (lee el OpenAPI de cada uno a través de la web).
+  swagger:
+    image: swaggerapi/swagger-ui:v5.17.14
+    container_name: sahs-app-swagger
+    restart: unless-stopped
+    ports:
+      - "8180:8080"
+    environment:
+      URLS: >-
+        [
+          { "url": "http://localhost:8100/docs/usuario-json",             "name": "Usuario" },
+          { "url": "http://localhost:8100/docs/pago-json",                "name": "Pago" },
+          { "url": "http://localhost:8100/docs/horarios-json",            "name": "Horarios" },
+          { "url": "http://localhost:8100/docs/planificacion-json",       "name": "Planificación" },
+          { "url": "http://localhost:8100/docs/orientacion-json",         "name": "Orientación" },
+          { "url": "http://localhost:8100/docs/profesor_suplencias-json", "name": "Profesor y Suplencias" }
+        ]
+      URLS_PRIMARY_NAME: "Usuario"
+      DOC_EXPANSION: "list"
+      DEFAULT_MODELS_EXPAND_DEPTH: "1"
+    depends_on:
+      - web
+
+volumes:
+  sahs-data:
+    name: sahs-data
+
+networks:
+  interna:
+    name: sahs-app-interna

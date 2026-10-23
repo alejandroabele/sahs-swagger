@@ -1,0 +1,51 @@
+# Imagen de un microservicio SAHS (o de db-init). Se construye desde la raíz del repo:
+#   docker build -f apps/Dockerfile.servicio --build-arg APP=usuario .
+#   docker build -f apps/Dockerfile.servicio --build-arg APP=db --build-arg ENTRADA=db-init.js .
+# Varias etapas: la primera instala y compila; la final solo lleva la salida del build
+# y las dependencias de producción. node:22-slim (glibc) para el módulo nativo de better-sqlite3.
+
+FROM node:22.16.0-slim AS build
+RUN apt-get update && apt-get install -y --no-install-recommends python3 make g++ && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+COPY package.json package-lock.json tsconfig.base.json ./
+COPY libs/contratos/package.json libs/contratos/
+COPY libs/comun/package.json libs/comun/
+COPY libs/entidades/package.json libs/entidades/
+COPY apps/db/package.json apps/db/
+COPY apps/usuario/package.json apps/usuario/
+COPY apps/pago/package.json apps/pago/
+COPY apps/horarios/package.json apps/horarios/
+COPY apps/planificacion/package.json apps/planificacion/
+COPY apps/orientacion/package.json apps/orientacion/
+COPY apps/profesor-suplencias/package.json apps/profesor-suplencias/
+COPY apps/web/package.json apps/web/
+RUN npm ci --no-audit --no-fund
+ARG APP
+COPY libs libs
+COPY apps/${APP} apps/${APP}
+RUN npm run build -w libs/contratos -w libs/comun -w libs/entidades \
+ && npm run build -w apps/${APP} \
+ && npm prune --omit=dev --no-audit --no-fund
+
+FROM node:22.16.0-slim
+ARG APP
+ARG ENTRADA=main.js
+ENV NODE_ENV=production \
+    PORT=3000 \
+    DB_PATH=/data/sahs.sqlite \
+    ENTRADA=apps/${APP}/dist/${ENTRADA}
+WORKDIR /app
+COPY --from=build /app/package.json ./
+COPY --from=build /app/node_modules node_modules
+COPY --from=build /app/libs/contratos/package.json libs/contratos/
+COPY --from=build /app/libs/contratos/dist libs/contratos/dist
+COPY --from=build /app/libs/comun/package.json libs/comun/
+COPY --from=build /app/libs/comun/dist libs/comun/dist
+COPY --from=build /app/libs/entidades/package.json libs/entidades/
+COPY --from=build /app/libs/entidades/dist libs/entidades/dist
+COPY --from=build /app/apps/${APP}/package.json apps/${APP}/
+COPY --from=build /app/apps/${APP}/dist apps/${APP}/dist
+RUN mkdir -p /data && chown node:node /data
+USER node
+EXPOSE 3000
+CMD ["sh", "-c", "exec node \"$ENTRADA\""]

@@ -1,0 +1,11 @@
+{
+  "name": "@sahs/contratos",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Interfaces TypeScript de los datos de la API de SAHS (las usan los servicios y la web)",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  }
+}

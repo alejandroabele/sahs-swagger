@@ -1,32 +1,109 @@
-# Swagger · Microservicios SAHS
+# SAHS · Sistema de Administración de Horarios
 
-Contratos OpenAPI 3.0 de los 6 microservicios definidos en la pestaña **"Microservicios"** del documento del grupo, con Swagger UI para navegarlos.
+Monorepo de SAHS: los 6 microservicios en NestJS, la base de datos SQLite creada por código con TypeORM y la app web en React, todo levantado con Docker Compose.
 
 > Los links al diseño, al documento del grupo y al diagrama de clases están en [`docs/referencias.md`](docs/referencias.md). Es el único lugar donde se mantienen. Las instrucciones para agentes de IA están en [`AGENTS.md`](AGENTS.md).
 
-| Servicio | Archivo | Prefijo |
-|---|---|---|
-| Usuario | `specs/usuario.json` | `/usuario` |
-| Pago | `specs/pago.json` | `/pago` |
-| Horarios | `specs/horarios.json` | `/horarios` |
-| Planificación | `specs/planificacion.json` | `/planificacion` |
-| Orientación | `specs/orientacion.json` | `/orientacion` |
-| Profesor y Suplencias | `specs/profesor_suplencias.json` | `/profesor_suplencias` |
+| Servicio | App | Prefijo | Puerto de desarrollo |
+|---|---|---|---|
+| Usuario | `apps/usuario` | `/usuario` | 8081 |
+| Pago | `apps/pago` | `/pago` | 8082 |
+| Horarios | `apps/horarios` | `/horarios` | 8083 |
+| Planificación | `apps/planificacion` | `/planificacion` | 8084 |
+| Orientación | `apps/orientacion` | `/orientacion` | 8085 |
+| Profesor y Suplencias | `apps/profesor-suplencias` | `/profesor_suplencias` | 8086 |
 
-## Cómo usarlo
+## Aplicación
 
 ```bash
-docker compose up -d      # levanta Swagger UI y el prototipo
-# Swagger UI: http://localhost:8080 → elegir el servicio en "Select a definition"
-# Prototipo:  http://localhost:8090 → elegir rol (Administrativo / Profesor)
-docker compose down       # baja los dos
+docker compose -f docker-compose.app.yml up -d --build   # construye y levanta todo
+docker compose -f docker-compose.app.yml down            # baja todo; los datos quedan en el volumen
+docker compose -f docker-compose.app.yml down -v         # baja todo y borra la base (al volver a levantar se crea de cero)
 ```
 
-Si los JSON cambian, basta con recargar la página, porque la carpeta `specs/` está montada en el contenedor.
+- **Web:** http://localhost:8100
+- **Swagger UI:** http://localhost:8180 (elegir el servicio en "Select a definition"; "Try it out" responde de verdad)
+- **Usuarios de ejemplo:** `secretaria` (Administrativo), `jramirez` (Profesor) y `sferreyra` (Coordinador de área), entre otros. La contraseña de todos es **`sahs2026`**.
 
-> No hay backend: los servidores de cada contrato (`localhost:8081` a `8086`) son ilustrativos, así que "Try it out" no obtiene respuesta.
+Qué levanta el compose:
+
+| Contenedor | Qué hace |
+|---|---|
+| `db-init` | Aplica las migraciones y carga los datos de ejemplo en las tablas vacías. Termina y recién entonces arrancan los servicios. |
+| `usuario`, `pago`, `horarios`, `planificacion`, `orientacion`, `profesor-suplencias` | Los microservicios, en el puerto 3000 de la red interna. No se publican en el host. |
+| `web` | nginx con el build de React. Redirige `/usuario/`, `/pago/`, etc. a cada servicio, y publica el swagger de cada uno en `/docs/<servicio>-json`. |
+| `swagger` | Swagger UI con los 6 servicios. |
+
+La base es un solo archivo, `/data/sahs.sqlite`, en el volumen **`sahs-data`**. Cada tabla tiene un servicio dueño (el prefijo de la tabla: `usuario_`, `pago_`, ...), que es el único que escribe en ella. Las referencias a datos de otro servicio se guardan como ids sin clave foránea, y esos datos se piden por HTTP.
+
+Los dos compose pueden estar levantados a la vez: el original (`docker-compose.yml`) usa los puertos 8080 y 8090.
+
+### Desarrollo local
+
+Requiere Node 22.
+
+```bash
+npm ci
+npm run build                 # compila las librerías, los servicios y la web
+npm run db:init               # crea data/sahs.sqlite con los datos de ejemplo
+npm run dev:usuario           # y así cada servicio (en su puerto 808x)
+npm run dev:web               # http://localhost:5173, con proxy a los servicios
+npm test                      # pruebas e2e: levanta los 6 servicios sobre una base temporal
+npm run verificar-contratos   # compara el swagger de cada servicio con specs/*.json
+```
+
+## Estructura del monorepo
+
+```
+apps/
+  usuario/ pago/ horarios/ planificacion/ orientacion/ profesor-suplencias/   microservicios NestJS
+  db/                    data source de TypeORM, migraciones y seeds (contenedor db-init)
+  web/                   React + Vite; nginx.conf y Dockerfile de producción
+  Dockerfile.servicio    imagen de cada servicio y de db-init
+libs/
+  contratos/             interfaces TypeScript de la API (las usan los servicios y la web)
+  comun/                 errores, health, swagger, conexión a la base y cliente HTTP entre servicios
+  entidades/             entidades TypeORM, una carpeta por servicio dueño
+tests/e2e/               pruebas de los servicios
+tools/                   scripts (ver "Mantenimiento")
+specs/                   contratos OpenAPI originales (congelados)
+prototipo/               prototipo HTML (referencia visual de la web)
+```
+
+Cada servicio tiene un controller y un service por tag del swagger, `dto/modelos.ts` (respuestas), `dto/entradas.ts` (bodies y queries con validación) y `armado.ts` (arma las respuestas con sus anidados). Cada app tiene su `README.md`.
+
+## Swagger y fuente de verdad
+
+**El swagger que publica cada servicio NestJS es la fuente de verdad de la API.** Cada servicio lo expone en `/docs` (UI) y `/docs-json`; en Docker se ven todos juntos en http://localhost:8180.
+
+Los contratos originales (`specs/*.json`) y su generador (`tools/generar_specs.py`) quedan congelados como historial del corte inicial: el código de los servicios se generó una vez a partir de ellos (`tools/generar_scaffold.mjs`) y `npm run verificar-contratos` confirma que el swagger de los servicios no se apartó de ellos, salvo los agregados documentados abajo. Un cambio en la API se hace en el código del servicio, no en `specs/`.
+
+### Llamadas entre servicios
+
+Un servicio pide los datos de otro solo por HTTP (`URL_<SERVICIO>`, timeout de 5 s). Los anidados que vienen de otro servicio se piden con un listado por request. Si otro servicio no responde, la respuesta es `503`.
+
+Las llamadas entre servicios son **planas**: llevan el header `x-sahs-anidados: no` y la respuesta no arma los anidados que vienen de terceros (las listas devuelven solo los ids). Así se evitan los ciclos que hay entre Planificación, Orientación y Profesor y Suplencias (por ejemplo, clase → suplencia → clase).
+
+### Errores
+
+Todas las respuestas de error tienen el cuerpo `Error { codigo, mensaje }`, con el mensaje en español:
+
+| Código HTTP | `codigo` | Cuándo |
+|---|---|---|
+| 400 | `VALIDACION` | Body, query o id inválidos |
+| 400 | `REFERENCIA_INEXISTENTE` | Un id de otra entidad que no existe |
+| 404 | `NO_ENCONTRADO` | La entidad de la ruta no existe |
+| 409 | `CONFLICTO` | Una regla de negocio (choque de horarios, transición de estado inválida, recibo ya firmado...) |
+| 503 | `SERVICIO_NO_DISPONIBLE` | Otro servicio no responde |
 
 ## Prototipo
+
+El prototipo HTML quedó como **referencia visual** de la app web (`apps/web` reproduce sus pantallas con datos reales). Se levanta con el compose original:
+
+```bash
+docker compose up -d      # Swagger UI de los contratos originales (:8080) y el prototipo (:8090)
+docker compose down
+```
 
 La carpeta `prototipo/` tiene el prototipo navegable de SAHS, servido con nginx en **http://localhost:8090**. Es una sola aplicación, en un solo archivo (`index.html`) y con una sola URL. No hay backend: los datos son de ejemplo y no se guardan.
 
@@ -135,23 +212,50 @@ Para sumar una pantalla, se agrega a `CONFIG.pantallas` con el id del `.dc.html`
   - PROFESOR → `horarios.get_franja_horaria`.
   - PLANIFICACIÓN → `profesor_suplencias.get_disponibilidad_profesor`.
 
+- **Implementación (monorepo NestJS):**
+  - PLANIFICACIÓN: se agregan `editar_clase` (`PUT /planificacion/editar_clase/{id}`, reemplaza franjas y docentes) y `eliminar_clase` (`DELETE /planificacion/eliminar_clase/{id}`). Solo funcionan si todas las propuestas que incluyen la clase están en Borrador. Sin ellas no se podía mover ni quitar una hora en el armado (A13).
+  - PLANIFICACIÓN: `crear_clase` controla que el curso dicte la materia, que las franjas sean del turno del curso y no sean recreos, y que los docentes estén habilitados y disponibles. Los choques (dos clases del curso en la misma franja, un docente en dos clases a la vez) se controlan en `asignar_clase_a_propuesta`, porque `crear_clase` no sabe a qué propuesta va la clase. Una propuesta solo recibe clases en Borrador.
+  - PLANIFICACIÓN: transiciones de estado de la propuesta: Borrador → En revisión → Validada → Cerrada, y En revisión → Borrador. Cualquier otra responde `409`. Al validar una propuesta, la que estaba validada en el mismo ciclo pasa a Cerrada. No se puede enviar a revisión una propuesta sin clases.
+  - ORIENTACIÓN es el dueño de la orientación de cada curso (`Orientacion.ids_cursos`): `crear_curso` la registra llamando a `orientacion.asignar_curso_a_orientacion`, y `Curso.id_orientacion` se lee de ahí. Así se puede cambiar después desde Orientación, como dice el contrato. Del mismo modo, `crear_clase` registra la clase en `Materia.ids_clases` (`asignar_clase_a_materia`, que responde `409` si la clase es de otra materia).
+  - USUARIO: `login` acepta en `email` también el nombre de usuario (sin distinguir mayúsculas), como el prototipo. Las contraseñas se guardan con bcrypt y tienen al menos 6 caracteres. El token es un JWT con el id del usuario; la API todavía no lo valida.
+  - PAGO: `firmar_recibo_de_sueldo` responde `409` si el recibo ya estaba firmado, si el pago todavía no está validado o si quien firma no es el usuario del profesor del recibo. La fórmula de la liquidación está en "A revisar".
+  - PROFESOR Y SUPLENCIAS: `crear_suplencia` responde `409` si el suplente ya es docente de la clase o si la clase ya tiene una suplencia que se superpone.
+  - Respuestas `409` (conflicto con una regla de negocio) y `503` (otro servicio no responde) en todas las operaciones.
+  - Dependencias: para no hacer una llamada por elemento, los listados con anidados usan los listados de los otros servicios (`get_materias`, `get_franjas_horarias`, `get_profesores`, `get_turnos`, `get_orientaciones`, `get_clases`). La lista real de cada servicio está en su swagger (`x-dependencias`).
+  - Las listas anidadas `clases`, `profesores`, `franjas_horarias`, `suplencia` de las clases: los listados (`get_clases`, `get_curso_clases`) no anidan la suplencia vigente; solo `get_clase`.
+
 ## A revisar por el grupo
 
 1. **Recibos:** el documento no tiene un command para crear recibos. Se tomó como criterio que `crear_pago` genera el único recibo del pago, con sus conceptos y el neto que da `calcular_monto_a_liquidar`. Falta definir si el emisor es un dato fijo de la institución.
-2. **Clases:** no hay commands para asignar a una clase su materia, sus franjas o sus profesores. Van en el body de `crear_clase`, que consulta la disponibilidad del profesor.
+2. **Clases:** no hay commands para asignar a una clase su materia, sus franjas o sus profesores. Van en el body de `crear_clase`, que consulta la disponibilidad del profesor. Para poder corregirlas se agregaron `editar_clase` y `eliminar_clase` (ver "Cambios respecto del documento").
 3. **`get_estado_actual_de_propuesta`:** se mantuvo, aunque el estado también viene anidado en la propuesta.
-4. **Dependencias cíclicas:** PLANIFICACIÓN ⇄ ORIENTACIÓN ⇄ PROFESOR Y SUPLENCIAS se consumen entre sí. Conviene revisarlo en el diseño de los microservicios.
+4. **Dependencias cíclicas:** PLANIFICACIÓN ⇄ ORIENTACIÓN ⇄ PROFESOR Y SUPLENCIAS se consumen entre sí. Conviene revisarlo en el diseño de los microservicios. En la implementación se resolvió con llamadas planas entre servicios (ver "Llamadas entre servicios").
 5. **Commands que son `GET`:** `bajar_recibo_sueldo` y `calcular_monto_a_liquidar` figuran como commands en el documento, pero en el swagger son `GET` porque no modifican nada. Conviene moverlos a queries en el documento.
 6. **Relación Clase–Suplencia en el diagrama de clases:** hoy la flecha va de Clase a Suplencia. En el swagger la referencia la guarda Suplencia (`ids_clases`): una clase validada no se edita, una clase tiene muchas suplencias en el año y así Suplencias no escribe en Planificación. Hay que invertir la flecha en draw.io.
 7. **`eliminar_suplencia`:** sin los `asignar_*`, una suplencia no se puede corregir después de creada. La sección "7. Suplencias" del documento tiene `DELETE /suplencias/{id}`, pero PROFESOR Y SUPLENCIAS no. Falta definir si se agrega.
+8. **Liquidación de sueldo:** el documento no tiene la fórmula. Se tomó la del recibo de ejemplo del prototipo (P4): horas cátedra semanales de cada materia en la propuesta vigente × valor de la hora del período, más 10 % de antigüedad y, en junio y diciembre, el sueldo anual complementario (50 % de horas + antigüedad). Descuentos: 11 % de jubilación, 3 % de obra social y 2 % sindical. Los valores (valor de la hora por período, porcentajes, día de pago y datos del emisor) son configuración del servicio Pago (tablas `pago_parametro` y `pago_valor_hora`). Las horas de las suplencias todavía no se suman.
+9. **Orientación de los cursos:** está guardada en Orientación (ver "Cambios respecto del documento"). Conviene confirmar en el diagrama de clases de quién es el dato.
+10. **Datos que el prototipo muestra y la API no guarda:** código y horarios de definición de un turno (inicio, fin, duración de la hora), fechas de inicio y fin de un ciclo lectivo, años asociados a una orientación, fecha de ingreso del profesor. La web los deriva o los omite.
 
 ## Mantenimiento
 
-Los JSON se generan con `tools/generar_specs.py`, así que conviene editar el script y regenerar en lugar de tocar los JSON a mano:
+Desde el corte, **la API se cambia en el código de cada servicio** (controllers y DTOs en `apps/<servicio>/src`). El swagger se actualiza solo.
+
+- **Entidades y base:** las entidades están en `libs/entidades/src/<servicio>/`. Después de cambiar una, se genera una migración nueva y se versiona:
+
+  ```bash
+  npm run build:libs && npm run build -w apps/db
+  DB_PATH=/tmp/vacia.sqlite npm run db:init                  # base con el esquema actual
+  DB_PATH=/tmp/vacia.sqlite npm run migration:generate -w apps/db -- src/migraciones/<Nombre>
+  ```
+
+  `db-init` aplica las migraciones pendientes en el siguiente `up`. Los datos de ejemplo están en `apps/db/src/seeds/`.
+- **Cliente de la web:** `apps/web/src/api/*.ts` se genera a partir del swagger de los servicios (levantados en sus puertos de desarrollo): `node tools/generar_cliente_web.mjs`.
+- **Pruebas:** `npm test` (e2e de los servicios) y `npm run verificar-contratos` (diferencias con los contratos originales; las operaciones agregadas a propósito están en la lista `AGREGADOS` del script).
+- **Historial:** `tools/generar_specs.py` generó los contratos originales de `specs/` y `tools/generar_scaffold.mjs` generó el código inicial de los servicios a partir de ellos. Los dos quedan congelados; el segundo no corre si las apps ya existen, para no pisar el código.
+
+Para validar los contratos originales con redocly (usa la configuración de `redocly.yaml`):
 
 ```bash
-python3 tools/generar_specs.py specs
-docker run --rm -v "$PWD:/work:ro" -w /work redocly/cli:1.25.11 lint specs/*.json   # validación
+docker run --rm -v "$PWD:/work:ro" -w /work redocly/cli:1.25.11 lint specs/*.json
 ```
-
-El linter usa la configuración de `redocly.yaml`, que desactiva las reglas de seguridad, licencia y servidor por las decisiones de arriba.

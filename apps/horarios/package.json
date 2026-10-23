@@ -1,0 +1,29 @@
+{
+  "name": "@sahs/horarios",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Microservicio Horarios de SAHS (NestJS)",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/main.js",
+    "dev": "tsc -p tsconfig.json && node dist/main.js",
+    "test": "jest --passWithNoTests"
+  },
+  "dependencies": {
+    "@nestjs/common": "^11.1.0",
+    "@nestjs/core": "^11.1.0",
+    "@nestjs/platform-express": "^11.1.0",
+    "@nestjs/swagger": "^11.2.0",
+    "@nestjs/typeorm": "^11.0.0",
+    "@sahs/comun": "1.0.0",
+    "@sahs/contratos": "1.0.0",
+    "@sahs/entidades": "1.0.0",
+    "better-sqlite3": "^11.10.0",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.2",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2",
+    "typeorm": "^0.3.27"
+  }
+}
