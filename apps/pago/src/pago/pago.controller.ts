@@ -13,7 +13,7 @@ import { PagoService } from './pago.service';
 export class PagoController {
   constructor(private readonly servicio: PagoService) {}
 
-  @Post("crear_pago")
+  @Post("pagos")
   @ApiOperation({"operationId":"crear_pago","summary":"Crear pago del profesor para un período","description":"Genera también el único recibo de sueldo del pago, con sus conceptos y el neto de calcular_monto_a_liquidar.\n\nInvoca: profesor_suplencias.get_profesor"})
   @ApiResponse({ status: 201, description: "Creado", type: Pago })
   @ApiResponse({ status: 400, description: 'Datos inválidos', type: ErrorApi })
@@ -21,7 +21,7 @@ export class PagoController {
     return this.servicio.crear_pago(body);
   }
 
-  @Post("validar_pago/:id")
+  @Post("pagos/:id/validacion")
   @HttpCode(200)
   @ApiOperation({"operationId":"validar_pago","summary":"Validar pago (administrativo)","description":"Deja `validado` en true y completa `firma_emisor` en el recibo del pago."})
   @ApiParam({"name":"id","description":"Id del pago","type":"integer","format":"int64"})
@@ -32,7 +32,7 @@ export class PagoController {
     return this.servicio.validar_pago(id, body);
   }
 
-  @Get("calcular_monto_a_liquidar/:id")
+  @Get("profesores/:id/monto-a-liquidar")
   @ApiOperation({"operationId":"calcular_monto_a_liquidar","summary":"Calcular monto a liquidar","description":"El cálculo es interno del servicio; solo recibe el profesor y el período. Es GET porque no guarda nada (en el documento figura como command).\n\nInvoca: profesor_suplencias.get_profesor"})
   @ApiParam({"name":"id","description":"Id del profesor","type":"integer","format":"int64"})
   @ApiResponse({ status: 200, description: "OK", type: MontoLiquidar })
@@ -42,7 +42,7 @@ export class PagoController {
     return this.servicio.calcular_monto_a_liquidar(id, query);
   }
 
-  @Get("get_pagos")
+  @Get("pagos")
   @ApiOperation({"operationId":"get_pagos","summary":"Listar pagos (con su recibo anidado)"})
   @ApiResponse({ status: 200, description: "OK", type: [Pago] })
   @ApiResponse({ status: 400, description: 'Datos inválidos', type: ErrorApi })

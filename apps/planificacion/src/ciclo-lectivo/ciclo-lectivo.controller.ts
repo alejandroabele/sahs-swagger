@@ -13,7 +13,7 @@ import { CicloLectivoService } from './ciclo-lectivo.service';
 export class CicloLectivoController {
   constructor(private readonly servicio: CicloLectivoService) {}
 
-  @Post("crear_ciclo_lectivo")
+  @Post("ciclos-lectivos")
   @ApiOperation({"operationId":"crear_ciclo_lectivo","summary":"Crear ciclo lectivo"})
   @ApiResponse({ status: 201, description: "Creado", type: CicloLectivo })
   @ApiResponse({ status: 400, description: 'Datos inválidos', type: ErrorApi })
@@ -21,7 +21,7 @@ export class CicloLectivoController {
     return this.servicio.crear_ciclo_lectivo(body);
   }
 
-  @Get("get_ciclo_lectivo/:id")
+  @Get("ciclos-lectivos/:id")
   @ApiOperation({"operationId":"get_ciclo_lectivo","summary":"Obtener ciclo lectivo"})
   @ApiParam({"name":"id","description":"Id del ciclo lectivo","type":"integer","format":"int64"})
   @ApiResponse({ status: 200, description: "OK", type: CicloLectivo })
@@ -30,7 +30,7 @@ export class CicloLectivoController {
     return this.servicio.get_ciclo_lectivo(id);
   }
 
-  @Get("get_ciclos_lectivos")
+  @Get("ciclos-lectivos")
   @ApiOperation({"operationId":"get_ciclos_lectivos","summary":"Listar ciclos lectivos"})
   @ApiResponse({ status: 200, description: "OK", type: [CicloLectivo] })
   get_ciclos_lectivos(): Promise<CicloLectivo[]> {

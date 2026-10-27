@@ -70,7 +70,7 @@ export class Armado {
     const out = new Map<number, ProfesorResumen>();
     if (!conAnidados() || !ids.length) return out;
     for (const id of ids) {
-      const p = await this.profesores.buscar<C.Profesor>(`get_profesor/${id}`);
+      const p = await this.profesores.buscar<C.Profesor>(`profesores/${id}`);
       if (p) out.set(id, aProfesorResumen(p));
     }
     return out;
@@ -126,7 +126,7 @@ export class Armado {
 
   /** Profesores habilitados en alguna de las materias (Profesor y Suplencias, llamada plana). */
   async profesoresHabilitados(idsMaterias: number[]): Promise<ProfesorResumen[]> {
-    const todos = await this.profesores.listar<C.Profesor>('get_profesores');
+    const todos = await this.profesores.listar<C.Profesor>('profesores');
     return todos
       .filter((p) => (p.lista_materias_habilitadas ?? []).some((mh) => mh.id_materia != null && idsMaterias.includes(mh.id_materia)))
       .sort((a, b) => a.apellido.localeCompare(b.apellido) || a.nombre.localeCompare(b.nombre))

@@ -12,16 +12,9 @@ export interface CicloGlobal {
   /** Ciclo elegido en la cabecera (el mismo en todas las pantallas). */
   activo: CicloLectivo | null;
   fijar: (anio: number) => void;
-  /** "En curso", "Cerrado" o "Próximo", según el año del ciclo. */
-  estado: (anio: number) => string;
 }
 
 const Ctx = createContext<CicloGlobal | null>(null);
-
-export function estadoCiclo(anio: number): string {
-  const actual = new Date().getFullYear();
-  return anio < actual ? 'Cerrado' : anio === actual ? 'En curso' : 'Próximo';
-}
 
 /** Ciclo lectivo global (como CicloGlobal del prototipo), guardado en localStorage. */
 export function CicloProvider({ children }: { children: ReactNode }) {
@@ -59,7 +52,6 @@ export function CicloProvider({ children }: { children: ReactNode }) {
         localStorage.setItem(CLAVE, String(a));
         setAnio(a);
       },
-      estado: estadoCiclo,
     }),
     [ciclos, anio],
   );

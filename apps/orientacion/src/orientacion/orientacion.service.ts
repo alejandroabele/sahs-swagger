@@ -36,7 +36,7 @@ export class OrientacionService {
    */
   async asignar_curso_a_orientacion(id: number, body: AsignarCursoAOrientacionDto): Promise<Orientacion> {
     await this.a.orientacion(id);
-    await this.a.planificacion.exigir<C.Curso>(`get_curso/${body.id_curso}`, `No existe el curso ${body.id_curso}`);
+    await this.a.planificacion.exigir<C.Curso>(`cursos/${body.id_curso}`, `No existe el curso ${body.id_curso}`);
     await this.a.cursos.save({ id_curso: body.id_curso, id_orientacion: id });
     return this.get_orientacion(id);
   }

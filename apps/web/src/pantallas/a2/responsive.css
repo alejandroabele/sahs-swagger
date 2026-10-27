@@ -1,0 +1,9 @@
+/* A2 · Relevamiento de disponibilidad: ajustes propios para pantallas angostas. */
+
+/* En tablet la lista de docentes pasa arriba de la grilla: se limita su alto y se desplaza. */
+@media (max-width: 1100px) {
+  .a2-lista { max-height: 240px !important; }
+}
+@media (max-width: 700px) {
+  .a2-lista { max-height: 200px !important; }
+}

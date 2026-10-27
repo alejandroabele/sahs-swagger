@@ -62,32 +62,32 @@ export interface MontoLiquidar {
   monto: number;
 }
 
-/** Body de POST /pago/crear_pago */
+/** Body de POST /pago/pagos */
 export interface CrearPagoBody {
   id_profesor: number;
   /** Período liquidado (AAAA-MM) */
   periodo: string;
 }
 
-/** Body de POST /pago/validar_pago/{id} */
+/** Body de POST /pago/pagos/{id}/validacion */
 export interface ValidarPagoBody {
   /** Administrativo que valida */
   id_usuario: number;
 }
 
-/** Query de GET /pago/calcular_monto_a_liquidar/{id} */
+/** Query de GET /pago/profesores/{id}/monto-a-liquidar */
 export interface CalcularMontoALiquidarQuery {
   /** Período a liquidar (AAAA-MM) */
   periodo: string;
 }
 
-/** Body de POST /pago/firmar_recibo_de_sueldo/{id} */
+/** Body de POST /pago/recibos-de-sueldo/{id}/firma */
 export interface FirmarReciboDeSueldoBody {
   /** Usuario del profesor que firma */
   id_usuario: number;
 }
 
-/** Query de GET /pago/get_pagos */
+/** Query de GET /pago/pagos */
 export interface GetPagosQuery {
   /** Profesor liquidado (filtro opcional) */
   id_profesor?: number;
@@ -95,7 +95,7 @@ export interface GetPagosQuery {
   periodo?: string;
 }
 
-/** Query de GET /pago/get_recibos_de_sueldo */
+/** Query de GET /pago/recibos-de-sueldo */
 export interface GetRecibosDeSueldoQuery {
   /** Profesor liquidado (filtro opcional) */
   id_profesor?: number;

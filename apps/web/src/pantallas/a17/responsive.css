@@ -1,0 +1,12 @@
+/* A17 · Usuarios y roles: ajustes responsive propios de la pantalla. */
+
+/* Ancho mínimo de la tabla de usuarios (columnas fijas 220 + 190 + 320, más huecos y
+   márgenes ≈ 806 px): deja ~150 px para el email. En escritorio (1440 px) la tarjeta
+   mide ~984 px, así que no cambia; por debajo, la tabla se desplaza dentro de la tarjeta. */
+.a17-tabla { min-width: 960px; }
+
+@media (max-width: 700px) {
+  /* Las pestañas bajan debajo del título: menos aire entre el título y las pestañas. */
+  .a17-banda { row-gap: 0 !important; }
+  .a17-migas, .a17-fila-chica { row-gap: 4px !important; }
+}

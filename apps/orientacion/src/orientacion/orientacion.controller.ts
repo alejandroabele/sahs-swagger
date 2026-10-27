@@ -13,7 +13,7 @@ import { OrientacionService } from './orientacion.service';
 export class OrientacionController {
   constructor(private readonly servicio: OrientacionService) {}
 
-  @Post("crear_orientacion")
+  @Post("orientaciones")
   @ApiOperation({"operationId":"crear_orientacion","summary":"Crear orientación"})
   @ApiResponse({ status: 201, description: "Creado", type: Orientacion })
   @ApiResponse({ status: 400, description: 'Datos inválidos', type: ErrorApi })
@@ -21,7 +21,7 @@ export class OrientacionController {
     return this.servicio.crear_orientacion(body);
   }
 
-  @Delete("eliminar_orientacion/:id")
+  @Delete("orientaciones/:id")
   @HttpCode(204)
   @ApiOperation({"operationId":"eliminar_orientacion","summary":"Eliminar orientación"})
   @ApiParam({"name":"id","description":"Id de la orientación","type":"integer","format":"int64"})
@@ -31,7 +31,7 @@ export class OrientacionController {
     return this.servicio.eliminar_orientacion(id);
   }
 
-  @Post("asignar_curso_a_orientacion/:id")
+  @Post("orientaciones/:id/cursos")
   @HttpCode(200)
   @ApiOperation({"operationId":"asignar_curso_a_orientacion","summary":"Asignar un curso a la orientación","description":"Invoca: planificacion.get_curso"})
   @ApiParam({"name":"id","description":"Id de la orientación","type":"integer","format":"int64"})
@@ -42,7 +42,7 @@ export class OrientacionController {
     return this.servicio.asignar_curso_a_orientacion(id, body);
   }
 
-  @Get("get_orientacion/:id")
+  @Get("orientaciones/:id")
   @ApiOperation({"operationId":"get_orientacion","summary":"Obtener orientación"})
   @ApiParam({"name":"id","description":"Id de la orientación","type":"integer","format":"int64"})
   @ApiResponse({ status: 200, description: "OK", type: Orientacion })
@@ -51,14 +51,14 @@ export class OrientacionController {
     return this.servicio.get_orientacion(id);
   }
 
-  @Get("get_orientaciones")
+  @Get("orientaciones")
   @ApiOperation({"operationId":"get_orientaciones","summary":"Listar orientaciones"})
   @ApiResponse({ status: 200, description: "OK", type: [Orientacion] })
   get_orientaciones(): Promise<Orientacion[]> {
     return this.servicio.get_orientaciones();
   }
 
-  @Get("get_materias_orientacion/:id")
+  @Get("orientaciones/:id/materias")
   @ApiOperation({"operationId":"get_materias_orientacion","summary":"Materias de la orientación"})
   @ApiParam({"name":"id","description":"Id de la orientación","type":"integer","format":"int64"})
   @ApiResponse({ status: 200, description: "OK", type: [Materia] })

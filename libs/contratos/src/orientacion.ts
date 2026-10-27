@@ -35,7 +35,7 @@ export interface Materia {
   ids_clases?: number[];
 }
 
-/** Body de POST /orientacion/crear_materia */
+/** Body de POST /orientacion/materias */
 export interface CrearMateriaBody {
   nombre_materia: string;
   descripcion_materia?: string;
@@ -45,41 +45,75 @@ export interface CrearMateriaBody {
   id_anio_academico?: number;
 }
 
-/** Body de POST /orientacion/crear_area */
+/** Body de POST /orientacion/areas */
 export interface CrearAreaBody {
   nombre_area: string;
   descripcion_area?: string;
   id_profesor_coordinador?: number | null;
 }
 
-/** Body de POST /orientacion/crear_orientacion */
+/** Body de POST /orientacion/orientaciones */
 export interface CrearOrientacionBody {
   nombre_orientacion: string;
   descripcion_orientacion?: string;
   codigo: string;
 }
 
-/** Body de POST /orientacion/asignar_materia_area/{id} */
+/** Body de POST /orientacion/areas/{id}/materias */
 export interface AsignarMateriaAreaBody {
   id_materia: number;
 }
 
-/** Body de PUT /orientacion/asignar_materia_orientacion/{id} */
+/** Body de PUT /orientacion/materias/{id}/orientacion */
 export interface AsignarMateriaOrientacionBody {
   id_orientacion: number;
 }
 
-/** Body de POST /orientacion/asignar_curso_a_orientacion/{id} */
+/** Body de POST /orientacion/orientaciones/{id}/cursos */
 export interface AsignarCursoAOrientacionBody {
   id_curso: number;
 }
 
-/** Body de POST /orientacion/asignar_clase_a_materia/{id} */
+/** Body de POST /orientacion/materias/{id}/clases */
 export interface AsignarClaseAMateriaBody {
   id_clase: number;
 }
 
-/** Body de PUT /orientacion/asignar_anio_academico_a_materia/{id} */
+/** Body de PUT /orientacion/materias/{id}/anio-academico */
 export interface AsignarAnioAcademicoAMateriaBody {
   id_anio_academico: number;
+}
+
+/** Materia dentro del plan de estudios (GET /orientacion/plan-de-estudios). */
+export interface PlanDeEstudiosMateria {
+  id_materia: number;
+  nombre_materia: string;
+  descripcion_materia?: string;
+  horas_semanales: number;
+  id_area?: number | null;
+  nombre_area?: string | null;
+}
+
+/** Orientación de un año del plan de estudios, con sus materias. */
+export interface PlanDeEstudiosOrientacion {
+  id_orientacion: number;
+  nombre_orientacion: string;
+  codigo: string;
+  materias: PlanDeEstudiosMateria[];
+}
+
+/** Un año académico del plan de estudios: año → orientaciones → materias. */
+export interface PlanDeEstudiosAnio {
+  id_anio_academico: number;
+  /** Nombre del año (servicio Planificación), por ejemplo "1° año" */
+  anio_curricular: string;
+  orientaciones: PlanDeEstudiosOrientacion[];
+}
+
+/** Query de GET /orientacion/plan-de-estudios */
+export interface GetPlanDeEstudiosQuery {
+  /** Solo esta orientación (aparece en todos los años, aunque no tenga materias) */
+  id_orientacion?: number;
+  /** Solo este año académico */
+  id_anio_academico?: number;
 }

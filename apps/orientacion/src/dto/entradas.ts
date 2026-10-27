@@ -4,7 +4,7 @@ import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsInt, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 import type * as C from '@sahs/contratos';
-/** Body de POST /orientacion/crear_materia */
+/** Body de POST /orientacion/materias */
 export class CrearMateriaDto implements C.CrearMateriaBody {
   @ApiProperty({"type":"string","example":"Matemática","required":true})
   @IsString()
@@ -34,7 +34,7 @@ export class CrearMateriaDto implements C.CrearMateriaBody {
   id_anio_academico?: number;
 }
 
-/** Body de POST /orientacion/crear_area */
+/** Body de POST /orientacion/areas */
 export class CrearAreaDto implements C.CrearAreaBody {
   @ApiProperty({"type":"string","example":"Exactas","required":true})
   @IsString()
@@ -51,7 +51,7 @@ export class CrearAreaDto implements C.CrearAreaBody {
   id_profesor_coordinador?: number | null;
 }
 
-/** Body de POST /orientacion/crear_orientacion */
+/** Body de POST /orientacion/orientaciones */
 export class CrearOrientacionDto implements C.CrearOrientacionBody {
   @ApiProperty({"type":"string","example":"Economía","required":true})
   @IsString()
@@ -67,7 +67,7 @@ export class CrearOrientacionDto implements C.CrearOrientacionBody {
   codigo!: string;
 }
 
-/** Body de POST /orientacion/asignar_materia_area/{id} */
+/** Body de POST /orientacion/areas/{id}/materias */
 export class AsignarMateriaAreaDto implements C.AsignarMateriaAreaBody {
   @ApiProperty({"type":"integer","format":"int64","example":3,"required":true})
   @Type(() => Number)
@@ -75,7 +75,7 @@ export class AsignarMateriaAreaDto implements C.AsignarMateriaAreaBody {
   id_materia!: number;
 }
 
-/** Body de PUT /orientacion/asignar_materia_orientacion/{id} */
+/** Body de PUT /orientacion/materias/{id}/orientacion */
 export class AsignarMateriaOrientacionDto implements C.AsignarMateriaOrientacionBody {
   @ApiProperty({"type":"integer","format":"int64","example":2,"required":true})
   @Type(() => Number)
@@ -83,7 +83,7 @@ export class AsignarMateriaOrientacionDto implements C.AsignarMateriaOrientacion
   id_orientacion!: number;
 }
 
-/** Body de POST /orientacion/asignar_curso_a_orientacion/{id} */
+/** Body de POST /orientacion/orientaciones/{id}/cursos */
 export class AsignarCursoAOrientacionDto implements C.AsignarCursoAOrientacionBody {
   @ApiProperty({"type":"integer","format":"int64","example":4,"required":true})
   @Type(() => Number)
@@ -91,7 +91,7 @@ export class AsignarCursoAOrientacionDto implements C.AsignarCursoAOrientacionBo
   id_curso!: number;
 }
 
-/** Body de POST /orientacion/asignar_clase_a_materia/{id} */
+/** Body de POST /orientacion/materias/{id}/clases */
 export class AsignarClaseAMateriaDto implements C.AsignarClaseAMateriaBody {
   @ApiProperty({"type":"integer","format":"int64","example":40,"required":true})
   @Type(() => Number)
@@ -99,10 +99,24 @@ export class AsignarClaseAMateriaDto implements C.AsignarClaseAMateriaBody {
   id_clase!: number;
 }
 
-/** Body de PUT /orientacion/asignar_anio_academico_a_materia/{id} */
+/** Body de PUT /orientacion/materias/{id}/anio-academico */
 export class AsignarAnioAcademicoAMateriaDto implements C.AsignarAnioAcademicoAMateriaBody {
   @ApiProperty({"type":"integer","format":"int64","example":1,"required":true})
   @Type(() => Number)
   @IsInt()
   id_anio_academico!: number;
+}
+
+/** Query de GET /orientacion/plan-de-estudios */
+export class GetPlanDeEstudiosQuery implements C.GetPlanDeEstudiosQuery {
+  @ApiProperty({"type":"integer","format":"int64","description":"Solo esta orientación (filtro opcional); aparece en todos los años, aunque no tenga materias","example":1,"required":false})
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  id_orientacion?: number;
+  @ApiProperty({"type":"integer","format":"int64","description":"Solo este año académico (filtro opcional)","example":1,"required":false})
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  id_anio_academico?: number;
 }

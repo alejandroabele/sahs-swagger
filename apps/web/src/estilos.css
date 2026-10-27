@@ -4,7 +4,7 @@ html, body, #raiz { height: 100%; }
 body {
   margin: 0; background: #f4f6f8; color: #14181f;
   font-family: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
-  -webkit-font-smoothing: antialiased; overflow: hidden;
+  -webkit-font-smoothing: antialiased; overflow-x: hidden;
 }
 a { color: #2f5fd0; text-decoration: none; }
 a:hover { color: #1e4099; text-decoration: underline; }
@@ -21,10 +21,72 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: #9fb4dd
 .slot-bloq { cursor: default; }
 .fila-off { cursor: default; }
 
-/* Armazón: la pantalla de ancho fijo (como en el diseño) se escala al ancho de la ventana. */
-.escena { height: 100vh; overflow: auto; display: flex; justify-content: center; align-items: flex-start; }
-.marco { flex-shrink: 0; overflow: hidden; }
-.lienzo { transform-origin: top left; }
+/* Armazón: cada pantalla ocupa el ancho de la ventana. */
+.pantalla { min-height: 100vh; width: 100%; }
 
 /* Estado de carga y errores dentro de las pantallas */
 .cargando { padding: 40px 44px; font-size: 13px; color: #6b7482; }
+
+/* ==========================================================================
+   Responsive. Los estilos del diseño van en línea (css('...')), así que estas
+   clases usan !important dentro de cada corte para poder reacomodarlos.
+   Cortes: tablet ≤ 1100 px, celular ≤ 700 px.
+   ========================================================================== */
+
+/* Margen lateral de las bandas y del contenido (en el diseño, 44 px). */
+@media (max-width: 1100px) {
+  .r-margen { padding-left: 24px !important; padding-right: 24px !important; }
+}
+@media (max-width: 700px) {
+  .r-margen { padding-left: 14px !important; padding-right: 14px !important; }
+}
+
+/* Fila que se apila: columnas laterales (listas, paneles) pasan abajo. */
+@media (max-width: 1100px) {
+  .r-apilar { flex-direction: column !important; align-items: stretch !important; flex-wrap: nowrap !important; }
+  .r-apilar > * { width: auto !important; max-width: 100% !important; min-width: 0 !important; flex: 0 0 auto !important; }
+}
+/* Igual, pero recién en celular. */
+@media (max-width: 700px) {
+  .r-apilar-movil { flex-direction: column !important; align-items: stretch !important; flex-wrap: nowrap !important; }
+  .r-apilar-movil > * { width: auto !important; max-width: 100% !important; min-width: 0 !important; flex: 0 0 auto !important; }
+}
+
+/* Fila que se parte en varias líneas cuando no entra (botones, filtros, títulos). */
+.r-envolver { flex-wrap: wrap !important; row-gap: 10px !important; }
+
+/* Grillas de tarjetas: 3 o 4 columnas → 2 en tablet → 1 en celular. */
+@media (max-width: 1100px) { .r-grilla { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; } }
+@media (max-width: 700px)  { .r-grilla { grid-template-columns: minmax(0, 1fr) !important; } }
+
+/* Grilla de dos paneles (contenido + lateral) → una columna en tablet. */
+@media (max-width: 1100px) { .r-una-columna { grid-template-columns: minmax(0, 1fr) !important; } }
+@media (max-width: 700px)  { .r-una-columna-movil { grid-template-columns: minmax(0, 1fr) !important; } }
+
+/* Tablas y grillas horarias con columnas fijas: se desplazan horizontalmente
+   dentro de su tarjeta en vez de aplastarse. Envolver el contenido ancho en
+   .r-desplazar y darle un ancho mínimo con .r-min-*. */
+.r-desplazar { overflow-x: auto !important; -webkit-overflow-scrolling: touch; max-width: 100%; }
+.r-min-600 { min-width: 600px; }
+.r-min-800 { min-width: 800px; }
+.r-min-1000 { min-width: 1000px; }
+
+/* Ocultar detalles secundarios. */
+@media (max-width: 1100px) { .r-ocultar-tablet { display: none !important; } }
+@media (max-width: 700px)  { .r-ocultar-movil { display: none !important; } }
+
+/* Ancho completo en celular (inputs, botones, selectores con ancho fijo). */
+@media (max-width: 700px) { .r-ancho-movil { width: 100% !important; max-width: 100% !important; } }
+
+/* Títulos grandes más chicos en celular. */
+@media (max-width: 700px) { .r-titulo { font-size: 22px !important; } }
+
+/* Cabecera */
+@media (max-width: 900px) {
+  .cab { padding: 0 14px !important; gap: 10px !important; }
+  .cab-subtitulo { display: none !important; }
+}
+@media (max-width: 700px) {
+  .cab-ciclo-etiqueta, .cab-usuario-texto, .cab-ciclo-icono { display: none !important; }
+  .cab-ciclo { padding: 0 4px !important; }
+}

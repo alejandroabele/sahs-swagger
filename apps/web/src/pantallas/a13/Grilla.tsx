@@ -21,26 +21,31 @@ export function Grilla(p: {
   filas: { dia: string; celdas: CeldaVista[] }[];
 }) {
   return (
-    <div style={css('padding: 16px 18px 18px;')}>
-      <div style={css('display: grid; grid-template-columns: ' + p.gridCols + '; gap: 6px;')}>
-        <div></div>
-        {p.franjas.map((f) => (
-          <div key={f.key} className="mono" style={css(f.estilo)}>
-            {f.hora}
+    <div className="a13-grilla" style={css('padding: 16px 18px 18px;')}>
+      {/* En angosto, la grilla se desplaza horizontalmente dentro de la tarjeta (ver responsive.css). */}
+      <div className="a13-desplazar">
+        <div className="a13-grilla-min">
+          <div style={css('display: grid; grid-template-columns: ' + p.gridCols + '; gap: 6px;')}>
+            <div></div>
+            {p.franjas.map((f) => (
+              <div key={f.key} className="mono" style={css(f.estilo)}>
+                {f.hora}
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
-      {p.filas.map((row) => (
-        <div key={row.dia} style={css('display: grid; grid-template-columns: ' + p.gridCols + '; gap: 6px; margin-bottom: 6px;')}>
-          <div style={css('display: flex; align-items: center; font-size: 12px; font-weight: 500; color: #4a5462;')}>{row.dia}</div>
-          {row.celdas.map((c) => (
-            <button key={c.key} onClick={c.click} className={c.clase} style={css(c.estilo)} title={c.title}>
-              <span style={css(c.tituloEstilo)}>{c.titulo}</span>
-              <span style={css(c.subEstilo)}>{c.sub}</span>
-            </button>
+          {p.filas.map((row) => (
+            <div key={row.dia} style={css('display: grid; grid-template-columns: ' + p.gridCols + '; gap: 6px; margin-bottom: 6px;')}>
+              <div style={css('display: flex; align-items: center; font-size: 12px; font-weight: 500; color: #4a5462;')}>{row.dia}</div>
+              {row.celdas.map((c) => (
+                <button key={c.key} onClick={c.click} className={c.clase} style={css(c.estilo)} title={c.title}>
+                  <span style={css(c.tituloEstilo)}>{c.titulo}</span>
+                  <span style={css(c.subEstilo)}>{c.sub}</span>
+                </button>
+              ))}
+            </div>
           ))}
         </div>
-      ))}
+      </div>
 
       <div style={css('display: flex; align-items: center; gap: 20px; margin-top: 16px; padding-top: 14px; border-top: 1px solid #eef1f5; flex-wrap: wrap;')}>
         <span style={css('display: flex; align-items: center; gap: 8px; font-size: 11.5px; color: #4a5462; font-weight: 500;')}>

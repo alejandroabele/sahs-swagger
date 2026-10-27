@@ -30,7 +30,7 @@ export interface LoginBody {
   contrasenia: string;
 }
 
-/** Body de POST /usuario/crear_usuario */
+/** Body de POST /usuario/usuarios */
 export interface CrearUsuarioBody {
   nombre_user: string;
   email: string;
@@ -39,33 +39,33 @@ export interface CrearUsuarioBody {
   id_rol?: number;
 }
 
-/** Body de PUT /usuario/asignar_rol/{id} */
+/** Body de PUT /usuario/usuarios/{id}/rol */
 export interface AsignarRolBody {
   id_rol: number;
 }
 
-/** Body de PUT /usuario/editar_usuario/{id} */
+/** Body de PUT /usuario/usuarios/{id} */
 export interface EditarUsuarioBody {
   nombre_user: string;
   email: string;
 }
 
-/** Body de PATCH /usuario/cambiar_contrasenia/{id} */
+/** Body de PATCH /usuario/usuarios/{id}/contrasenia */
 export interface CambiarContraseniaBody {
   contrasenia: string;
 }
 
-/** Body de POST /usuario/crear_rol */
+/** Body de POST /usuario/roles */
 export interface CrearRolBody {
   nombre_rol: string;
 }
 
-/** Body de POST /usuario/asignar_privilegio/{id} */
+/** Body de POST /usuario/roles/{id}/privilegios */
 export interface AsignarPrivilegioBody {
   id_privilegio: number;
 }
 
-/** Body de PATCH /usuario/cambiar_nombre_rol/{id} */
+/** Body de PATCH /usuario/roles/{id} */
 export interface CambiarNombreRolBody {
   nombre_rol: string;
 }

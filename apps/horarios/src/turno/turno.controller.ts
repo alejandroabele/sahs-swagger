@@ -13,7 +13,7 @@ import { TurnoService } from './turno.service';
 export class TurnoController {
   constructor(private readonly servicio: TurnoService) {}
 
-  @Post("crear_turno")
+  @Post("turnos")
   @ApiOperation({"operationId":"crear_turno","summary":"Crear turno"})
   @ApiResponse({ status: 201, description: "Creado", type: Turno })
   @ApiResponse({ status: 400, description: 'Datos inválidos', type: ErrorApi })
@@ -21,7 +21,7 @@ export class TurnoController {
     return this.servicio.crear_turno(body);
   }
 
-  @Delete("eliminar_turno/:id")
+  @Delete("turnos/:id")
   @HttpCode(204)
   @ApiOperation({"operationId":"eliminar_turno","summary":"Eliminar turno"})
   @ApiParam({"name":"id","description":"Id del turno","type":"integer","format":"int64"})
@@ -31,7 +31,7 @@ export class TurnoController {
     return this.servicio.eliminar_turno(id);
   }
 
-  @Post("asignar_franja_a_turno/:id")
+  @Post("turnos/:id/franjas-horarias")
   @HttpCode(200)
   @ApiOperation({"operationId":"asignar_franja_a_turno","summary":"Asignar franja horaria al turno"})
   @ApiParam({"name":"id","description":"Id del turno","type":"integer","format":"int64"})
@@ -42,7 +42,7 @@ export class TurnoController {
     return this.servicio.asignar_franja_a_turno(id, body);
   }
 
-  @Delete("eliminar_franja_horaria_turno/:id/:id_franja_horaria")
+  @Delete("turnos/:id/franjas-horarias/:id_franja_horaria")
   @ApiOperation({"operationId":"eliminar_franja_horaria_turno","summary":"Quitar franja horaria del turno"})
   @ApiParam({"name":"id","description":"Id del turno","type":"integer","format":"int64"})
   @ApiParam({"name":"id_franja_horaria","description":"Id de la franja horaria a quitar","type":"integer","format":"int64"})
@@ -52,7 +52,7 @@ export class TurnoController {
     return this.servicio.eliminar_franja_horaria_turno(id, idFranjaHoraria);
   }
 
-  @Get("get_turno/:id")
+  @Get("turnos/:id")
   @ApiOperation({"operationId":"get_turno","summary":"Obtener turno (con sus franjas)"})
   @ApiParam({"name":"id","description":"Id del turno","type":"integer","format":"int64"})
   @ApiResponse({ status: 200, description: "OK", type: Turno })
@@ -61,7 +61,7 @@ export class TurnoController {
     return this.servicio.get_turno(id);
   }
 
-  @Get("get_turnos")
+  @Get("turnos")
   @ApiOperation({"operationId":"get_turnos","summary":"Listar turnos"})
   @ApiResponse({ status: 200, description: "OK", type: [Turno] })
   get_turnos(): Promise<Turno[]> {

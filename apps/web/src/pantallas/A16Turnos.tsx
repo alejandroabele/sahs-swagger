@@ -7,11 +7,11 @@
 // Las franjas que no cambian se conservan, así no se pierden las clases que las usan.
 import { useState, type ReactNode } from 'react';
 import type { FranjaHoraria, Turno } from '@sahs/contratos';
-import { horarios, planificacion } from '../api';
-import { useNavegar } from '../app/navegar';
+import { horarios } from '../api';
+import { useIr } from '../app/navegar';
+import { rutas } from '../app/rutas';
 import { Cabecera } from '../componentes/Cabecera';
 import { Cargando, MensajeError } from '../componentes/Estados';
-import { useCiclo } from '../estado/ciclo';
 import { useAccion, useConsulta } from '../estado/consultas';
 import { css } from '../lib/css';
 
@@ -95,15 +95,7 @@ function deTurno(t: Turno): Borrador {
 
 const VACIO: Borrador = { nombre: '', inicio: '14:00', fin: '18:00', dur: 40, franjas: generarFranjas('14:00', '18:00', 40) };
 
-/** El código no existe en la API: se deriva del nombre (Mañana → TM, Doble turno → DT). */
-function codigoDe(nombre: string): string {
-  const p = nombre.trim().split(/\s+/).filter(Boolean);
-  if (!p.length) return '';
-  if (p.length === 1) return ('T' + p[0][0]).toUpperCase();
-  return (p[0][0] + p[1][0]).toUpperCase();
-}
-
-/** Lo que está mal en un turno: franjas que se pisan, al revés o fuera de su horario. */
+/** Lo que está mal en el borrador del editor: franjas que se pisan o fuera del horario del turno. */
 function revisar(b: Borrador): string[] {
   const out: string[] = [];
   const ini = min(b.inicio);
@@ -113,20 +105,16 @@ function revisar(b: Borrador): string[] {
   b.franjas.forEach((f, i) => {
     const a = min(f[0]);
     const z = min(f[1]);
-    if (!(z > a)) out.push('La hora cátedra ' + (i + 1) + ' termina antes de empezar.');
-    else if (a < ini || z > fin) out.push('La hora cátedra ' + (i + 1) + ' (' + f[0] + ' a ' + f[1] + ') queda fuera del horario del turno.');
+    if (a < ini || z > fin) out.push('La hora cátedra ' + (i + 1) + ' (' + f[0] + ' a ' + f[1] + ') queda fuera del horario del turno.');
     if (i > 0 && a < min(b.franjas[i - 1][1])) out.push('La hora cátedra ' + (i + 1) + ' se superpone con la anterior.');
   });
   return out;
 }
 
 export default function A16Turnos() {
-  const ir = useNavegar();
-  const ciclo = useCiclo();
+  const ir = useIr();
   const qTurnos = useConsulta(['horarios', 'get_turnos'], () => horarios.get_turnos());
   const qDias = useConsulta(['horarios', 'get_dias_lectivos'], () => horarios.get_dias_lectivos());
-  const qCursos = useConsulta(['planificacion', 'get_cursos'], () => planificacion.get_cursos());
-  const qAnios = useConsulta(['planificacion', 'get_anios_academicos'], () => planificacion.get_anios_academicos());
 
   const [sel, setSel] = useState<number | null>(null);
   const [nuevo, setNuevo] = useState(false);
@@ -134,7 +122,6 @@ export default function A16Turnos() {
   const [aviso, setAviso] = useState<string | null>(null);
   const [errores, setErrores] = useState<string[]>([]);
   const [confirmarEliminar, setConfirmarEliminar] = useState(false);
-  const [errorEliminar, setErrorEliminar] = useState<string | null>(null);
 
   const dias = [...(qDias.data ?? [])].sort((a, b) => a.id_dia_lectivo - b.id_dia_lectivo);
 
@@ -170,19 +157,19 @@ export default function A16Turnos() {
       }
       return t;
     },
-    ['horarios', 'planificacion'],
+    ['horarios'],
   );
   const eliminarAccion = useAccion(
     async (id: number) => {
       await horarios.eliminar_turno(id);
       return true;
     },
-    ['horarios', 'planificacion'],
+    ['horarios'],
   );
 
-  if (qTurnos.isLoading || qDias.isLoading || qCursos.isLoading) {
+  if (qTurnos.isLoading || qDias.isLoading) {
     return (
-      <div style={css('width: 1440px; min-height: 1600px; display: flex; flex-direction: column; background: #f4f6f8;')}>
+      <div style={css('width: 100%; min-height: 100vh; display: flex; flex-direction: column; background: #f4f6f8;')}>
         <Cabecera />
         <Cargando />
       </div>
@@ -214,7 +201,6 @@ export default function A16Turnos() {
     setAviso(null);
     setErrores([]);
     setConfirmarEliminar(false);
-    setErrorEliminar(null);
     guardarAccion.limpiarError();
     eliminarAccion.limpiarError();
   };
@@ -268,19 +254,6 @@ export default function A16Turnos() {
     );
   });
 
-  // ---- cursos del turno en el ciclo en uso (y en cualquier ciclo, para no eliminar un turno en uso)
-  const nAnio = (id?: number) => {
-    const a = (qAnios.data ?? []).find((x) => x.id_anio_academico === id);
-    return a ? parseInt(a.anio_curricular, 10) : null;
-  };
-  const nombreCurso = (c: { id_anio_academico?: number; division: string }) => {
-    const n = nAnio(c.id_anio_academico);
-    return (n ? n + '° ' : '') + c.division;
-  };
-  const delTurno = actual && !nuevo ? (qCursos.data ?? []).filter((c) => c.id_turno === actual!.id_turno) : [];
-  const cursos = delTurno
-    .filter((c) => c.id_ciclo_lectivo === ciclo.activo?.id_ciclo_lectivo)
-    .sort((x, y) => (nAnio(x.id_anio_academico) ?? 0) - (nAnio(y.id_anio_academico) ?? 0) || x.division.localeCompare(y.division));
   const porDia = b.franjas.length;
   const nDias = dias.length || 5;
 
@@ -293,7 +266,7 @@ export default function A16Turnos() {
     setBorrador({ ...b, franjas: fr });
     setErrores([]);
     setAviso(
-      'Se generaron ' + fr.length + ' horas cátedra seguidas de ' + b.dur + ' minutos entre ' + b.inicio + ' y ' + b.fin + ', sin recreos. Para dejar un recreo corré el inicio de una hora cátedra, y guardá.',
+      'Se generaron ' + fr.length + ' horas cátedra seguidas de ' + b.dur + ' minutos entre ' + b.inicio + ' y ' + b.fin + '.',
     );
   };
 
@@ -307,8 +280,6 @@ export default function A16Turnos() {
     if (!sinGuardar || guardarAccion.enCurso) return;
     const nombre = b.nombre.trim();
     const errs = revisar(b);
-    if (!nombre) errs.unshift('Completá el nombre del turno.');
-    else if ((nuevo || !actual) && turnos.some((t) => t.nombre.toLowerCase() === nombre.toLowerCase())) errs.unshift('Ya existe un turno con ese nombre.');
     if (!dias.length) errs.push('No hay días lectivos cargados en la API.');
     if (errs.length) {
       setErrores(errs);
@@ -326,18 +297,8 @@ export default function A16Turnos() {
 
   const eliminar = async () => {
     if (!actual) return;
-    if (delTurno.length) {
-      const porCiclo = new Map<number, string[]>();
-      delTurno.forEach((c) => porCiclo.set(c.id_ciclo_lectivo, [...(porCiclo.get(c.id_ciclo_lectivo) ?? []), nombreCurso(c)]));
-      const txtCiclos = [...porCiclo.entries()]
-        .map(([id, l]) => l.join(', ') + ' en ' + (ciclo.ciclos.find((x) => x.id_ciclo_lectivo === id)?.anio_calendario ?? 'otro ciclo'))
-        .join('; ');
-      setErrorEliminar('Lo usan ' + txtCiclos + ': primero hay que pasarlos a otro turno.');
-      return;
-    }
     if (!confirmarEliminar) {
       setConfirmarEliminar(true);
-      setErrorEliminar(null);
       return;
     }
     const nombre = actual.nombre;
@@ -350,17 +311,17 @@ export default function A16Turnos() {
   const problemas = [...errores, ...(guardarAccion.error ? [guardarAccion.error] : [])];
 
   return (
-    <div style={css('width: 1440px; min-height: 1600px; display: flex; flex-direction: column; background: #f4f6f8;')}>
+    <div style={css('width: 100%; min-height: 100vh; display: flex; flex-direction: column; background: #f4f6f8;')}>
       <Cabecera />
 
-      <div style={css('display: flex; align-items: flex-end; gap: 24px; padding: 22px 28px 18px; background: #fff; border-bottom: 1px solid #e2e6ec; flex-shrink: 0;')}>
+      <div className="r-margen r-envolver" style={css('display: flex; align-items: flex-end; gap: 24px; padding: 22px 28px 18px; background: #fff; border-bottom: 1px solid #e2e6ec; flex-shrink: 0;')}>
         <div style={css('display: flex; flex-direction: column; gap: 6px;')}>
           <div style={css('display: flex; align-items: center; gap: 8px; font-size: 12px; color: #6b7482;')}>
-            <span onClick={() => ir('A1')} style={css('cursor: pointer;')}>Inicio</span>
+            <span onClick={() => ir(rutas.inicio())} style={css('cursor: pointer;')}>Inicio</span>
             <span style={css('color: #c3cad4;')}>/</span>
             <span style={css('color: #14181f; font-weight: 500;')}>Turnos</span>
           </div>
-          <div style={css('font-size: 24px; font-weight: 600; letter-spacing: -0.02em;')}>Turnos y franjas horarias</div>
+          <div className="r-titulo" style={css('font-size: 24px; font-weight: 600; letter-spacing: -0.02em;')}>Turnos y franjas horarias</div>
         </div>
         <div style={css('flex-grow: 1;')}></div>
         <button
@@ -374,20 +335,17 @@ export default function A16Turnos() {
         </button>
       </div>
 
-      <div style={css('padding: 20px 28px 28px; display: flex; flex-direction: column; gap: 18px;')}>
+      <div className="r-margen" style={css('padding: 20px 28px 28px; display: flex; flex-direction: column; gap: 18px;')}>
         <MensajeError mensaje={qTurnos.error?.message} />
 
         {/* ===== línea de tiempo del día ===== */}
         <div style={css('background: #fff; border: 1px solid #e2e6ec; border-radius: 10px; overflow: hidden;')}>
           <div style={css('display: flex; align-items: flex-end; gap: 16px; padding: 15px 20px 13px; border-bottom: 1px solid #eef1f5;')}>
-            <div style={css('display: flex; flex-direction: column; gap: 3px;')}>
-              <div style={css('font-size: 13.5px; font-weight: 600;')}>El día escolar, turno por turno</div>
-              <div style={css('font-size: 12px; color: #6b7482;')}>
-                Cada bloque es una hora cátedra. Los huecos entre bloques son los recreos, que también son franjas. Cada día de lunes a viernes tiene sus franjas, con los mismos horarios.
-              </div>
-            </div>
+            <div style={css('font-size: 13.5px; font-weight: 600;')}>El día escolar, turno por turno</div>
           </div>
-          <div style={css('padding: 12px 20px 16px; display: flex; flex-direction: column; gap: 8px;')}>
+          {/* En angosto la línea de tiempo (escala 07 a 24) se desplaza horizontalmente dentro de la tarjeta. */}
+          <div className="r-desplazar" style={css('padding: 12px 20px 16px;')}>
+          <div className="r-min-800" style={css('display: flex; flex-direction: column; gap: 8px;')}>
             <div style={css('display: grid; grid-template-columns: 200px 1fr; gap: 14px;')}>
               <div></div>
               <div style={css('position: relative; height: 16px;')}>
@@ -437,9 +395,10 @@ export default function A16Turnos() {
               </button>
             ))}
           </div>
+          </div>
         </div>
 
-        <div style={css('display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 18px; align-items: start;')}>
+        <div className="r-una-columna" style={css('display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 18px; align-items: start;')}>
           {/* ===== editor del turno ===== */}
           <div style={css('background: #fff; border: 1px solid #e2e6ec; border-radius: 10px; overflow: hidden;')}>
             <div style={css('display: flex; align-items: center; gap: 12px; padding: 15px 20px 13px; border-bottom: 1px solid #eef1f5;')}>
@@ -449,7 +408,7 @@ export default function A16Turnos() {
               )}
             </div>
             <div style={css('padding: 16px 20px; display: flex; flex-direction: column; gap: 14px; border-bottom: 1px solid #eef1f5;')}>
-              <div style={css('display: grid; grid-template-columns: 1fr 100px 120px 120px; gap: 10px;')}>
+              <div className="r-una-columna-movil" style={css('display: grid; grid-template-columns: 1fr 120px 120px; gap: 10px;')}>
                 <div style={css('display: flex; flex-direction: column; gap: 6px;')}>
                   <label style={css('font-size: 12px; font-weight: 600; color: #4a5462;')}>Nombre *</label>
                   <input
@@ -457,21 +416,8 @@ export default function A16Turnos() {
                     value={b.nombre}
                     onChange={(e) => cambiar({ ...b, nombre: e.target.value })}
                     disabled={!nuevo && !!actual}
-                    title={!nuevo && actual ? 'No disponible en la API: el nombre de un turno no se puede cambiar.' : undefined}
                     placeholder="Ej.: Vespertino"
                     style={css(CAMPO + (!nuevo && actual ? ' color: #4a5462; background: #f4f6f8;' : ''))}
-                  />
-                </div>
-                <div style={css('display: flex; flex-direction: column; gap: 6px;')}>
-                  <label style={css('font-size: 12px; font-weight: 600; color: #4a5462;')}>Código</label>
-                  <input
-                    type="text"
-                    value={codigoDe(b.nombre)}
-                    readOnly
-                    disabled
-                    title="La API no guarda el código del turno: se deriva del nombre."
-                    placeholder="TV"
-                    style={css(CAMPO + ' color: #4a5462; background: #f4f6f8;')}
                   />
                 </div>
                 <div style={css('display: flex; flex-direction: column; gap: 6px;')}>
@@ -483,7 +429,7 @@ export default function A16Turnos() {
                   <input type="time" value={b.fin} onChange={(e) => cambiar({ ...b, fin: e.target.value })} style={css(CAMPO)} />
                 </div>
               </div>
-              <div style={css('display: flex; align-items: flex-end; gap: 10px; padding: 12px 14px; border-radius: 9px; background: #fafbfc; border: 1px solid #eef1f5;')}>
+              <div className="r-envolver" style={css('display: flex; align-items: flex-end; gap: 10px; padding: 12px 14px; border-radius: 9px; background: #fafbfc; border: 1px solid #eef1f5;')}>
                 <div style={css('display: flex; flex-direction: column; gap: 6px; width: 130px;')}>
                   <label style={css('font-size: 12px; font-weight: 600; color: #4a5462;')}>Hora cátedra (min)</label>
                   <input type="text" value={String(b.dur)} onChange={(e) => cambiar({ ...b, dur: Number(e.target.value) || e.target.value })} style={css(CAMPO)} />
@@ -494,12 +440,12 @@ export default function A16Turnos() {
                 >
                   Generar las franjas
                 </button>
-                <span style={css('font-size: 11.5px; color: #7a8393; line-height: 1.45; flex-grow: 1;')}>
-                  Arma horas cátedra seguidas entre el inicio y el fin. Las franjas se crean para cada día, de lunes a viernes, con estos horarios. Los recreos también son franjas, marcadas como recreo: no se ocupan con clases. Para dejar uno, corré el inicio de la hora cátedra que va después y el hueco queda como recreo.
-                </span>
               </div>
             </div>
 
+            {/* En celular la tabla de franjas se desplaza horizontalmente dentro de la tarjeta. */}
+            <div className="r-desplazar">
+            <div className="r-min-600">
             <div style={css(FILA + ' padding: 10px 20px; background: #fafbfc; border-bottom: 1px solid #eef1f5;')}>
               <div style={css('font-size: 11.5px; font-weight: 600; color: #7a8393;')}>Franja</div>
               <div style={css('font-size: 11.5px; font-weight: 600; color: #7a8393;')}>Inicio</div>
@@ -508,6 +454,8 @@ export default function A16Turnos() {
               <div></div>
             </div>
             {filas}
+            </div>
+            </div>
             <div style={css('padding: 14px 20px 18px; display: flex; flex-direction: column; gap: 12px;')}>
               <button
                 onClick={agregarFranja}
@@ -515,9 +463,6 @@ export default function A16Turnos() {
               >
                 + Agregar una hora cátedra al final
               </button>
-              <div style={css('font-size: 11.5px; color: #7a8393; line-height: 1.45;')}>
-                Los recreos no se quitan desde acá: se mueven o desaparecen al cambiar las horas cátedra de al lado o al volver a generar las franjas.
-              </div>
               {problemas.map((p, i) => (
                 <div key={i} style={css('font-size: 12px; color: #a63244; background: #fbf1f2; border: 1px solid #f1d3d8; border-radius: 8px; padding: 9px 11px;')}>
                   {p}
@@ -526,7 +471,7 @@ export default function A16Turnos() {
               {aviso && (
                 <div style={css('font-size: 12px; color: #245239; background: #eef6f0; border: 1px solid #cfe5d6; border-radius: 8px; padding: 9px 11px;')}>{aviso}</div>
               )}
-              <div style={css('display: flex; gap: 10px;')}>
+              <div className="r-envolver" style={css('display: flex; gap: 10px;')}>
                 <button
                   onClick={guardar}
                   disabled={guardarAccion.enCurso}
@@ -569,27 +514,14 @@ export default function A16Turnos() {
                   <div style={css('font-size: 11px; color: #8a5a10; margin-top: 3px;')}>+ {recreosDia * nDias === 1 ? '1 recreo' : recreosDia * nDias + ' recreos'} por semana</div>
                 </div>
               </div>
-              <div style={css('font-size: 12px; color: #6b7482; line-height: 1.5;')}>
-                En total son {porDia + recreosDia} franjas por día y {(porDia + recreosDia) * nDias} por semana, contando los recreos. Un curso de este turno puede tener hasta {porDia * nDias} horas cátedra semanales. Si su plan tiene más, no entra en el turno.
-              </div>
             </div>
-            <div style={css('background: #fff; border: 1px solid #e2e6ec; border-radius: 10px; padding: 18px; display: flex; flex-direction: column; gap: 10px;')}>
-              <div style={css('font-size: 13.5px; font-weight: 600;')}>Cursos en este turno · {ciclo.activo?.anio_calendario ?? '—'}</div>
-              <div style={css('display: flex; gap: 6px; flex-wrap: wrap;')}>
-                {cursos.map((c) => (
-                  <span key={c.id_curso} style={css('padding: 5px 10px; border-radius: 7px; border: 1px solid #e2e6ec; background: #fafbfc; font-size: 12.5px; font-weight: 500;')}>
-                    {nombreCurso(c)}
-                  </span>
-                ))}
-                {cursos.length === 0 && <span style={css('font-size: 12px; color: #8b95a5;')}>Ninguno. El turno se elige al crear o editar un curso.</span>}
-              </div>
-              <div style={css('font-size: 11.5px; color: #7a8393; line-height: 1.5;')}>Si cambian las franjas, la grilla de esos cursos se arma con las franjas nuevas en la planificación.</div>
-              {(errorEliminar || eliminarAccion.error) && (
-                <div style={css('font-size: 12px; color: #a63244; background: #fbf1f2; border: 1px solid #f1d3d8; border-radius: 8px; padding: 9px 11px; line-height: 1.45;')}>
-                  {errorEliminar ?? eliminarAccion.error}
-                </div>
-              )}
-              {!nuevo && actual && (
+            {!nuevo && actual && (
+              <div style={css('background: #fff; border: 1px solid #e2e6ec; border-radius: 10px; padding: 18px; display: flex; flex-direction: column; gap: 10px;')}>
+                {eliminarAccion.error && (
+                  <div style={css('font-size: 12px; color: #a63244; background: #fbf1f2; border: 1px solid #f1d3d8; border-radius: 8px; padding: 9px 11px; line-height: 1.45;')}>
+                    {eliminarAccion.error}
+                  </div>
+                )}
                 <button
                   onClick={eliminar}
                   disabled={eliminarAccion.enCurso}
@@ -597,8 +529,8 @@ export default function A16Turnos() {
                 >
                   {confirmarEliminar ? 'Confirmar: eliminar el turno ' + actual.nombre : 'Eliminar el turno'}
                 </button>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

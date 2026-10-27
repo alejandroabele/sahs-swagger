@@ -1,0 +1,9 @@
+/* P4 · Mis recibos: ajustes responsive propios de la pantalla. */
+
+/* Tabla de conceptos: ancho mínimo para que la columna "Concepto" (1fr) tenga ~210 px antes de desplazarse. */
+.p4-min-tabla { min-width: 480px; }
+
+/* Encabezado y cuerpo de la tarjeta del recibo: margen interno más chico en celular. */
+@media (max-width: 700px) {
+  .p4-margen { padding-left: 14px !important; padding-right: 14px !important; }
+}

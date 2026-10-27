@@ -1,0 +1,9 @@
+/* A18 · Cambiar mi contraseña: ajustes responsive propios de la pantalla. */
+@media (max-width: 700px) {
+  /* Las migas se parten con un espacio vertical más chico que el de .r-envolver. */
+  .a18-migas { row-gap: 4px !important; }
+  /* Menos aire arriba del formulario en celular. */
+  .a18-cuerpo { padding-top: 18px !important; padding-bottom: 22px !important; }
+  /* Un email largo se corta en vez de desbordar la tarjeta. */
+  .a18-cuenta { min-width: 0 !important; overflow-wrap: anywhere; }
+}

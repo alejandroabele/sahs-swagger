@@ -11,6 +11,10 @@ export class MateriaResumen implements C.MateriaResumen {
   nombre_materia?: string;
   @ApiProperty({"type":"integer","format":"int64","example":5,"required":false})
   horas_semanales?: number;
+  @ApiProperty({"type":"integer","format":"int64","description":"Área de la materia (servicio Orientación), si tiene","example":2,"nullable":true,"required":false})
+  id_area?: number | null;
+  @ApiProperty({"type":"string","description":"Nombre del área de la materia","example":"Exactas","nullable":true,"required":false})
+  nombre_area?: string | null;
 }
 
 /** Resumen de FRANJA_HORARIA (servicio Horarios). */
@@ -85,6 +89,10 @@ export class MateriaCurso implements C.MateriaCurso {
   nombre_materia!: string;
   @ApiProperty({"type":"integer","format":"int64","description":"Horas de la materia en este curso. Si no se definen, se toman las de la materia.","example":4,"required":true})
   horas_semanales!: number;
+  @ApiProperty({"type":"integer","format":"int64","description":"Área de la materia (servicio Orientación), si tiene","example":2,"nullable":true,"required":false})
+  id_area?: number | null;
+  @ApiProperty({"type":"string","description":"Nombre del área de la materia","example":"Exactas","nullable":true,"required":false})
+  nombre_area?: string | null;
 }
 
 /** Catálogo gestionado con crear_estado_propuesta. Carga inicial: Borrador (BOR), En revisión (REV), Validada (VAL) y Cerrada (CER). El estado es de toda la propuesta, no de cada curso. */
@@ -187,4 +195,45 @@ export class Clase implements C.Clase {
   profesores?: ProfesorResumen[];
   @ApiProperty({ type: () => SuplenciaResumen,"nullable":true,"description":"Suplencia vigente de la clase, si la hay","readOnly":true,"required":false})
   suplencia?: SuplenciaResumen | null;
+}
+
+/** Horas de una materia de un curso que la generación no pudo ubicar. */
+@ApiSchema({ name: "HorasSinUbicar" })
+export class HorasSinUbicar implements C.HorasSinUbicar {
+  @ApiProperty({"type":"integer","format":"int64","example":1,"required":true})
+  id_curso!: number;
+  @ApiProperty({"type":"integer","format":"int64","example":3,"required":true})
+  id_materia!: number;
+  @ApiProperty({"type":"string","example":"1° A","required":true})
+  curso!: string;
+  @ApiProperty({"type":"string","example":"Matemática","required":true})
+  materia!: string;
+  @ApiProperty({"type":"integer","format":"int64","description":"Horas que quedaron sin ubicar","example":2,"required":true})
+  horas!: number;
+}
+
+/** Clase creada o editada por la generación, con lo que tenía antes (para deshacer). */
+@ApiSchema({ name: "CambioGeneracion" })
+export class CambioGeneracion implements C.CambioGeneracion {
+  @ApiProperty({"type":"integer","format":"int64","example":40,"required":true})
+  id_clase!: number;
+  @ApiProperty({"type":"boolean","description":"true si la generación creó la clase (para deshacer, se elimina)","example":true,"required":true})
+  creada!: boolean;
+  @ApiProperty({"type":"integer","format":"int64","isArray":true,"description":"Franjas que tenía la clase antes de generar (vacío si se creó)","required":true})
+  ids_franjas_horarias_previas!: number[];
+  @ApiProperty({"type":"integer","format":"int64","isArray":true,"description":"Docentes que tenía la clase antes de generar (vacío si se creó)","required":true})
+  ids_profesores_previos!: number[];
+}
+
+/** Resultado de generar_planilla: lo que se ubicó, lo que no y lo necesario para deshacer. */
+@ApiSchema({ name: "ResultadoGeneracion" })
+export class ResultadoGeneracion implements C.ResultadoGeneracion {
+  @ApiProperty({"type":"integer","format":"int64","description":"Horas cátedra ubicadas y guardadas","example":42,"required":true})
+  horas_ubicadas!: number;
+  @ApiProperty({ type: () => [HorasSinUbicar],"required":true})
+  sin_ubicar!: HorasSinUbicar[];
+  @ApiProperty({ type: () => [CambioGeneracion],"required":true})
+  cambios!: CambioGeneracion[];
+  @ApiProperty({"type":"string","isArray":true,"description":"Mensajes de las reglas que rechazaron un cambio (409); el resto se guardó igual","required":true})
+  errores!: string[];
 }

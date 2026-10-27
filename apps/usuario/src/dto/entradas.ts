@@ -16,7 +16,7 @@ export class LoginDto implements C.LoginBody {
   contrasenia!: string;
 }
 
-/** Body de POST /usuario/crear_usuario */
+/** Body de POST /usuario/usuarios */
 export class CrearUsuarioDto implements C.CrearUsuarioBody {
   @ApiProperty({"type":"string","example":"jramirez","required":true})
   @IsString()
@@ -37,7 +37,7 @@ export class CrearUsuarioDto implements C.CrearUsuarioBody {
   id_rol?: number;
 }
 
-/** Body de PUT /usuario/asignar_rol/{id} */
+/** Body de PUT /usuario/usuarios/{id}/rol */
 export class AsignarRolDto implements C.AsignarRolBody {
   @ApiProperty({"type":"integer","format":"int64","example":2,"required":true})
   @Type(() => Number)
@@ -45,7 +45,7 @@ export class AsignarRolDto implements C.AsignarRolBody {
   id_rol!: number;
 }
 
-/** Body de PUT /usuario/editar_usuario/{id} */
+/** Body de PUT /usuario/usuarios/{id} */
 export class EditarUsuarioDto implements C.EditarUsuarioBody {
   @ApiProperty({"type":"string","example":"jramirez","required":true})
   @IsString()
@@ -57,7 +57,7 @@ export class EditarUsuarioDto implements C.EditarUsuarioBody {
   email!: string;
 }
 
-/** Body de PATCH /usuario/cambiar_contrasenia/{id} */
+/** Body de PATCH /usuario/usuarios/{id}/contrasenia */
 export class CambiarContraseniaDto implements C.CambiarContraseniaBody {
   @ApiProperty({"type":"string","format":"password","example":"secreta123","writeOnly":true,"required":true})
   @IsString()
@@ -65,7 +65,7 @@ export class CambiarContraseniaDto implements C.CambiarContraseniaBody {
   contrasenia!: string;
 }
 
-/** Body de POST /usuario/crear_rol */
+/** Body de POST /usuario/roles */
 export class CrearRolDto implements C.CrearRolBody {
   @ApiProperty({"type":"string","example":"Administrativo","required":true})
   @IsString()
@@ -73,7 +73,7 @@ export class CrearRolDto implements C.CrearRolBody {
   nombre_rol!: string;
 }
 
-/** Body de POST /usuario/asignar_privilegio/{id} */
+/** Body de POST /usuario/roles/{id}/privilegios */
 export class AsignarPrivilegioDto implements C.AsignarPrivilegioBody {
   @ApiProperty({"type":"integer","format":"int64","example":5,"required":true})
   @Type(() => Number)
@@ -81,7 +81,7 @@ export class AsignarPrivilegioDto implements C.AsignarPrivilegioBody {
   id_privilegio!: number;
 }
 
-/** Body de PATCH /usuario/cambiar_nombre_rol/{id} */
+/** Body de PATCH /usuario/roles/{id} */
 export class CambiarNombreRolDto implements C.CambiarNombreRolBody {
   @ApiProperty({"type":"string","example":"Docente","required":true})
   @IsString()

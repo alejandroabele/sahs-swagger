@@ -3,8 +3,15 @@
  * Verifica el corte: compara el OpenAPI que publica cada servicio NestJS (/docs-json)
  * con el contrato congelado specs/<servicio>.json.
  *
- * Compara rutas, verbos, operationId, códigos de respuesta, parámetros (nombre, lugar,
- * obligatorio) y las propiedades y los obligatorios de los bodies y de las respuestas.
+ * Las dos especificaciones se indexan por operationId, no por ruta: los servicios publican
+ * rutas REST (`GET /usuario/usuarios/{id}`) y los contratos congelados conservan las rutas
+ * RPC del documento (`GET /usuario/get_usuario/{id}`). Para cada operationId compara el
+ * verbo, los códigos de respuesta, los parámetros (nombre, lugar y obligatorio; los de ruta
+ * se comparan por nombre, sin mirar en qué segmento están) y las propiedades y los
+ * obligatorios de los bodies y de las respuestas. La ruta en sí no se compara.
+ *
+ * Las diferencias aceptadas a propósito están abajo (AGREGADOS, CODIGOS_AGREGADOS y
+ * EXCEPCIONES) y documentadas en el README, "Cambios respecto del documento".
  *
  * Uso:
  *   npm run build && npm run verificar-contratos
@@ -30,10 +37,68 @@ const SERVICIOS = [
 
 /**
  * Diferencias aceptadas a propósito (documentadas en el README, "Cambios respecto del documento"):
- * operaciones agregadas y los códigos 409 y 503, que el contrato original no tenía.
+ * operaciones agregadas (por operationId) y los códigos 409 y 503, que el contrato original no tenía.
  */
-const AGREGADOS = new Set(['PUT /planificacion/editar_clase/{id}', 'DELETE /planificacion/eliminar_clase/{id}']);
+const AGREGADOS = new Set(['editar_clase', 'eliminar_clase', 'get_plan_de_estudios', 'generar_planilla']);
 const CODIGOS_AGREGADOS = ['409', '503'];
+/**
+ * Propiedades agregadas a propósito a un schema (por nombre del schema), también documentadas:
+ * el área de la materia anidada en el curso y en la clase, para no pedir el catálogo de materias.
+ */
+const PROPIEDADES_AGREGADAS = {
+  MateriaCurso: ['id_area', 'nombre_area'],
+  MateriaResumen: ['id_area', 'nombre_area'],
+};
+
+/**
+ * Diferencias de forma documentadas, por operationId. `ruta` es la ruta REST que tiene que
+ * publicar el servicio (para estas sí se controla). `ajustar` lleva la operación del contrato
+ * congelado a la forma nueva antes de comparar, así el resto (verbo, códigos, schemas) se
+ * sigue verificando.
+ */
+const EXCEPCIONES = {
+  cambiar_horas_materia_curso: {
+    motivo: 'id_materia pasa del body a la ruta: PATCH /planificacion/cursos/{id}/materias/{id_materia} con body { horas_semanales }',
+    ruta: 'PATCH /planificacion/cursos/{id}/materias/{id_materia}',
+    ajustar(op) {
+      const schema = op.requestBody.content['application/json'].schema;
+      const { id_materia, ...props } = schema.properties;
+      return {
+        ...op,
+        parameters: [...(op.parameters || []), { name: 'id_materia', in: 'path', required: true, schema: id_materia }],
+        requestBody: {
+          ...op.requestBody,
+          content: { 'application/json': { schema: { ...schema, properties: props, required: (schema.required || []).filter((r) => r !== 'id_materia') } } },
+        },
+      };
+    },
+  },
+  crear_suplencia: {
+    motivo: 'la suplencia es del profesor que la cubre: id_profesor pasa del body a la ruta, POST /profesor-suplencias/profesores/{id}/suplencias (con 404 si el profesor no existe)',
+    ruta: 'POST /profesor-suplencias/profesores/{id}/suplencias',
+    ajustar(op) {
+      const schema = op.requestBody.content['application/json'].schema;
+      const { id_profesor, ...props } = schema.properties;
+      return {
+        ...op,
+        parameters: [...(op.parameters || []), { name: 'id', in: 'path', required: true, schema: id_profesor }],
+        requestBody: {
+          ...op.requestBody,
+          content: { 'application/json': { schema: { ...schema, properties: props, required: (schema.required || []).filter((r) => r !== 'id_profesor') } } },
+        },
+        responses: {
+          ...op.responses,
+          404: op.responses['404'] ?? { description: 'No existe el recurso', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+        },
+      };
+    },
+  },
+  asignar_curso_a_anio_academico: {
+    motivo: 'pasa de POST /planificacion/asignar_curso_a_anio_academico/{id} a la sub-colección POST /planificacion/anios-academicos/{id}/cursos; parámetros y body no cambian',
+    ruta: 'POST /planificacion/anios-academicos/{id}/cursos',
+    ajustar: (op) => op,
+  },
+};
 
 const urlsDadas = Object.fromEntries(
   process.argv.filter((a, i) => process.argv[i - 1] === '--url').map((a) => a.split('=')),
@@ -54,6 +119,8 @@ function resolver(doc, s, vistos = new Set()) {
 
 /** Firma de un schema: tipo, propiedades, obligatorios (hasta 3 niveles). */
 function firma(doc, s, nivel = 0, vistos = new Set()) {
+  const ref = s && (s.$ref || (s.allOf && s.allOf.length === 1 && s.allOf[0].$ref));
+  const nombre = ref ? ref.split('/').pop() : null;
   s = resolver(doc, s, vistos);
   if (!s) return null;
   if (s.$ciclo) return { ref: s.$ciclo };
@@ -61,7 +128,8 @@ function firma(doc, s, nivel = 0, vistos = new Set()) {
   if (s.properties || s.type === 'object') {
     if (nivel > 3) return { objeto: true };
     const props = {};
-    for (const [k, v] of Object.entries(s.properties || {})) props[k] = firma(doc, v, nivel + 1, vistos);
+    const agregadas = PROPIEDADES_AGREGADAS[nombre] || [];
+    for (const [k, v] of Object.entries(s.properties || {})) if (!agregadas.includes(k)) props[k] = firma(doc, v, nivel + 1, vistos);
     return { props, required: [...(s.required || [])].sort() };
   }
   const t = s.type === 'number' || s.type === 'integer' ? 'numero' : s.type;
@@ -97,12 +165,16 @@ function comparar(a, b, ruta, difs) {
   }
 }
 
-function operaciones(doc) {
+/** Operaciones del documento por operationId: { metodo, ruta, op }. */
+function operaciones(doc, difs, origen) {
   const out = new Map();
   for (const [ruta, metodos] of Object.entries(doc.paths || {})) {
     for (const [m, op] of Object.entries(metodos)) {
       if (!['get', 'post', 'put', 'patch', 'delete'].includes(m)) continue;
-      out.set(`${m.toUpperCase()} ${ruta}`, op);
+      const id = op.operationId;
+      if (!id) difs?.push(`${m.toUpperCase()} ${ruta}: sin operationId en ${origen}`);
+      else if (out.has(id)) difs?.push(`${id}: operationId repetido en ${origen}`);
+      else out.set(id, { metodo: m.toUpperCase(), ruta, op });
     }
   }
   return out;
@@ -110,14 +182,20 @@ function operaciones(doc) {
 
 function compararDocs(contrato, servicio) {
   const difs = [];
-  const oc = operaciones(contrato), os_ = operaciones(servicio);
+  const oc = operaciones(contrato, difs, 'el contrato'), os_ = operaciones(servicio, difs, 'el servicio');
   for (const k of oc.keys()) if (!os_.has(k)) difs.push(`${k}: falta en el servicio`);
   for (const k of os_.keys()) if (!oc.has(k) && !AGREGADOS.has(k)) difs.push(`${k}: sobra en el servicio`);
-  for (const [k, a] of oc) {
-    const b = os_.get(k);
-    if (!b) continue;
-    if (k.endsWith('/actuator/health')) continue;
-    if (a.operationId !== b.operationId) difs.push(`${k}: operationId ${a.operationId} vs ${b.operationId}`);
+  for (const [k, c] of oc) {
+    const s = os_.get(k);
+    if (!s) continue;
+    if (k === 'health') continue;
+    const excepcion = EXCEPCIONES[k];
+    if (excepcion && `${s.metodo} ${s.ruta}` !== excepcion.ruta) {
+      difs.push(`${k}: la excepción documentada espera ${excepcion.ruta} y el servicio publica ${s.metodo} ${s.ruta}`);
+    }
+    if (c.metodo !== s.metodo) difs.push(`${k}: verbo ${c.metodo} en el contrato, ${s.metodo} en el servicio`);
+    const a = excepcion ? excepcion.ajustar(c.op) : c.op;
+    const b = s.op;
     const ca = Object.keys(a.responses).sort().join(','), cb = Object.keys(b.responses).filter((c) => !CODIGOS_AGREGADOS.includes(c)).sort().join(',');
     if (ca !== cb) difs.push(`${k}: códigos [${ca}] en el contrato, [${cb}] en el servicio`);
     const pa = (a.parameters || []).map((p) => `${p.in}:${p.name}:${!!p.required}`).sort().join(' ');
@@ -183,6 +261,9 @@ async function main() {
       const difs = compararDocs(contrato, servicio);
       total += difs.length;
       console.log(`${difs.length ? '✗' : '✓'} ${s.spec}: ${operaciones(servicio).size} operaciones, ${difs.length} diferencias`);
+      for (const [id, e] of Object.entries(EXCEPCIONES)) {
+        if (operaciones(contrato).has(id)) console.log(`    excepción documentada ${id}: ${e.motivo}`);
+      }
       for (const d of difs) console.log('    ' + d);
     }
   } finally {

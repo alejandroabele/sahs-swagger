@@ -7,9 +7,10 @@ import { pago } from '../api';
 import { Cabecera } from '../componentes/Cabecera';
 import { Cargando, MensajeError } from '../componentes/Estados';
 import { useAccion, useConsulta } from '../estado/consultas';
-import { useSesion } from '../estado/sesion';
+import { useMiProfesor, useSesion } from '../estado/sesion';
 import { css } from '../lib/css';
 import { descargar, fecha, nombrePeriodo, pesos } from '../lib/formato';
+import './p4/responsive.css';
 
 const ACCENT = '#2f5fd0';
 
@@ -18,7 +19,8 @@ const esHoras = (c: ConceptoRecibo) => /^horas c[aá]tedra/i.test(c.descripcion)
 const cantidadDe = (c: ConceptoRecibo) => (c.cantidad == null ? '' : `${c.cantidad.toLocaleString('es-AR')} ${esHoras(c) ? 'h' : '%'}`);
 
 export default function P4MisRecibos() {
-  const { profesor, usuario } = useSesion();
+  const { usuario } = useSesion();
+  const { profesor, cargando: cargandoProf } = useMiProfesor();
   const idProfesor = profesor?.id_profesor;
   const q = useConsulta(['pago', 'get_recibos_de_sueldo', { id_profesor: idProfesor }], () => pago.get_recibos_de_sueldo({ id_profesor: idProfesor }), {
     enabled: idProfesor != null,
@@ -62,17 +64,17 @@ export default function P4MisRecibos() {
   const yaDescargado = r != null && descargado === r.id_recibo_sueldo;
 
   return (
-    <div style={css('width: 1440px; min-height: 980px; display: flex; flex-direction: column; background: #f4f6f8;')}>
+    <div style={css('width: 100%; min-height: 100vh; display: flex; flex-direction: column; background: #f4f6f8;')}>
       <Cabecera conCiclo={false} />
 
-      <div style={css('display: flex; align-items: flex-end; gap: 24px; padding: 22px 28px 18px; background: #fff; border-bottom: 1px solid #e2e6ec; flex-shrink: 0;')}>
+      <div className="r-margen r-envolver" style={css('display: flex; align-items: flex-end; gap: 24px; padding: 22px 28px 18px; background: #fff; border-bottom: 1px solid #e2e6ec; flex-shrink: 0;')}>
         <div style={css('display: flex; flex-direction: column; gap: 6px;')}>
-          <div style={css('display: flex; align-items: center; gap: 8px; font-size: 12px; color: #6b7482;')}>
+          <div className="r-envolver" style={css('display: flex; align-items: center; gap: 8px; font-size: 12px; color: #6b7482;')}>
             <span>{profesor?.legajo ? `Legajo ${profesor.legajo}` : 'Sin legajo'}</span>
             <span style={css('color: #c3cad4;')}>/</span>
             <span>Ciclo lectivo {new Date().getFullYear()}</span>
           </div>
-          <div style={css('font-size: 24px; font-weight: 600; letter-spacing: -0.02em;')}>Mis recibos de sueldo</div>
+          <div className="r-titulo" style={css('font-size: 24px; font-weight: 600; letter-spacing: -0.02em;')}>Mis recibos de sueldo</div>
         </div>
         <div style={css('flex-grow: 1;')}></div>
         {recibos.length > 0 && (
@@ -97,26 +99,28 @@ export default function P4MisRecibos() {
         )}
       </div>
 
-      {!profesor ? (
-        <div style={css('padding: 20px 28px;')}>
+      {cargandoProf ? (
+        <Cargando />
+      ) : !profesor ? (
+        <div className="r-margen" style={css('padding: 20px 28px;')}>
           <div style={css('font-size: 12.5px; color: #a56a10; background: #fdf6ec; border: 1px solid #f1dfc0; border-radius: 8px; padding: 12px 14px;')}>
-            Tu usuario no está vinculado a ningún profesor, así que no hay recibos para mostrar. El vínculo se asigna desde la ficha del profesor.
+            Tu usuario no está vinculado a ningún profesor.
           </div>
         </div>
       ) : q.isLoading ? (
         <Cargando />
       ) : q.isError ? (
-        <div style={css('padding: 20px 28px;')}>
+        <div className="r-margen" style={css('padding: 20px 28px;')}>
           <MensajeError mensaje={q.error.message} />
         </div>
       ) : !r ? (
-        <div style={css('padding: 20px 28px;')}>
+        <div className="r-margen" style={css('padding: 20px 28px;')}>
           <div style={css('font-size: 12.5px; color: #6b7482; background: #fafbfc; border: 1px solid #e2e6ec; border-radius: 8px; padding: 12px 14px;')}>
             Todavía no tenés recibos de sueldo liquidados.
           </div>
         </div>
       ) : (
-        <div style={css('display: flex; gap: 18px; padding: 20px 28px 28px; align-items: flex-start;')}>
+        <div className="r-margen r-apilar" style={css('display: flex; gap: 18px; padding: 20px 28px 28px; align-items: flex-start;')}>
           <div style={css('width: 352px; flex-shrink: 0; background: #fff; border: 1px solid #e2e6ec; border-radius: 10px; overflow: hidden;')}>
             <div style={css('padding: 14px 16px 12px; border-bottom: 1px solid #eef1f5;')}>
               <div style={css('font-size: 13px; font-weight: 600;')}>Períodos disponibles</div>
@@ -159,7 +163,7 @@ export default function P4MisRecibos() {
           </div>
 
           <div style={css('flex-grow: 1; min-width: 0; background: #fff; border: 1px solid #e2e6ec; border-radius: 10px; overflow: hidden;')}>
-            <div style={css('display: flex; align-items: center; gap: 14px; padding: 15px 22px; border-bottom: 1px solid #eef1f5;')}>
+            <div className="r-envolver p4-margen" style={css('display: flex; align-items: center; gap: 14px; padding: 15px 22px; border-bottom: 1px solid #eef1f5;')}>
               <div style={css('display: flex; flex-direction: column; gap: 2px;')}>
                 <div style={css('font-size: 14px; font-weight: 600;')}>Recibo de haberes · {nombrePeriodo(r.periodo)}</div>
                 <div style={css('font-size: 12px; color: #6b7482;')}>
@@ -183,14 +187,14 @@ export default function P4MisRecibos() {
               </button>
             </div>
 
-            <div style={css('padding: 22px 22px 24px;')}>
+            <div className="p4-margen" style={css('padding: 22px 22px 24px;')}>
               {errorPdf && (
                 <div style={css('margin-bottom: 16px;')}>
                   <MensajeError mensaje={errorPdf} alCerrar={() => setErrorPdf(null)} />
                 </div>
               )}
 
-              <div style={css('display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; background: #eef1f5; border: 1px solid #eef1f5; border-radius: 9px; overflow: hidden; margin-bottom: 20px;')}>
+              <div className="r-grilla" style={css('display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; background: #eef1f5; border: 1px solid #eef1f5; border-radius: 9px; overflow: hidden; margin-bottom: 20px;')}>
                 <div style={css('background: #fafbfc; padding: 12px 14px;')}>
                   <div style={css('font-size: 11px; color: #7a8393; margin-bottom: 3px;')}>Apellido y nombre</div>
                   <div style={css('font-size: 13px; font-weight: 500;')}>
@@ -217,7 +221,8 @@ export default function P4MisRecibos() {
                 </div>
               </div>
 
-              <div style={css('display: grid; grid-template-columns: 1fr 120px 150px; gap: 0; font-size: 12.5px;')}>
+              <div className="r-desplazar">
+              <div className="p4-min-tabla" style={css('display: grid; grid-template-columns: 1fr 120px 150px; gap: 0; font-size: 12.5px;')}>
                 <div style={css('padding: 9px 12px; background: #f6f8fa; font-weight: 600; font-size: 11.5px; color: #4a5462; border-radius: 6px 0 0 0;')}>Concepto</div>
                 <div style={css('padding: 9px 12px; background: #f6f8fa; font-weight: 600; font-size: 11.5px; color: #4a5462; text-align: right;')}>Cantidad</div>
                 <div style={css('padding: 9px 12px; background: #f6f8fa; font-weight: 600; font-size: 11.5px; color: #4a5462; text-align: right; border-radius: 0 6px 0 0;')}>Importe</div>
@@ -236,9 +241,10 @@ export default function P4MisRecibos() {
                   ];
                 })}
               </div>
+              </div>
 
               <div style={css('display: flex; gap: 16px; margin-top: 20px; align-items: stretch;')}>
-                <div style={css('flex-grow: 1; display: flex; gap: 16px;')}>
+                <div className="r-apilar-movil" style={css('flex-grow: 1; display: flex; gap: 16px;')}>
                   <div style={css('flex-grow: 1; padding: 14px 16px; border-radius: 9px; background: #fafbfc; border: 1px solid #eef1f5;')}>
                     <div style={css('font-size: 11.5px; color: #7a8393; margin-bottom: 4px;')}>Total bruto</div>
                     <div className="mono" style={css('font-size: 18px; font-weight: 600;')}>
@@ -273,7 +279,7 @@ export default function P4MisRecibos() {
               >
                 {!firmado ? (
                   <div style={css('display: flex; flex-direction: column; gap: 12px; width: 100%;')}>
-                    <div style={css('display: flex; align-items: center; gap: 14px; width: 100%;')}>
+                    <div className="r-apilar-movil" style={css('display: flex; align-items: center; gap: 14px; width: 100%;')}>
                       <button
                         onClick={() => usuario && firmar.ejecutar(r.id_recibo_sueldo, usuario.id_usuario)}
                         disabled={firmar.enCurso || !usuario}
@@ -287,14 +293,11 @@ export default function P4MisRecibos() {
                         </svg>
                         {firmar.enCurso ? 'Firmando…' : 'Firmar conformidad'}
                       </button>
-                      <span style={css('font-size: 12px; color: #6b7482; line-height: 1.5;')}>
-                        Al firmar dejás constancia de que recibiste el recibo y estás de acuerdo con los importes. Si no coinciden, no lo firmes y avisá a secretaría.
-                      </span>
                     </div>
                     <MensajeError mensaje={firmar.error} alCerrar={firmar.limpiarError} />
                   </div>
                 ) : (
-                  <div style={css('display: flex; align-items: center; gap: 13px; width: 100%;')}>
+                  <div className="r-envolver" style={css('display: flex; align-items: center; gap: 13px; width: 100%;')}>
                     <span style={css('width: 34px; height: 34px; border-radius: 50%; background: #2f6b45; display: flex; align-items: center; justify-content: center; flex-shrink: 0;')}>
                       <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M20 6L9 17l-5-5"></path>

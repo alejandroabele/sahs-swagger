@@ -13,7 +13,7 @@ import { EstadoDePropuestaService } from './estado-de-propuesta.service';
 export class EstadoDePropuestaController {
   constructor(private readonly servicio: EstadoDePropuestaService) {}
 
-  @Post("crear_estado_propuesta")
+  @Post("estados-propuesta")
   @ApiOperation({"operationId":"crear_estado_propuesta","summary":"Crear estado de propuesta"})
   @ApiResponse({ status: 201, description: "Creado", type: EstadoPropuesta })
   @ApiResponse({ status: 400, description: 'Datos inválidos', type: ErrorApi })
@@ -21,7 +21,7 @@ export class EstadoDePropuestaController {
     return this.servicio.crear_estado_propuesta(body);
   }
 
-  @Get("get_posibles_estados_de_propuestas")
+  @Get("estados-propuesta")
   @ApiOperation({"operationId":"get_posibles_estados_de_propuestas","summary":"Listar estados posibles"})
   @ApiResponse({ status: 200, description: "OK", type: [EstadoPropuesta] })
   get_posibles_estados_de_propuestas(): Promise<EstadoPropuesta[]> {

@@ -2,18 +2,18 @@
 // DC.registrar("disponibilidad") en prototipo/index.html.
 // Profesores: profesor_suplencias.get_profesores (con su disponibilidad y materias habilitadas).
 // Grilla por turno: horarios.get_turnos. Guardar: asignar_disponibilidad (la lista completa, de todos los turnos).
-// Horas asignadas: franjas de sus clases en la propuesta vigente (VAL) del ciclo activo.
 import { useState } from 'react';
 import type { Profesor } from '@sahs/contratos';
-import { planificacion, profesorSuplencias } from '../api';
-import { useParamNumero } from '../app/navegar';
+import { profesorSuplencias } from '../api';
+import { useParamRuta } from '../app/navegar';
 import { Cabecera } from '../componentes/Cabecera';
 import { Cargando, MensajeError } from '../componentes/Estados';
 import { useCiclo } from '../estado/ciclo';
 import { useAccion, useConsulta } from '../estado/consultas';
 import { css } from '../lib/css';
 import { iniciales } from '../lib/formato';
-import { ACCENT, ResumenDeclaradas, SemanaDisponibilidad, contarEn, sinRecreos, turnoPreferido, useTurnos } from './disponibilidad/Semana';
+import './a2/responsive.css';
+import { ACCENT, SemanaDisponibilidad, contarEn, sinRecreos, turnoPreferido, useTurnos } from './disponibilidad/Semana';
 
 const PALETA = ['#eaf0fb', '#e8f5f2', '#f3edfa', '#fdf4e7', '#fbedf2'];
 const TEXTOS = ['#1e3f80', '#155e50', '#4a2f80', '#7a5310', '#8a2e52'];
@@ -23,7 +23,7 @@ const idsDe = (p: Profesor | null | undefined): number[] =>
 
 export default function A2Disponibilidad() {
   const { activo } = useCiclo();
-  const idInicial = useParamNumero('id_profesor');
+  const idInicial = useParamRuta('idProfesor');
   const qProfes = useConsulta(['profesor_suplencias', 'get_profesores'], () => profesorSuplencias.get_profesores());
   const qTurnos = useTurnos();
 
@@ -41,20 +41,6 @@ export default function A2Disponibilidad() {
   const ids = actual ? listaDe(actual) : [];
   const turno = turnos.find((t) => t.id_turno === idTurno) ?? turnoPreferido(ids, turnos);
 
-  // Horas asignadas hoy: franjas de las clases del docente en la propuesta vigente del ciclo.
-  const qPropuestas = useConsulta(
-    ['planificacion', 'get_propuestas', activo?.id_ciclo_lectivo],
-    () => planificacion.get_propuestas({ id_ciclo_lectivo: activo!.id_ciclo_lectivo }),
-    { enabled: !!activo },
-  );
-  const vigente = (qPropuestas.data ?? []).find((p) => p.estado?.codigo === 'VAL') ?? null;
-  const qClases = useConsulta(
-    ['planificacion', 'get_clases', vigente?.id_propuesta, idActual],
-    () => planificacion.get_clases({ id_propuesta: vigente!.id_propuesta, id_profesor: idActual! }),
-    { enabled: !!vigente && idActual != null },
-  );
-  const asignadas = (qClases.data ?? []).reduce((n, c) => n + (c.ids_franjas_horarias?.length ?? c.franjas_horarias?.length ?? 0), 0);
-
   const guardar = useAccion(
     (id: number, lista: number[]) => profesorSuplencias.asignar_disponibilidad(id, { ids_franjas_horarias: lista }),
     ['profesor_suplencias'],
@@ -62,7 +48,7 @@ export default function A2Disponibilidad() {
 
   if (qProfes.isLoading || qTurnos.isLoading) {
     return (
-      <div style={css('width: 1440px; min-height: 980px; display: flex; flex-direction: column; background: #f4f6f8;')}>
+      <div style={css('width: 100%; min-height: 100vh; display: flex; flex-direction: column; background: #f4f6f8;')}>
         <Cabecera />
         <Cargando />
       </div>
@@ -97,23 +83,21 @@ export default function A2Disponibilidad() {
   };
 
   const relevados = profes.filter((p) => contarEn(listaDe(p), turnos) > 0).length;
-  const declaradas = contarEn(ids, turnos);
   const materias = [...new Set((actual?.lista_materias_habilitadas ?? []).map((m) => m.nombre_materia ?? '').filter(Boolean))];
-  const pocas = declaradas < asignadas + 3;
   const nombreDe = (p: Profesor) => p.nombre + ' ' + p.apellido;
 
   return (
-    <div style={css('width: 1440px; min-height: 980px; display: flex; flex-direction: column; background: #f4f6f8;')}>
+    <div style={css('width: 100%; min-height: 100vh; display: flex; flex-direction: column; background: #f4f6f8;')}>
       <Cabecera />
 
-      <div style={css('display: flex; align-items: flex-end; gap: 24px; padding: 22px 28px 18px; background: #fff; border-bottom: 1px solid #e2e6ec; flex-shrink: 0;')}>
+      <div className="r-margen r-envolver" style={css('display: flex; align-items: flex-end; gap: 24px; padding: 22px 28px 18px; background: #fff; border-bottom: 1px solid #e2e6ec; flex-shrink: 0;')}>
         <div style={css('display: flex; flex-direction: column; gap: 6px;')}>
           <div style={css('display: flex; align-items: center; gap: 8px; font-size: 12px; color: #6b7482;')}>
             <span>Ciclo lectivo {activo?.anio_calendario ?? ''}</span>
             <span style={css('color: #c3cad4;')}>/</span>
             <span>Relevamiento previo al armado</span>
           </div>
-          <div style={css('font-size: 24px; font-weight: 600; letter-spacing: -0.02em;')}>Disponibilidad horaria declarada</div>
+          <div className="r-titulo" style={css('font-size: 24px; font-weight: 600; letter-spacing: -0.02em;')}>Disponibilidad horaria declarada</div>
         </div>
         <div style={css('flex-grow: 1;')}></div>
         <button
@@ -126,7 +110,7 @@ export default function A2Disponibilidad() {
       </div>
 
       {(qProfes.error || qTurnos.error || guardar.error) && (
-        <div style={css('padding: 16px 28px 0;')}>
+        <div className="r-margen" style={css('padding: 16px 28px 0;')}>
           <MensajeError
             mensaje={guardar.error ?? qProfes.error?.message ?? qTurnos.error?.message}
             alCerrar={guardar.error ? guardar.limpiarError : undefined}
@@ -134,7 +118,7 @@ export default function A2Disponibilidad() {
         </div>
       )}
 
-      <div style={css('display: flex; gap: 18px; padding: 20px 28px 28px; align-items: flex-start;')}>
+      <div className="r-margen r-apilar" style={css('display: flex; gap: 18px; padding: 20px 28px 28px; align-items: flex-start;')}>
         <div style={css('width: 262px; flex-shrink: 0; background: #fff; border: 1px solid #e2e6ec; border-radius: 10px; overflow: hidden;')}>
           <div style={css('padding: 14px 16px 11px; border-bottom: 1px solid #eef1f5;')}>
             <div style={css('font-size: 13px; font-weight: 600;')}>Docentes</div>
@@ -142,7 +126,7 @@ export default function A2Disponibilidad() {
               {relevados} de {profes.length} relevados
             </div>
           </div>
-          <div style={css('max-height: 560px; overflow-y: auto;')}>
+          <div className="a2-lista" style={css('max-height: 560px; overflow-y: auto;')}>
             {profes.map((p) => {
               const activoP = p.id_profesor === idActual;
               return (
@@ -185,39 +169,18 @@ export default function A2Disponibilidad() {
         </div>
 
         <div style={css('flex-grow: 1; min-width: 0; background: #fff; border: 1px solid #e2e6ec; border-radius: 10px; overflow: hidden;')}>
-          <div style={css('display: flex; align-items: center; gap: 14px; padding: 15px 20px; border-bottom: 1px solid #eef1f5;')}>
+          <div className="r-envolver" style={css('display: flex; align-items: center; gap: 14px; padding: 15px 20px; border-bottom: 1px solid #eef1f5;')}>
             <div style={css('display: flex; flex-direction: column; gap: 2px;')}>
               <div style={css('font-size: 14px; font-weight: 600;')}>{actual ? nombreDe(actual) : 'Sin docentes cargados'}</div>
               <div style={css('font-size: 12px; color: #6b7482;')}>
                 {materias.length ? 'Habilitado en ' + materias.join(', ') : 'Sin materias habilitadas'}
               </div>
             </div>
-            <div style={css('flex-grow: 1;')}></div>
-            <div style={css('font-size: 11.5px; color: #6b7482;')}>Hacé clic en una franja para marcarla o desmarcarla</div>
           </div>
           {actual && <SemanaDisponibilidad turnos={turnos} turno={turno} ids={ids} alElegirTurno={setIdTurno} alCambiar={cambiar} />}
         </div>
 
         <div style={css('width: 296px; flex-shrink: 0; display: flex; flex-direction: column; gap: 16px;')}>
-          <div style={css('background: #fff; border: 1px solid #e2e6ec; border-radius: 10px; padding: 16px;')}>
-            <div style={css('font-size: 13px; font-weight: 600; margin-bottom: 13px;')}>Resumen del docente</div>
-            <div style={css('display: flex; flex-direction: column; gap: 11px;')}>
-              <ResumenDeclaradas ids={ids} turnos={turnos} turno={turno} />
-              <div style={css('display: flex; justify-content: space-between; font-size: 12px; padding-top: 4px;')}>
-                <span style={css('color: #6b7482;')}>Horas asignadas hoy</span>
-                <span className="mono" style={css('font-weight: 500;')}>
-                  {asignadas} h
-                </span>
-              </div>
-              <div style={css('display: flex; justify-content: space-between; font-size: 12px;')}>
-                <span style={css('color: #6b7482;')}>Tope provincial</span>
-                <span className="mono" style={css('font-weight: 500;')}>
-                  36 h
-                </span>
-              </div>
-            </div>
-          </div>
-
           <div style={css('background: #fff; border: 1px solid #e2e6ec; border-radius: 10px; padding: 16px;')}>
             <div style={css('font-size: 13px; font-weight: 600; margin-bottom: 11px;')}>Materias que puede dictar</div>
             <div style={css('display: flex; flex-wrap: wrap; gap: 6px;')}>
@@ -229,24 +192,6 @@ export default function A2Disponibilidad() {
                   {n}
                 </span>
               ))}
-            </div>
-          </div>
-
-          <div
-            style={css(
-              'border-radius: 10px; padding: 14px 16px; border: 1px solid ' + (pocas ? '#f0dcbe' : '#dfe8f7') + '; background: ' + (pocas ? '#fdf6ec' : '#f3f6fc') + ';',
-            )}
-          >
-            <div style={css('display: flex; gap: 10px; align-items: flex-start;')}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={pocas ? '#a56a10' : ACCENT} strokeWidth="2" strokeLinecap="round" style={css('flex-shrink: 0; margin-top: 1px;')}>
-                <path d="M12 8v5M12 16.5v.5"></path>
-                <circle cx="12" cy="12" r="9"></circle>
-              </svg>
-              <div style={css('font-size: 12px; line-height: 1.55; color: ' + (pocas ? '#7a5310' : '#2c4570') + ';')}>
-                {pocas
-                  ? 'La disponibilidad declarada deja poco margen sobre las horas ya asignadas: el generador puede no encontrar franja para alguna materia de este docente.'
-                  : 'Margen suficiente para que el generador ubique las materias de este docente sin conflictos.'}
-              </div>
             </div>
           </div>
         </div>

@@ -7,49 +7,49 @@ export const usuario = {
   /** POST /usuario/login — Ingresar al sistema. Sin esquema de seguridad por ahora: el token se devuelve como texto simple. */
   login: (body: LoginBody) =>
     pedir<LoginRespuesta>(`/usuario/login`, { metodo: 'POST', body }),
-  /** POST /usuario/crear_usuario — Crear usuario */
+  /** POST /usuario/usuarios — Crear usuario */
   crear_usuario: (body: CrearUsuarioBody) =>
-    pedir<Usuario>(`/usuario/crear_usuario`, { metodo: 'POST', body }),
-  /** PUT /usuario/asignar_rol/{id} — Asignar el rol del usuario (reemplaza el anterior) */
-  asignar_rol: (id: number, body: AsignarRolBody) =>
-    pedir<Usuario>(`/usuario/asignar_rol/${id}`, { metodo: 'PUT', body }),
-  /** PUT /usuario/editar_usuario/{id} — Editar usuario (nombre de usuario y email). Reemplaza el nombre de usuario y el email. No cambia la contraseña (`cambiar_contrasenia`) ni el rol (`asignar_rol`). */
-  editar_usuario: (id: number, body: EditarUsuarioBody) =>
-    pedir<Usuario>(`/usuario/editar_usuario/${id}`, { metodo: 'PUT', body }),
-  /** PATCH /usuario/cambiar_contrasenia/{id} — Cambiar contraseña */
-  cambiar_contrasenia: (id: number, body: CambiarContraseniaBody) =>
-    pedir<Usuario>(`/usuario/cambiar_contrasenia/${id}`, { metodo: 'PATCH', body }),
-  /** DELETE /usuario/eliminar_usuario/{id} — Eliminar usuario */
-  eliminar_usuario: (id: number) =>
-    pedir<void>(`/usuario/eliminar_usuario/${id}`, { metodo: 'DELETE' }),
-  /** GET /usuario/get_usuario/{id} — Obtener usuario (con su rol anidado) */
-  get_usuario: (id: number) =>
-    pedir<Usuario>(`/usuario/get_usuario/${id}`, { metodo: 'GET' }),
-  /** GET /usuario/get_usuarios — Listar usuarios */
+    pedir<Usuario>(`/usuario/usuarios`, { metodo: 'POST', body }),
+  /** GET /usuario/usuarios — Listar usuarios */
   get_usuarios: () =>
-    pedir<Usuario[]>(`/usuario/get_usuarios`, { metodo: 'GET' }),
-  /** POST /usuario/crear_rol — Crear rol */
+    pedir<Usuario[]>(`/usuario/usuarios`, { metodo: 'GET' }),
+  /** PUT /usuario/usuarios/{id}/rol — Asignar el rol del usuario (reemplaza el anterior) */
+  asignar_rol: (id: number, body: AsignarRolBody) =>
+    pedir<Usuario>(`/usuario/usuarios/${id}/rol`, { metodo: 'PUT', body }),
+  /** PUT /usuario/usuarios/{id} — Editar usuario (nombre de usuario y email). Reemplaza el nombre de usuario y el email. No cambia la contraseña (`cambiar_contrasenia`) ni el rol (`asignar_rol`). */
+  editar_usuario: (id: number, body: EditarUsuarioBody) =>
+    pedir<Usuario>(`/usuario/usuarios/${id}`, { metodo: 'PUT', body }),
+  /** DELETE /usuario/usuarios/{id} — Eliminar usuario */
+  eliminar_usuario: (id: number) =>
+    pedir<void>(`/usuario/usuarios/${id}`, { metodo: 'DELETE' }),
+  /** GET /usuario/usuarios/{id} — Obtener usuario (con su rol anidado) */
+  get_usuario: (id: number) =>
+    pedir<Usuario>(`/usuario/usuarios/${id}`, { metodo: 'GET' }),
+  /** PATCH /usuario/usuarios/{id}/contrasenia — Cambiar contraseña */
+  cambiar_contrasenia: (id: number, body: CambiarContraseniaBody) =>
+    pedir<Usuario>(`/usuario/usuarios/${id}/contrasenia`, { metodo: 'PATCH', body }),
+  /** POST /usuario/roles — Crear rol */
   crear_rol: (body: CrearRolBody) =>
-    pedir<Rol>(`/usuario/crear_rol`, { metodo: 'POST', body }),
-  /** POST /usuario/asignar_privilegio/{id} — Asignar un privilegio al rol */
-  asignar_privilegio: (id: number, body: AsignarPrivilegioBody) =>
-    pedir<Rol>(`/usuario/asignar_privilegio/${id}`, { metodo: 'POST', body }),
-  /** DELETE /usuario/quitar_privilegio/{id}/{id_privilegio} — Quitar un privilegio del rol */
-  quitar_privilegio: (id: number, idPrivilegio: number) =>
-    pedir<Rol>(`/usuario/quitar_privilegio/${id}/${idPrivilegio}`, { metodo: 'DELETE' }),
-  /** DELETE /usuario/eliminar_rol/{id} — Eliminar rol */
-  eliminar_rol: (id: number) =>
-    pedir<void>(`/usuario/eliminar_rol/${id}`, { metodo: 'DELETE' }),
-  /** PATCH /usuario/cambiar_nombre_rol/{id} — Cambiar nombre del rol */
-  cambiar_nombre_rol: (id: number, body: CambiarNombreRolBody) =>
-    pedir<Rol>(`/usuario/cambiar_nombre_rol/${id}`, { metodo: 'PATCH', body }),
-  /** GET /usuario/get_roles — Listar roles */
+    pedir<Rol>(`/usuario/roles`, { metodo: 'POST', body }),
+  /** GET /usuario/roles — Listar roles */
   get_roles: () =>
-    pedir<Rol[]>(`/usuario/get_roles`, { metodo: 'GET' }),
-  /** GET /usuario/get_rol_privilegios/{id} — Privilegios del rol */
+    pedir<Rol[]>(`/usuario/roles`, { metodo: 'GET' }),
+  /** POST /usuario/roles/{id}/privilegios — Asignar un privilegio al rol */
+  asignar_privilegio: (id: number, body: AsignarPrivilegioBody) =>
+    pedir<Rol>(`/usuario/roles/${id}/privilegios`, { metodo: 'POST', body }),
+  /** GET /usuario/roles/{id}/privilegios — Privilegios del rol */
   get_rol_privilegios: (id: number) =>
-    pedir<Privilegio[]>(`/usuario/get_rol_privilegios/${id}`, { metodo: 'GET' }),
-  /** GET /usuario/get_privilegios — Listar privilegios */
+    pedir<Privilegio[]>(`/usuario/roles/${id}/privilegios`, { metodo: 'GET' }),
+  /** DELETE /usuario/roles/{id}/privilegios/{id_privilegio} — Quitar un privilegio del rol */
+  quitar_privilegio: (id: number, idPrivilegio: number) =>
+    pedir<Rol>(`/usuario/roles/${id}/privilegios/${idPrivilegio}`, { metodo: 'DELETE' }),
+  /** DELETE /usuario/roles/{id} — Eliminar rol */
+  eliminar_rol: (id: number) =>
+    pedir<void>(`/usuario/roles/${id}`, { metodo: 'DELETE' }),
+  /** PATCH /usuario/roles/{id} — Cambiar nombre del rol */
+  cambiar_nombre_rol: (id: number, body: CambiarNombreRolBody) =>
+    pedir<Rol>(`/usuario/roles/${id}`, { metodo: 'PATCH', body }),
+  /** GET /usuario/privilegios — Listar privilegios */
   get_privilegios: () =>
-    pedir<Privilegio[]>(`/usuario/get_privilegios`, { metodo: 'GET' }),
+    pedir<Privilegio[]>(`/usuario/privilegios`, { metodo: 'GET' }),
 };

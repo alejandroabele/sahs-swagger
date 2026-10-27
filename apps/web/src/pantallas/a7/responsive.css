@@ -1,0 +1,8 @@
+/* Ajustes responsive propios de A8 (Alta de profesor) y A9 (Ficha del profesor).
+   Los estilos de las pantallas están en línea, por eso estas reglas usan !important. */
+
+@media (max-width: 700px) {
+  /* Grillas de campos que pasan a una columna: los campos que ocupaban dos columnas
+     (grid-column: span 2) crearían una columna implícita, así que se anulan. */
+  .a7-campos > * { grid-column: auto !important; }
+}

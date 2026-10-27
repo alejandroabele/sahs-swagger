@@ -13,7 +13,7 @@ import { AreaService } from './area.service';
 export class AreaController {
   constructor(private readonly servicio: AreaService) {}
 
-  @Post("crear_area")
+  @Post("areas")
   @ApiOperation({"operationId":"crear_area","summary":"Crear área"})
   @ApiResponse({ status: 201, description: "Creado", type: Area })
   @ApiResponse({ status: 400, description: 'Datos inválidos', type: ErrorApi })
@@ -21,7 +21,7 @@ export class AreaController {
     return this.servicio.crear_area(body);
   }
 
-  @Post("asignar_materia_area/:id")
+  @Post("areas/:id/materias")
   @HttpCode(200)
   @ApiOperation({"operationId":"asignar_materia_area","summary":"Asignar una materia al área"})
   @ApiParam({"name":"id","description":"Id del área","type":"integer","format":"int64"})
@@ -32,7 +32,7 @@ export class AreaController {
     return this.servicio.asignar_materia_area(id, body);
   }
 
-  @Delete("eliminar_area/:id")
+  @Delete("areas/:id")
   @HttpCode(204)
   @ApiOperation({"operationId":"eliminar_area","summary":"Eliminar área"})
   @ApiParam({"name":"id","description":"Id del área","type":"integer","format":"int64"})
@@ -42,7 +42,7 @@ export class AreaController {
     return this.servicio.eliminar_area(id);
   }
 
-  @Delete("quitar_materia_area/:id/:id_materia")
+  @Delete("areas/:id/materias/:id_materia")
   @ApiOperation({"operationId":"quitar_materia_area","summary":"Quitar una materia del área"})
   @ApiParam({"name":"id","description":"Id del área","type":"integer","format":"int64"})
   @ApiParam({"name":"id_materia","description":"Id de la materia a quitar","type":"integer","format":"int64"})
@@ -52,7 +52,7 @@ export class AreaController {
     return this.servicio.quitar_materia_area(id, idMateria);
   }
 
-  @Get("get_area/:id")
+  @Get("areas/:id")
   @ApiOperation({"operationId":"get_area","summary":"Obtener área (con su coordinador)","description":"Invoca: profesor_suplencias.get_profesor"})
   @ApiParam({"name":"id","description":"Id del área","type":"integer","format":"int64"})
   @ApiResponse({ status: 200, description: "OK", type: Area })
@@ -61,14 +61,14 @@ export class AreaController {
     return this.servicio.get_area(id);
   }
 
-  @Get("get_areas")
+  @Get("areas")
   @ApiOperation({"operationId":"get_areas","summary":"Listar áreas"})
   @ApiResponse({ status: 200, description: "OK", type: [Area] })
   get_areas(): Promise<Area[]> {
     return this.servicio.get_areas();
   }
 
-  @Get("get_materias_area/:id")
+  @Get("areas/:id/materias")
   @ApiOperation({"operationId":"get_materias_area","summary":"Materias del área"})
   @ApiParam({"name":"id","description":"Id del área","type":"integer","format":"int64"})
   @ApiResponse({ status: 200, description: "OK", type: [Materia] })
@@ -77,7 +77,7 @@ export class AreaController {
     return this.servicio.get_materias_area(id);
   }
 
-  @Get("get_profesores_area/:id")
+  @Get("areas/:id/profesores")
   @ApiOperation({"operationId":"get_profesores_area","summary":"Profesores del área","description":"Invoca: profesor_suplencias.get_profesor"})
   @ApiParam({"name":"id","description":"Id del área","type":"integer","format":"int64"})
   @ApiResponse({ status: 200, description: "OK", type: [ProfesorResumen] })

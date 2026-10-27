@@ -15,7 +15,7 @@ export class PagoService {
    */
   async crear_pago(body: CrearPagoDto): Promise<Pago> {
     validarPeriodo(body.periodo);
-    await this.a.profesores.exigir<C.Profesor>(`get_profesor/${body.id_profesor}`, `No existe el profesor ${body.id_profesor}`);
+    await this.a.profesores.exigir<C.Profesor>(`profesores/${body.id_profesor}`, `No existe el profesor ${body.id_profesor}`);
     if (await this.a.pagos.findOneBy({ id_profesor: body.id_profesor, periodo: body.periodo })) {
       throw conflicto(`El profesor ya tiene un pago del período ${body.periodo}`);
     }
@@ -64,7 +64,7 @@ export class PagoService {
   /** {id} es el profesor. No guarda nada. Invoca: profesor_suplencias.get_profesor. */
   async calcular_monto_a_liquidar(id: number, query: CalcularMontoALiquidarQuery): Promise<MontoLiquidar> {
     validarPeriodo(query.periodo);
-    const p = await this.a.profesores.buscar<C.Profesor>(`get_profesor/${id}`);
+    const p = await this.a.profesores.buscar<C.Profesor>(`profesores/${id}`);
     if (!p) throw noEncontrado(`No existe el profesor ${id}`);
     const liq = await this.a.liquidar(id, query.periodo);
     return { id_profesor: id, periodo: query.periodo, monto: liq.neto };

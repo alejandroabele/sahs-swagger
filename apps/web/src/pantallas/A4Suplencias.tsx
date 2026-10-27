@@ -2,7 +2,7 @@
 // Se elige el docente ausente, el período y el motivo; se listan sus clases en la propuesta vigente (VAL)
 // del ciclo (planificacion.get_clases), con la grilla del curso; para cada clase se elige un suplente
 // entre los habilitados en la materia, disponibles en todas sus franjas y sin otra clase en esas horas.
-// Registrar = profesor_suplencias.crear_suplencia, una por suplente. Cada clase se cubre entera.
+// Registrar = profesor_suplencias.crear_suplencia (POST /profesores/{suplente}/suplencias), una por suplente. Cada clase se cubre entera.
 import { useMemo, useState } from 'react';
 import type { Clase, Curso, FranjaHorariaResumen, Profesor, Suplencia } from '@sahs/contratos';
 import { planificacion, profesorSuplencias } from '../api';
@@ -12,6 +12,7 @@ import { useCiclo } from '../estado/ciclo';
 import { useAccion, useConsulta } from '../estado/consultas';
 import { css } from '../lib/css';
 import { DIAS, fecha, iniciales } from '../lib/formato';
+import './a4/responsive.css';
 
 const ACCENT = '#2f5fd0';
 const ALTO_CELDA = 48;
@@ -152,7 +153,10 @@ export default function A4Suplencias() {
     { enabled: idProp != null && cursoVista != null },
   );
 
-  const crear = useAccion((body: Parameters<typeof profesorSuplencias.crear_suplencia>[0]) => profesorSuplencias.crear_suplencia(body), ['profesor_suplencias', 'planificacion']);
+  const crear = useAccion(
+    (idSuplente: number, body: Parameters<typeof profesorSuplencias.crear_suplencia>[1]) => profesorSuplencias.crear_suplencia(idSuplente, body),
+    ['profesor_suplencias', 'planificacion'],
+  );
 
   const profes = useMemo(
     () => [...(qProfes.data ?? [])].sort((a, b) => (a.apellido + a.nombre).localeCompare(b.apellido + b.nombre)),
@@ -265,18 +269,13 @@ export default function A4Suplencias() {
   const notaDe = (k: Clase) => {
     if ((k.ids_profesores?.length ?? 0) < 2 || st.ausente == null) return '';
     const otros = (k.profesores ?? []).filter((p) => p.id_profesor !== st.ausente).map(nombreProf).join(' y ');
-    return `Clase compartida: el suplente cubre la clase entera, en reemplazo de ${nombreDe(st.ausente)}. ${otros} sigue dictando con el suplente.`;
+    return `Clase compartida con ${otros}.`;
   };
 
   // ---- panel de candidatos
   const selX = st.sel != null ? (afectadaDe.get(st.sel) ?? null) : null;
   let panelTitulo = 'Candidatos para cubrir';
-  let panelSubtitulo =
-    st.ausente != null
-      ? afectadas.length
-        ? `Elegí una de las ${afectadas.length} clases afectadas para ver quién puede cubrirla.`
-        : 'No hay clases para cubrir en el período.'
-      : 'Elegí un docente ausente, el período y después una clase afectada.';
+  let panelSubtitulo = st.ausente != null && !afectadas.length ? 'No hay clases para cubrir en el período.' : '';
   const candidatos: { id: number; nombre: string; motivo: string; carga: string }[] = [];
   const noSirven: { id: number; nombre: string; motivo: string }[] = [];
   let textoVacio = '';
@@ -284,7 +283,7 @@ export default function A4Suplencias() {
   if (selX) {
     const k = selX.k;
     panelTitulo = `${materiaDe(k)} · ${nombreCurso(k.id_curso)}`;
-    panelSubtitulo = `${textoFranjas(k, selX.franjas)} · ${selX.horas} h del ${corta(st.desde)} al ${corta(st.hasta)}. El suplente tiene que poder dar todas.`;
+    panelSubtitulo = `${textoFranjas(k, selX.franjas)} · ${selX.horas} h del ${corta(st.desde)} al ${corta(st.hasta)}`;
     notaCompartida = notaDe(k);
     if (!selX.reg && !st.asign[k.id_clase]) {
       const posibles = profes.filter(
@@ -303,8 +302,8 @@ export default function A4Suplencias() {
       }
       if (!candidatos.length)
         textoVacio = posibles.length
-          ? 'Nadie puede cubrir la clase entera en el período. Probá acortar el período o reprogramar la clase.'
-          : `${materiaDe(k)} no tiene otro docente habilitado en la institución. La clase queda descubierta: hay que reprogramarla o cubrirla con otra actividad.`;
+          ? 'Nadie puede cubrir la clase entera en el período.'
+          : `${materiaDe(k)} no tiene otro docente habilitado.`;
     }
   }
 
@@ -324,7 +323,7 @@ export default function A4Suplencias() {
     const lineas: string[] = [];
     const asign = { ...st.asign };
     for (const [idp, ks] of porSuplente) {
-      const r = await crear.ejecutar({ fecha_inicio: st.desde, fecha_fin: st.hasta, motivo, id_profesor: idp, ids_clases: ks.map((k) => k.id_clase) });
+      const r = await crear.ejecutar(idp, { fecha_inicio: st.desde, fecha_fin: st.hasta, motivo, ids_clases: ks.map((k) => k.id_clase) });
       if (!r) break;
       ks.forEach((k) => delete asign[k.id_clase]);
       lineas.push(`${nombreDe(idp)} cubre ${ks.map((k) => `${materiaDe(k)} (${nombreCurso(k.id_curso)})`).join(', ')} · ${motivo}`);
@@ -425,19 +424,13 @@ export default function A4Suplencias() {
     : 'Revisá las fechas: "hasta" tiene que ser igual o posterior a "desde".';
   const clasesTitulo = st.ausente != null ? `Clases de ${nombreDe(st.ausente)} en el período` : 'Clases a cubrir';
   const clasesSubtitulo =
-    st.ausente == null
-      ? 'Elegí un docente ausente para ver sus clases.'
-      : !periodoOk
-        ? 'El período no es válido.'
-        : afectadas.length
-          ? 'Cada clase la cubre un solo suplente, en todas sus horas del período. Elegí una para ver candidatos.'
-          : 'No tiene clases dentro del período elegido.';
+    st.ausente == null ? '' : !periodoOk ? 'El período no es válido.' : afectadas.length ? '' : 'No tiene clases dentro del período elegido.';
   const coberturaColor = afectadas.length && cubiertas === afectadas.length ? '#2f6b45' : '#c2621f';
   const coberturaTexto =
     afectadas.length === 0
       ? 'Sin clases afectadas en el período elegido.'
       : cubiertas === afectadas.length
-        ? 'Todas las clases del período tienen suplente. Ya podés registrar la suplencia.'
+        ? 'Todas las clases del período tienen suplente.'
         : `${afectadas.length - cubiertas} clase(s) todavía sin suplente.`;
 
   const cargando = qProp.isLoading || qProfes.isLoading || qCursos.isLoading || qTodas.isLoading;
@@ -452,24 +445,24 @@ export default function A4Suplencias() {
   const turnoVista = cursoVista != null ? (cursos.get(cursoVista)?.turno?.nombre ?? '') : '';
 
   return (
-    <div style={css('width: 1440px; min-height: 980px; display: flex; flex-direction: column; background: #f4f6f8;')}>
+    <div style={css('width: 100%; min-height: 100vh; display: flex; flex-direction: column; background: #f4f6f8;')}>
       <Cabecera />
 
-      <div style={css('display: flex; align-items: flex-end; gap: 24px; padding: 22px 28px 0; background: #fff; border-bottom: 1px solid #e2e6ec; flex-shrink: 0;')}>
+      <div className="r-margen r-envolver" style={css('display: flex; align-items: flex-end; gap: 24px; padding: 22px 28px 0; background: #fff; border-bottom: 1px solid #e2e6ec; flex-shrink: 0;')}>
         <div style={css('display: flex; flex-direction: column; gap: 6px; padding-bottom: 14px;')}>
-          <div style={css('display: flex; align-items: center; gap: 8px; font-size: 12px; color: #6b7482;')}>
+          <div className="r-envolver" style={css('display: flex; align-items: center; gap: 8px; font-size: 12px; color: #6b7482;')}>
             <span>Ciclo lectivo {activo?.anio_calendario ?? '—'}</span>
             <span style={css('color: #c3cad4;')}>/</span>
             <span style={css('color: #14181f; font-weight: 500;')}>Novedades del personal</span>
             <span style={css('color: #c3cad4;')}>/</span>
             <span>{vigente ? `Planilla validada el ${fecha(vigente.fecha_modificacion)}` : 'Sin planilla validada'}</span>
           </div>
-          <div style={css('font-size: 24px; font-weight: 600; letter-spacing: -0.02em;')}>Suplencias del período</div>
+          <div className="r-titulo" style={css('font-size: 24px; font-weight: 600; letter-spacing: -0.02em;')}>Suplencias del período</div>
         </div>
         <div style={css('flex-grow: 1;')}></div>
-        <div style={css('display: flex; flex-direction: column; align-items: flex-end; gap: 6px; padding-bottom: 14px;')}>
+        <div className="a4-atajos" style={css('display: flex; flex-direction: column; align-items: flex-end; gap: 6px; padding-bottom: 14px;')}>
           <span style={css('font-size: 11px; color: #8b95a5;')}>Atajos de período</span>
-          <div style={css('display: flex; gap: 2px;')}>
+          <div className="r-desplazar" style={css('display: flex; gap: 2px;')}>
             {semanas.map((s, i) => {
               const activa = st.desde === s.desde && st.hasta === s.hasta;
               return (
@@ -498,13 +491,12 @@ export default function A4Suplencias() {
         </div>
       </div>
 
-      <div style={css('display: flex; gap: 18px; padding: 20px 28px 28px; align-items: flex-start;')}>
+      <div className="r-margen r-apilar" style={css('display: flex; gap: 18px; padding: 20px 28px 28px; align-items: flex-start;')}>
         {/* ---- panel: ausencia ---- */}
         <div style={css('width: 300px; flex-shrink: 0; display: flex; flex-direction: column; gap: 16px;')}>
           <div style={css('background: #fff; border: 1px solid #e2e6ec; border-radius: 10px; overflow: hidden;')}>
             <div style={css('padding: 14px 16px 11px; border-bottom: 1px solid #eef1f5;')}>
               <div style={css('font-size: 13px; font-weight: 600;')}>Docente ausente</div>
-              <div style={css('font-size: 12px; color: #6b7482; margin-top: 3px;')}>Elegí quién no dicta en el período</div>
             </div>
             <div style={css('max-height: 280px; overflow-y: auto;')}>
               {qProfes.isLoading && <Cargando />}
@@ -668,7 +660,7 @@ export default function A4Suplencias() {
           <div style={css('background: #fff; border: 1px solid #e2e6ec; border-radius: 10px; overflow: hidden;')}>
             <div style={css('padding: 14px 18px 11px; border-bottom: 1px solid #eef1f5;')}>
               <div style={css('font-size: 13px; font-weight: 600;')}>{clasesTitulo}</div>
-              <div style={css('font-size: 12px; color: #6b7482; margin-top: 3px;')}>{clasesSubtitulo}</div>
+              {clasesSubtitulo && <div style={css('font-size: 12px; color: #6b7482; margin-top: 3px;')}>{clasesSubtitulo}</div>}
             </div>
             {(cargando || qAusente.isLoading) && st.ausente != null && <Cargando />}
             {afectadas.map((x) => {
@@ -680,6 +672,7 @@ export default function A4Suplencias() {
               return (
                 <button
                   key={k.id_clase}
+                  className="r-envolver"
                   onClick={() => set({ sel: sel ? null : k.id_clase, cursoVista: k.id_curso })}
                   style={css(
                     'display: flex; align-items: center; gap: 14px; width: 100%; padding: 11px 18px; border: none;' +
@@ -714,13 +707,13 @@ export default function A4Suplencias() {
           </div>
 
           <div style={css('background: #fff; border: 1px solid #e2e6ec; border-radius: 10px; overflow: hidden;')}>
-            <div style={css('display: flex; align-items: center; gap: 14px; padding: 14px 18px; border-bottom: 1px solid #eef1f5;')}>
+            <div className="r-envolver" style={css('display: flex; align-items: center; gap: 14px; padding: 14px 18px; border-bottom: 1px solid #eef1f5;')}>
               <div style={css('font-size: 13px; font-weight: 600;')}>
                 Planilla vigente · {cursoNombreVista}
                 {turnoVista ? ' · ' + turnoVista : ''}
               </div>
               {cursosAusIds.length > 1 && (
-                <div style={css('display: flex; gap: 6px;')}>
+                <div className="r-envolver" style={css('display: flex; gap: 6px;')}>
                   {cursosAusIds.map((c) => (
                     <button key={c} onClick={() => set({ cursoVista: c })} style={css(chip(c === cursoVista))}>
                       {nombreCurso(c)}
@@ -729,7 +722,7 @@ export default function A4Suplencias() {
                 </div>
               )}
               <div style={css('flex-grow: 1;')}></div>
-              <div style={css('display: flex; align-items: center; gap: 13px; font-size: 11.5px; color: #6b7482;')}>
+              <div className="r-envolver" style={css('display: flex; align-items: center; gap: 13px; font-size: 11.5px; color: #6b7482;')}>
                 <span style={css('display: flex; align-items: center; gap: 6px;')}>
                   <span style={css('width: 11px; height: 11px; border-radius: 3px; background: #f6f8fa; border: 1px solid #e2e6ec;')}></span>Sin cambios
                 </span>
@@ -743,10 +736,9 @@ export default function A4Suplencias() {
             </div>
 
             <div style={css('padding: 14px 18px 18px;')}>
-              {cursoVista == null ? (
-                <div style={css('font-size: 12.5px; color: #6b7482; padding: 6px 0;')}>Elegí un docente ausente para ver la planilla de sus cursos.</div>
-              ) : (
-                <>
+              {cursoVista == null ? null : (
+                <div className="r-desplazar">
+                  <div className="r-min-600">
                   <div style={css('display: grid; grid-template-columns: 104px repeat(5, minmax(0, 1fr)); gap: 5px; margin-bottom: 5px;')}>
                     <div></div>
                     {DIAS.map((nombre, d) => (
@@ -802,7 +794,8 @@ export default function A4Suplencias() {
                       </div>
                     ),
                   )}
-                </>
+                  </div>
+                </div>
               )}
             </div>
           </div>
@@ -820,7 +813,7 @@ export default function A4Suplencias() {
               <div style={css('padding: 14px 18px; font-size: 12.5px; color: #6b7482;')}>No hay suplencias registradas en el período.</div>
             )}
             {registradas.map((s) => (
-              <div key={s.id_suplencia} style={css('display: flex; align-items: center; gap: 12px; padding: 11px 18px; border-bottom: 1px solid #f4f6f8;')}>
+              <div key={s.id_suplencia} className="r-envolver" style={css('display: flex; align-items: center; gap: 12px; padding: 11px 18px; border-bottom: 1px solid #f4f6f8;')}>
                 <span style={css(avatar('#ecf5ef', '#245239'))}>{iniciales(s.profesor?.nombre ?? '', s.profesor?.apellido ?? '')}</span>
                 <span style={css('display: flex; flex-direction: column; gap: 3px; min-width: 0; flex-grow: 1;')}>
                   <span style={css('font-size: 13px; font-weight: 600; color: #14181f;')}>
@@ -846,7 +839,7 @@ export default function A4Suplencias() {
         <div style={css('width: 322px; flex-shrink: 0; background: #fff; border: 1px solid #e2e6ec; border-radius: 10px; overflow: hidden;')}>
           <div style={css('padding: 14px 16px 12px; border-bottom: 1px solid #eef1f5;')}>
             <div style={css('font-size: 13px; font-weight: 600;')}>{panelTitulo}</div>
-            <div style={css('font-size: 12px; color: #6b7482; margin-top: 3px; line-height: 1.45;')}>{panelSubtitulo}</div>
+            {panelSubtitulo && <div style={css('font-size: 12px; color: #6b7482; margin-top: 3px; line-height: 1.45;')}>{panelSubtitulo}</div>}
             {notaCompartida && (
               <div style={css('margin-top: 8px; padding: 8px 10px; border-radius: 7px; background: #f1effa; font-size: 11.5px; color: #4a3f8f; line-height: 1.45;')}>{notaCompartida}</div>
             )}
@@ -939,7 +932,7 @@ export default function A4Suplencias() {
                     Quitar suplencia
                   </button>
                 )}
-                {selX.reg && <div style={css('font-size: 11px; color: #3d6b4f; line-height: 1.45;')}>Ya está registrada: la API no permite eliminar suplencias.</div>}
+                {selX.reg && <div style={css('font-size: 11px; color: #3d6b4f; line-height: 1.45;')}>Ya está registrada.</div>}
               </div>
             </div>
           )}

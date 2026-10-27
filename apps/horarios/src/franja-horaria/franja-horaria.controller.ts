@@ -13,7 +13,7 @@ import { FranjaHorariaService } from './franja-horaria.service';
 export class FranjaHorariaController {
   constructor(private readonly servicio: FranjaHorariaService) {}
 
-  @Post("crear_franja_horaria")
+  @Post("franjas-horarias")
   @ApiOperation({"operationId":"crear_franja_horaria","summary":"Crear franja horaria"})
   @ApiResponse({ status: 201, description: "Creado", type: FranjaHoraria })
   @ApiResponse({ status: 400, description: 'Datos inválidos', type: ErrorApi })
@@ -21,7 +21,7 @@ export class FranjaHorariaController {
     return this.servicio.crear_franja_horaria(body);
   }
 
-  @Get("get_franja_horaria/:id")
+  @Get("franjas-horarias/:id")
   @ApiOperation({"operationId":"get_franja_horaria","summary":"Obtener franja horaria"})
   @ApiParam({"name":"id","description":"Id de la franja horaria","type":"integer","format":"int64"})
   @ApiResponse({ status: 200, description: "OK", type: FranjaHoraria })
@@ -30,7 +30,7 @@ export class FranjaHorariaController {
     return this.servicio.get_franja_horaria(id);
   }
 
-  @Get("get_franjas_horarias")
+  @Get("franjas-horarias")
   @ApiOperation({"operationId":"get_franjas_horarias","summary":"Listar franjas horarias"})
   @ApiResponse({ status: 200, description: "OK", type: [FranjaHoraria] })
   get_franjas_horarias(): Promise<FranjaHoraria[]> {

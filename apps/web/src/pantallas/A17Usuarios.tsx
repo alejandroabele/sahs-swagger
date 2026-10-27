@@ -8,12 +8,15 @@ import { useState } from 'react';
 import { useQueries } from '@tanstack/react-query';
 import type { Privilegio, Usuario } from '@sahs/contratos';
 import { usuario as api } from '../api';
-import { useNavegar } from '../app/navegar';
+import { useIr } from '../app/navegar';
+import { rutas } from '../app/rutas';
+import { useLocation } from 'react-router-dom';
 import { Cabecera } from '../componentes/Cabecera';
 import { Cargando, MensajeError } from '../componentes/Estados';
 import { useAccion, useConsulta } from '../estado/consultas';
 import { useSesion } from '../estado/sesion';
 import { css } from '../lib/css';
+import './a17/responsive.css';
 
 const ACCENT = '#2f5fd0';
 /** Privilegio «Usuarios»: si se lo quita al propio rol, se pierde el acceso a esta pantalla. */
@@ -50,22 +53,11 @@ function estiloCaja(marcada: boolean) {
   );
 }
 
-function Info({ texto }: { texto: string }) {
-  return (
-    <div style={css('display: flex; align-items: flex-start; gap: 11px; padding: 14px 16px; border-radius: 10px; border: 1px solid #e2e6ec; background: #fafbfc;')}>
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#8b95a5" strokeWidth="2" strokeLinecap="round" style={css('flex-shrink: 0; margin-top: 1px;')}>
-        <circle cx="12" cy="12" r="9"></circle>
-        <path d="M12 11.5v5M12 8v.5"></path>
-      </svg>
-      <span style={css('font-size: 12.5px; color: #6b7482; line-height: 1.55;')}>{texto}</span>
-    </div>
-  );
-}
-
 export default function A17Usuarios() {
-  const ir = useNavegar();
+  const ir = useIr();
   const sesion = useSesion();
-  const [tab, setTab] = useState<'usuarios' | 'roles'>('usuarios');
+  // La pestaña sale de la ruta: /usuarios o /roles.
+  const tab: 'usuarios' | 'roles' = useLocation().pathname === rutas.roles() ? 'roles' : 'usuarios';
 
   const qUsuarios = useConsulta(['usuario', 'get_usuarios'], () => api.get_usuarios());
   const qRoles = useConsulta(['usuario', 'get_roles'], () => api.get_roles());
@@ -89,26 +81,26 @@ export default function A17Usuarios() {
   const errorCarga = qUsuarios.error?.message || qRoles.error?.message || qPrivilegios.error?.message;
 
   return (
-    <div style={css('width: 1440px; min-height: 980px; display: flex; flex-direction: column; background: #f4f6f8;')}>
+    <div style={css('width: 100%; min-height: 100vh; display: flex; flex-direction: column; background: #f4f6f8;')}>
       <Cabecera />
 
-      <div style={css('display: flex; align-items: flex-end; gap: 24px; padding: 22px 28px 0; background: #fff; border-bottom: 1px solid #e2e6ec; flex-shrink: 0;')}>
+      <div className="r-margen r-envolver a17-banda" style={css('display: flex; align-items: flex-end; gap: 24px; padding: 22px 28px 0; background: #fff; border-bottom: 1px solid #e2e6ec; flex-shrink: 0;')}>
         <div style={css('display: flex; flex-direction: column; gap: 6px; padding-bottom: 16px;')}>
-          <div style={css('display: flex; align-items: center; gap: 8px; font-size: 12px; color: #6b7482;')}>
-            <span onClick={() => ir('A1')} style={css('cursor: pointer;')}>
+          <div className="r-envolver a17-migas" style={css('display: flex; align-items: center; gap: 8px; font-size: 12px; color: #6b7482;')}>
+            <span onClick={() => ir(rutas.inicio())} style={css('cursor: pointer;')}>
               Inicio
             </span>
             <span style={css('color: #c3cad4;')}>/</span>
             <span style={css('color: #14181f; font-weight: 500;')}>Usuarios</span>
           </div>
-          <div style={css('font-size: 24px; font-weight: 600; letter-spacing: -0.02em;')}>Usuarios y roles</div>
+          <div className="r-titulo" style={css('font-size: 24px; font-weight: 600; letter-spacing: -0.02em;')}>Usuarios y roles</div>
         </div>
         <div style={css('flex-grow: 1;')}></div>
         <div style={css('display: flex; gap: 4px;')}>
-          <button onClick={() => setTab('usuarios')} style={css(estiloTab(tab === 'usuarios'))}>
+          <button onClick={() => ir(rutas.usuarios())} style={css(estiloTab(tab === 'usuarios'))}>
             Usuarios <span style={css(estiloCant(tab === 'usuarios'))}>{usuarios.length}</span>
           </button>
-          <button onClick={() => setTab('roles')} style={css(estiloTab(tab === 'roles'))}>
+          <button onClick={() => ir(rutas.roles())} style={css(estiloTab(tab === 'roles'))}>
             Roles <span style={css(estiloCant(tab === 'roles'))}>{roles.length}</span>
           </button>
         </div>
@@ -117,7 +109,7 @@ export default function A17Usuarios() {
       {cargando ? (
         <Cargando />
       ) : errorCarga ? (
-        <div style={css('padding: 20px 28px;')}>
+        <div className="r-margen" style={css('padding: 20px 28px;')}>
           <MensajeError mensaje={errorCarga} />
         </div>
       ) : tab === 'usuarios' ? (
@@ -171,7 +163,7 @@ function PestaniaUsuarios({ usuarios, roles, idSesion }: { usuarios: Usuario[]; 
     const email = n.email.trim().toLowerCase();
     if (!RE_NOMBRE.test(nombre)) return setError('El nombre de usuario lleva al menos 3 caracteres: letras minúsculas, números, punto o guion bajo.');
     if (usuarios.some((u) => u.nombre_user === nombre)) return setError('Ya existe un usuario «' + nombre + '».');
-    if (!RE_EMAIL.test(email)) return setError('Escribí un email válido, por ejemplo pfernandez@donbosco.edu.ar.');
+    if (!RE_EMAIL.test(email)) return setError('Escribí un email válido.');
     if (usuarios.some((u) => u.email.toLowerCase() === email)) return setError('El email ' + email + ' ya está registrado.');
     if (n.clave.length < MIN_CLAVE) return setError(`La contraseña provisoria tiene que tener al menos ${MIN_CLAVE} caracteres.`);
     limpiarAvisos();
@@ -179,7 +171,7 @@ function PestaniaUsuarios({ usuarios, roles, idSesion }: { usuarios: Usuario[]; 
     const hecho = await crear.ejecutar({ nombre_user: nombre, email, contrasenia: n.clave, ...(rol ? { id_rol: rol.id_rol } : {}) });
     if (!hecho) return;
     setN({ nombre: '', email: '', clave: '', rol: '' });
-    setAviso('Se dio de alta el usuario ' + nombre + (rol ? ' con el rol ' + rol.nombre_rol + '.' : ' sin rol: asignáselo desde la columna Rol.'));
+    setAviso('Se dio de alta el usuario ' + nombre + (rol ? ' con el rol ' + rol.nombre_rol + '.' : ' sin rol.'));
   };
 
   const guardarReset = async () => {
@@ -199,7 +191,7 @@ function PestaniaUsuarios({ usuarios, roles, idSesion }: { usuarios: Usuario[]; 
     const email = e.email.trim().toLowerCase();
     if (!RE_NOMBRE.test(nombre)) return setE({ ...e, error: 'El nombre de usuario lleva al menos 3 caracteres: letras minúsculas, números, punto o guion bajo.' });
     if (usuarios.some((u) => u.id_usuario !== editar && u.nombre_user === nombre)) return setE({ ...e, error: 'Ya existe un usuario «' + nombre + '».' });
-    if (!RE_EMAIL.test(email)) return setE({ ...e, error: 'Escribí un email válido, por ejemplo pfernandez@donbosco.edu.ar.' });
+    if (!RE_EMAIL.test(email)) return setE({ ...e, error: 'Escribí un email válido.' });
     if (usuarios.some((u) => u.id_usuario !== editar && u.email.toLowerCase() === email)) return setE({ ...e, error: 'El email ' + email + ' ya está registrado.' });
     const hecho = await editarU.ejecutar(editar, nombre, email);
     if (!hecho) return;
@@ -210,10 +202,10 @@ function PestaniaUsuarios({ usuarios, roles, idSesion }: { usuarios: Usuario[]; 
   const errorAlta = error || crear.error || asignarRol.error || eliminar.error;
 
   return (
-    <div style={css('padding: 20px 28px 28px; display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 20px; align-items: start;')}>
+    <div className="r-margen r-una-columna" style={css('padding: 20px 28px 28px; display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 20px; align-items: start;')}>
       <div style={css('display: flex; flex-direction: column; gap: 16px;')}>
         <div style={css('background: #fff; border: 1px solid #e2e6ec; border-radius: 10px; overflow: hidden;')}>
-          <div style={css('display: flex; align-items: center; gap: 14px; padding: 13px 20px; border-bottom: 1px solid #eef1f5;')}>
+          <div className="r-envolver" style={css('display: flex; align-items: center; gap: 14px; padding: 13px 20px; border-bottom: 1px solid #eef1f5;')}>
             <span style={css('font-size: 13px; font-weight: 600;')}>Usuarios registrados</span>
             <span style={css('font-size: 12px; color: #6b7482;')}>{usuarios.length === 1 ? '1 usuario' : usuarios.length + ' usuarios'}</span>
             <div style={css('flex-grow: 1;')}></div>
@@ -221,141 +213,146 @@ function PestaniaUsuarios({ usuarios, roles, idSesion }: { usuarios: Usuario[]; 
               value={busca}
               onChange={(ev) => setBusca(ev.target.value)}
               placeholder="Buscar por usuario o email"
+              className="r-ancho-movil"
               style={css('height: 34px; width: 260px; padding: 0 12px; border-radius: 8px; border: 1px solid #dfe4ea; font-size: 12.5px; background: #fcfdfe;')}
             />
           </div>
-          <div style={css(COLS + ' padding: 10px 20px; background: #fafbfc; border-bottom: 1px solid #eef1f5;')}>
-            <div style={css('font-size: 11.5px; font-weight: 600; color: #7a8393;')}>Usuario</div>
-            <div style={css('font-size: 11.5px; font-weight: 600; color: #7a8393;')}>Email</div>
-            <div style={css('font-size: 11.5px; font-weight: 600; color: #7a8393;')}>Rol</div>
-            <div style={css('font-size: 11.5px; font-weight: 600; color: #7a8393; text-align: right;')}>Acciones</div>
-          </div>
-          {lista.map((u, i) => {
-            const esVos = u.id_usuario === idSesion;
-            const confirmando = borrar === u.id_usuario;
-            const marcado = reset === u.id_usuario || editar === u.id_usuario;
-            const tieneRol = roles.some((x) => x.id_rol === u.id_rol);
-            const ops = tieneRol ? opciones : [{ valor: String(u.id_rol ?? ''), label: 'Sin rol' }, ...opciones];
-            const btnPanel = (activo: boolean) =>
-              'height: 30px; padding: 0 11px; border-radius: 7px; font-size: 11.5px; font-weight: 600; white-space: nowrap;' +
-              ' border: 1px solid ' + (activo ? ACCENT : '#dfe4ea') + '; background: ' + (activo ? '#f3f6fc' : '#fff') + ';' +
-              ' color: ' + (activo ? ACCENT : '#4a5462') + ';';
-            return (
-              <div
-                key={u.id_usuario}
-                style={css(
-                  COLS +
-                    ' padding: 11px 20px; align-items: center;' +
-                    (i === 0 ? '' : ' border-top: 1px solid #f2f4f7;') +
-                    (confirmando ? ' background: #fbf1f2;' : marcado ? ' background: #f3f6fc; box-shadow: inset 3px 0 0 ' + ACCENT + ';' : ''),
-                )}
-              >
-                <span style={css('display: flex; align-items: center; gap: 8px; min-width: 0;')}>
-                  <span className="mono" style={css('font-size: 13px; font-weight: 600;')}>{u.nombre_user}</span>
-                  {esVos && (
-                    <span style={css('font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 9px; background: #14181f; color: #fff; letter-spacing: 0.03em;')}>VOS</span>
-                  )}
-                </span>
-                <span style={css('font-size: 12.5px; color: #4a5462; align-self: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;')}>{u.email}</span>
-                <span style={css('align-self: center;')}>
-                  <select
-                    value={String(u.id_rol ?? '')}
-                    disabled={asignarRol.enCurso}
-                    onChange={async (ev) => {
-                      const id_rol = Number(ev.target.value);
-                      limpiarAvisos();
-                      const hecho = await asignarRol.ejecutar(u.id_usuario, id_rol);
-                      if (hecho) setAviso(u.nombre_user + ' ahora tiene el rol ' + (roles.find((x) => x.id_rol === id_rol)?.nombre_rol ?? '') + '.');
-                    }}
-                    style={css('height: 32px; width: 100%; padding: 0 8px; border-radius: 7px; border: 1px solid #dfe4ea; background: #fff; font-size: 12.5px; color: #14181f;')}
-                  >
-                    {ops.map((o) => (
-                      <option key={o.valor} value={o.valor}>
-                        {o.label}
-                      </option>
-                    ))}
-                  </select>
-                </span>
-                <span style={css('align-self: center; display: flex; justify-content: flex-end; gap: 6px;')}>
-                  {!confirmando ? (
-                    <>
-                      <button
-                        onClick={() => {
-                          setEditar(u.id_usuario);
-                          setReset(null);
-                          setBorrar(null);
-                          setE({ nombre: u.nombre_user, email: u.email, error: null });
-                          editarU.limpiarError();
-                          setAviso(null);
-                        }}
-                        style={css(btnPanel(editar === u.id_usuario))}
-                      >
-                        Editar
-                      </button>
-                      <button
-                        onClick={() => {
-                          setReset(u.id_usuario);
-                          setEditar(null);
-                          setBorrar(null);
-                          setR({ clave1: '', clave2: '', error: null });
-                          cambiarClave.limpiarError();
-                          setAviso(null);
-                        }}
-                        style={css(btnPanel(reset === u.id_usuario))}
-                      >
-                        Resetear contraseña
-                      </button>
-                      <button
-                        onClick={() => {
-                          if (esVos) {
-                            setError('No podés eliminar tu propio usuario.');
-                            setAviso(null);
-                            return;
-                          }
-                          setBorrar(u.id_usuario);
-                          limpiarAvisos();
-                        }}
-                        style={css(
-                          'height: 30px; padding: 0 11px; border-radius: 7px; font-size: 11.5px; font-weight: 500;' +
-                            (esVos ? ' border: 1px solid #e2e6ec; background: #f4f6f8; color: #b9c1cc; cursor: default;' : ' border: 1px solid #f1d3d8; background: #fff; color: #a63244;'),
-                        )}
-                      >
-                        Eliminar
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <span style={css('font-size: 12px; color: #a63244; align-self: center;')}>¿Eliminar?</span>
-                      <button
-                        disabled={eliminar.enCurso}
-                        onClick={async () => {
-                          const hecho = await eliminar.ejecutar(u.id_usuario);
-                          setBorrar(null);
-                          if (!hecho) return;
-                          if (reset === u.id_usuario) setReset(null);
-                          if (editar === u.id_usuario) setEditar(null);
-                          setAviso('Se eliminó el usuario ' + u.nombre_user + '.');
-                        }}
-                        style={css('height: 30px; padding: 0 11px; border-radius: 7px; border: none; background: #a63244; color: #fff; font-size: 11.5px; font-weight: 600;')}
-                      >
-                        Sí, eliminar
-                      </button>
-                      <button
-                        onClick={() => setBorrar(null)}
-                        style={css('height: 30px; padding: 0 11px; border-radius: 7px; border: 1px solid #dfe4ea; background: #fff; color: #4a5462; font-size: 11.5px;')}
-                      >
-                        Cancelar
-                      </button>
-                    </>
-                  )}
-                </span>
+          {/* La tabla se desplaza horizontalmente dentro de la tarjeta cuando no entra. */}
+          <div className="r-desplazar">
+            <div className="a17-tabla">
+              <div style={css(COLS + ' padding: 10px 20px; background: #fafbfc; border-bottom: 1px solid #eef1f5;')}>
+                <div style={css('font-size: 11.5px; font-weight: 600; color: #7a8393;')}>Usuario</div>
+                <div style={css('font-size: 11.5px; font-weight: 600; color: #7a8393;')}>Email</div>
+                <div style={css('font-size: 11.5px; font-weight: 600; color: #7a8393;')}>Rol</div>
+                <div style={css('font-size: 11.5px; font-weight: 600; color: #7a8393; text-align: right;')}>Acciones</div>
               </div>
-            );
-          })}
+              {lista.map((u, i) => {
+                const esVos = u.id_usuario === idSesion;
+                const confirmando = borrar === u.id_usuario;
+                const marcado = reset === u.id_usuario || editar === u.id_usuario;
+                const tieneRol = roles.some((x) => x.id_rol === u.id_rol);
+                const ops = tieneRol ? opciones : [{ valor: String(u.id_rol ?? ''), label: 'Sin rol' }, ...opciones];
+                const btnPanel = (activo: boolean) =>
+                  'height: 30px; padding: 0 11px; border-radius: 7px; font-size: 11.5px; font-weight: 600; white-space: nowrap;' +
+                  ' border: 1px solid ' + (activo ? ACCENT : '#dfe4ea') + '; background: ' + (activo ? '#f3f6fc' : '#fff') + ';' +
+                  ' color: ' + (activo ? ACCENT : '#4a5462') + ';';
+                return (
+                  <div
+                    key={u.id_usuario}
+                    style={css(
+                      COLS +
+                        ' padding: 11px 20px; align-items: center;' +
+                        (i === 0 ? '' : ' border-top: 1px solid #f2f4f7;') +
+                        (confirmando ? ' background: #fbf1f2;' : marcado ? ' background: #f3f6fc; box-shadow: inset 3px 0 0 ' + ACCENT + ';' : ''),
+                    )}
+                  >
+                    <span style={css('display: flex; align-items: center; gap: 8px; min-width: 0;')}>
+                      <span className="mono" style={css('font-size: 13px; font-weight: 600;')}>{u.nombre_user}</span>
+                      {esVos && (
+                        <span style={css('font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 9px; background: #14181f; color: #fff; letter-spacing: 0.03em;')}>VOS</span>
+                      )}
+                    </span>
+                    <span style={css('font-size: 12.5px; color: #4a5462; align-self: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;')}>{u.email}</span>
+                    <span style={css('align-self: center;')}>
+                      <select
+                        value={String(u.id_rol ?? '')}
+                        disabled={asignarRol.enCurso}
+                        onChange={async (ev) => {
+                          const id_rol = Number(ev.target.value);
+                          limpiarAvisos();
+                          const hecho = await asignarRol.ejecutar(u.id_usuario, id_rol);
+                          if (hecho) setAviso(u.nombre_user + ' ahora tiene el rol ' + (roles.find((x) => x.id_rol === id_rol)?.nombre_rol ?? '') + '.');
+                        }}
+                        style={css('height: 32px; width: 100%; padding: 0 8px; border-radius: 7px; border: 1px solid #dfe4ea; background: #fff; font-size: 12.5px; color: #14181f;')}
+                      >
+                        {ops.map((o) => (
+                          <option key={o.valor} value={o.valor}>
+                            {o.label}
+                          </option>
+                        ))}
+                      </select>
+                    </span>
+                    <span style={css('align-self: center; display: flex; justify-content: flex-end; gap: 6px;')}>
+                      {!confirmando ? (
+                        <>
+                          <button
+                            onClick={() => {
+                              setEditar(u.id_usuario);
+                              setReset(null);
+                              setBorrar(null);
+                              setE({ nombre: u.nombre_user, email: u.email, error: null });
+                              editarU.limpiarError();
+                              setAviso(null);
+                            }}
+                            style={css(btnPanel(editar === u.id_usuario))}
+                          >
+                            Editar
+                          </button>
+                          <button
+                            onClick={() => {
+                              setReset(u.id_usuario);
+                              setEditar(null);
+                              setBorrar(null);
+                              setR({ clave1: '', clave2: '', error: null });
+                              cambiarClave.limpiarError();
+                              setAviso(null);
+                            }}
+                            style={css(btnPanel(reset === u.id_usuario))}
+                          >
+                            Resetear contraseña
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (esVos) {
+                                setError('No podés eliminar tu propio usuario.');
+                                setAviso(null);
+                                return;
+                              }
+                              setBorrar(u.id_usuario);
+                              limpiarAvisos();
+                            }}
+                            style={css(
+                              'height: 30px; padding: 0 11px; border-radius: 7px; font-size: 11.5px; font-weight: 500;' +
+                                (esVos ? ' border: 1px solid #e2e6ec; background: #f4f6f8; color: #b9c1cc; cursor: default;' : ' border: 1px solid #f1d3d8; background: #fff; color: #a63244;'),
+                            )}
+                          >
+                            Eliminar
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <span style={css('font-size: 12px; color: #a63244; align-self: center;')}>¿Eliminar?</span>
+                          <button
+                            disabled={eliminar.enCurso}
+                            onClick={async () => {
+                              const hecho = await eliminar.ejecutar(u.id_usuario);
+                              setBorrar(null);
+                              if (!hecho) return;
+                              if (reset === u.id_usuario) setReset(null);
+                              if (editar === u.id_usuario) setEditar(null);
+                              setAviso('Se eliminó el usuario ' + u.nombre_user + '.');
+                            }}
+                            style={css('height: 30px; padding: 0 11px; border-radius: 7px; border: none; background: #a63244; color: #fff; font-size: 11.5px; font-weight: 600;')}
+                          >
+                            Sí, eliminar
+                          </button>
+                          <button
+                            onClick={() => setBorrar(null)}
+                            style={css('height: 30px; padding: 0 11px; border-radius: 7px; border: 1px solid #dfe4ea; background: #fff; color: #4a5462; font-size: 11.5px;')}
+                          >
+                            Cancelar
+                          </button>
+                        </>
+                      )}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
           {lista.length === 0 && <div style={css('padding: 22px 20px; font-size: 12.5px; color: #7a8393;')}>Ningún usuario coincide con la búsqueda.</div>}
         </div>
 
-        <Info texto="Cada usuario tiene un solo rol: al elegir otro en la columna Rol, reemplaza al anterior. Las contraseñas nunca se muestran. «Resetear contraseña» le pone una provisoria, que el usuario cambia desde «Cambiar mi contraseña»." />
       </div>
 
       {resetU ? (
@@ -378,10 +375,7 @@ function PestaniaUsuarios({ usuarios, roles, idSesion }: { usuarios: Usuario[]; 
             <input type="password" value={r.clave2} onChange={(ev) => setR({ ...r, clave2: ev.target.value, error: null })} style={css(CAMPO)} />
           </div>
           {(r.error || cambiarClave.error) && <div style={css(ERROR_CAJA)}>{r.error || cambiarClave.error}</div>}
-          <div style={css('font-size: 12px; color: #6b7482; line-height: 1.5;')}>
-            Pasale la contraseña provisoria por un canal seguro. En su próximo ingreso la cambia desde «Cambiar mi contraseña».
-          </div>
-          <div style={css('display: flex; gap: 10px;')}>
+          <div className="r-envolver" style={css('display: flex; gap: 10px;')}>
             <button
               onClick={guardarReset}
               disabled={cambiarClave.enCurso}
@@ -417,8 +411,7 @@ function PestaniaUsuarios({ usuarios, roles, idSesion }: { usuarios: Usuario[]; 
             <input value={e.email} onChange={(ev) => setE({ ...e, email: ev.target.value, error: null })} placeholder="Ej.: pfernandez@donbosco.edu.ar" style={css(CAMPO)} />
           </div>
           {(e.error || editarU.error) && <div style={css(ERROR_CAJA)}>{e.error || editarU.error}</div>}
-          <div style={css('font-size: 12px; color: #6b7482; line-height: 1.5;')}>El rol se cambia desde la columna Rol y la contraseña con «Resetear contraseña».</div>
-          <div style={css('display: flex; gap: 10px;')}>
+          <div className="r-envolver" style={css('display: flex; gap: 10px;')}>
             <button
               onClick={guardarEdicion}
               disabled={editarU.enCurso}
@@ -438,7 +431,6 @@ function PestaniaUsuarios({ usuarios, roles, idSesion }: { usuarios: Usuario[]; 
         <div style={css('background: #fff; border: 1px solid #e2e6ec; border-radius: 10px; padding: 20px; display: flex; flex-direction: column; gap: 15px;')}>
           <div style={css('display: flex; flex-direction: column; gap: 4px;')}>
             <div style={css('font-size: 15px; font-weight: 600;')}>Nuevo usuario</div>
-            <div style={css('font-size: 12px; color: #7a8393;')}>Los campos marcados con * son obligatorios</div>
           </div>
           <div style={css('display: flex; flex-direction: column; gap: 7px;')}>
             <label style={css('font-size: 12.5px; font-weight: 600; color: #4a5462;')}>Nombre de usuario *</label>
@@ -496,7 +488,7 @@ function PestaniaUsuarios({ usuarios, roles, idSesion }: { usuarios: Usuario[]; 
           </div>
           {errorAlta && <div style={css(ERROR_CAJA)}>{errorAlta}</div>}
           {aviso && !errorAlta && <div style={css(AVISO_CAJA)}>{aviso}</div>}
-          <div style={css('display: flex; gap: 10px;')}>
+          <div className="r-envolver" style={css('display: flex; gap: 10px;')}>
             <button
               onClick={crearUsuario}
               disabled={crear.enCurso}
@@ -623,7 +615,7 @@ function PestaniaRoles({
 
     detalle = (
       <div style={css('background: #fff; border: 1px solid #e2e6ec; border-radius: 10px; overflow: hidden;')}>
-        <div style={css('display: flex; align-items: center; gap: 12px; padding: 16px 20px; border-bottom: 1px solid #eef1f5;')}>
+        <div className="r-envolver" style={css('display: flex; align-items: center; gap: 12px; padding: 16px 20px; border-bottom: 1px solid #eef1f5;')}>
           {!renombrando ? (
             <>
               <div style={css('display: flex; flex-direction: column; gap: 3px;')}>
@@ -651,7 +643,7 @@ function PestaniaRoles({
                       eliminar.limpiarError();
                       if (nu > 0) {
                         setErrorDetalle(
-                          'No se puede eliminar: ' + (nu === 1 ? '1 usuario tiene' : nu + ' usuarios tienen') + ' este rol. Asignales otro rol desde la pestaña Usuarios.',
+                          'No se puede eliminar: ' + (nu === 1 ? '1 usuario tiene' : nu + ' usuarios tienen') + ' este rol.',
                         );
                         return;
                       }
@@ -718,11 +710,11 @@ function PestaniaRoles({
         </div>
         {errorVisible && <div style={css('margin: 14px 20px 0; ' + ERROR_CAJA)}>{errorVisible}</div>}
         <div style={css('padding: 16px 20px 20px; display: flex; flex-direction: column; gap: 12px;')}>
-          <div style={css('display: flex; align-items: baseline; gap: 10px;')}>
+          <div className="r-envolver a17-fila-chica" style={css('display: flex; align-items: baseline; gap: 10px;')}>
             <span style={css('font-size: 13px; font-weight: 600;')}>Privilegios</span>
-            <span style={css('font-size: 12px; color: #6b7482;')}>{asignados.length + ' de ' + catalogo.length + ' asignados · tildar asigna, destildar quita'}</span>
+            <span style={css('font-size: 12px; color: #6b7482;')}>{asignados.length + ' de ' + catalogo.length + ' asignados'}</span>
           </div>
-          <div style={css('display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px;')}>
+          <div className="r-una-columna-movil" style={css('display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px;')}>
             {catalogo.map((p) => {
               const tiene = asignados.includes(p.id_privilegio);
               return (
@@ -747,16 +739,9 @@ function PestaniaRoles({
               );
             })}
           </div>
-          {esMiRol && (
-            <div
-              style={css(
-                'font-size: 12.5px; line-height: 1.5; border-radius: 8px; padding: 10px 12px;' +
-                  (sinUsuarios ? ' color: #a56a10; background: #fdf6ec; border: 1px solid #f1dfc0;' : ' color: #2c4570; background: #f3f6fc; border: 1px solid #cfdcf5;'),
-              )}
-            >
-              {sinUsuarios
-                ? 'Le quitaste «Usuarios» a tu propio rol: la tarjeta desaparece de tu menú y, al salir de esta pantalla, no vas a poder volver. Tildalo de nuevo para conservar el acceso.'
-                : 'Es el rol con el que entraste: lo que destildes desaparece de tu menú de inicio.'}
+          {sinUsuarios && (
+            <div style={css('font-size: 12.5px; line-height: 1.5; border-radius: 8px; padding: 10px 12px; color: #a56a10; background: #fdf6ec; border: 1px solid #f1dfc0;')}>
+              Le quitaste «Usuarios» a tu propio rol: al salir de esta pantalla no vas a poder volver.
             </div>
           )}
         </div>
@@ -765,7 +750,7 @@ function PestaniaRoles({
   }
 
   return (
-    <div style={css('padding: 20px 28px 28px; display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 20px; align-items: start;')}>
+    <div className="r-margen r-una-columna" style={css('padding: 20px 28px 28px; display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 20px; align-items: start;')}>
       <div style={css('background: #fff; border: 1px solid #e2e6ec; border-radius: 10px; overflow: hidden;')}>
         <div style={css('display: flex; align-items: center; padding: 13px 18px; border-bottom: 1px solid #eef1f5;')}>
           <span style={css('font-size: 13px; font-weight: 600;')}>Roles</span>
@@ -800,7 +785,6 @@ function PestaniaRoles({
 
       <div style={css('display: flex; flex-direction: column; gap: 16px;')}>
         {detalle}
-        <Info texto="Los privilegios vienen cargados por configuración: acá solo se asignan a un rol o se le quitan. Cada privilegio es una tarjeta del menú de inicio, así que lo que se tilda acá es lo que ve cada rol al entrar." />
       </div>
     </div>
   );

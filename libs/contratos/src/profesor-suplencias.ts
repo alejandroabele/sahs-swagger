@@ -39,18 +39,16 @@ export interface Suplencia {
   readonly clases?: ClaseResumen[];
 }
 
-/** Body de POST /profesor_suplencias/crear_suplencia */
+/** Body de POST /profesor-suplencias/suplencias */
 export interface CrearSuplenciaBody {
   fecha_inicio: string;
   fecha_fin: string;
   motivo: string;
-  /** Profesor que cubre la suplencia */
-  id_profesor: number;
-  /** Clases que cubre */
+  /** Clases que cubre (el suplente va en la ruta: POST /profesor-suplencias/profesores/{id}/suplencias) */
   ids_clases: number[];
 }
 
-/** Body de POST /profesor_suplencias/crear_profesor */
+/** Body de POST /profesor-suplencias/profesores */
 export interface CrearProfesorBody {
   nombre: string;
   apellido: string;
@@ -60,7 +58,7 @@ export interface CrearProfesorBody {
   direccion?: string;
 }
 
-/** Body de PUT /profesor_suplencias/editar_profesor/{id} */
+/** Body de PUT /profesor-suplencias/profesores/{id} */
 export interface EditarProfesorBody {
   nombre: string;
   apellido: string;
@@ -72,28 +70,28 @@ export interface EditarProfesorBody {
   cargo_asociado: string | null;
 }
 
-/** Body de PUT /profesor_suplencias/asignar_usuario_profesor/{id} */
+/** Body de PUT /profesor-suplencias/profesores/{id}/usuario */
 export interface AsignarUsuarioProfesorBody {
   id_usuario: number;
 }
 
-/** Body de PUT /profesor_suplencias/asignar_materias_habilitadas/{id} */
+/** Body de PUT /profesor-suplencias/profesores/{id}/materias-habilitadas */
 export interface AsignarMateriasHabilitadasBody {
   ids_materias: number[];
 }
 
-/** Body de PUT /profesor_suplencias/asignar_disponibilidad/{id} */
+/** Body de PUT /profesor-suplencias/profesores/{id}/disponibilidad */
 export interface AsignarDisponibilidadBody {
   ids_franjas_horarias: number[];
 }
 
-/** Query de GET /profesor_suplencias/get_profesores */
+/** Query de GET /profesor-suplencias/profesores */
 export interface GetProfesoresQuery {
   /** Usuario del profesor (filtro opcional) */
   id_usuario?: number;
 }
 
-/** Query de GET /profesor_suplencias/get_suplencias */
+/** Query de GET /profesor-suplencias/suplencias */
 export interface GetSuplenciasQuery {
   /** Inicio del rango (filtro opcional) */
   fecha_desde?: string;

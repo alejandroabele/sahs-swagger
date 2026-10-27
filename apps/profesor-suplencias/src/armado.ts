@@ -55,19 +55,19 @@ export class Armado {
 
   /** Franjas de Horarios por id (un solo listado por request). */
   async franjas(): Promise<Map<number, C.FranjaHoraria>> {
-    const l = await this.horarios.listar<C.FranjaHoraria>('get_franjas_horarias');
+    const l = await this.horarios.listar<C.FranjaHoraria>('franjas-horarias');
     return new Map(l.map((f) => [f.id_franja_horaria, f]));
   }
 
   /** Materias de Orientación por id (un solo listado por request). */
   async materiasPorId(): Promise<Map<number, C.Materia>> {
-    const l = await this.orientacion.listar<C.Materia>('get_materias');
+    const l = await this.orientacion.listar<C.Materia>('materias');
     return new Map(l.map((m) => [m.id_materia, m]));
   }
 
   /** Clases de Planificación por id (un solo listado por request, llamada plana). */
   async clasesPorId(): Promise<Map<number, C.Clase>> {
-    const l = await this.planificacion.listar<C.Clase>('get_clases');
+    const l = await this.planificacion.listar<C.Clase>('clases');
     return new Map(l.map((c) => [c.id_clase, c]));
   }
 

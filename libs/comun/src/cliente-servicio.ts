@@ -14,6 +14,11 @@ export const PUERTOS_DESARROLLO: Record<NombreServicio, number> = {
   profesor_suplencias: 8086,
 };
 
+/** Prefijo de las rutas del servicio: su nombre en kebab-case (profesor_suplencias → profesor-suplencias). */
+export function prefijoServicio(servicio: NombreServicio): string {
+  return servicio.replace(/_/g, '-');
+}
+
 export function urlServicio(servicio: NombreServicio): string {
   const variable = 'URL_' + servicio.toUpperCase();
   return (process.env[variable] || `http://localhost:${PUERTOS_DESARROLLO[servicio]}`).replace(/\/$/, '');
@@ -59,7 +64,7 @@ export class ClienteServicio {
       .filter(([, v]) => v !== undefined && v !== null && v !== '')
       .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
       .join('&');
-    return `${this.base}/${this.servicio}/${ruta}${qs ? '?' + qs : ''}`;
+    return `${this.base}/${prefijoServicio(this.servicio)}/${ruta}${qs ? '?' + qs : ''}`;
   }
 
   private async pedir<T>(metodo: string, url: string, body: unknown, completo: boolean): Promise<T> {

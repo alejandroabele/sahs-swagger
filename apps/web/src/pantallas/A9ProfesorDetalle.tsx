@@ -1,30 +1,21 @@
 // A9 · Ficha del profesor. Prototipo: <template id="tpl-profesordetalle"> y DC.registrar("profesordetalle") en prototipo/index.html.
-// Lee ?id_profesor= (sin parámetro muestra el primero). Datos (editar_profesor), usuario (usuario.editar_usuario
-// y asignar_usuario_profesor), materias habilitadas (asignar_materias_habilitadas), disponibilidad declarada
-// (grilla del turno con más franjas declaradas) y clases asignadas en la propuesta vigente del ciclo activo.
-import { useMemo, useState } from 'react';
-import type { Materia, Profesor } from '@sahs/contratos';
-import { horarios, orientacion, planificacion, profesorSuplencias, usuario } from '../api';
-import { useNavegar, useParamNumero } from '../app/navegar';
+// Ruta /profesores/:id. Profesor (profesor_suplencias.get_profesor) y edición de sus datos (editar_profesor).
+// Usuario: usuario.get_usuarios (nombre del usuario asignado y selector para asignar), usuario.editar_usuario
+// y asignar_usuario_profesor. Materias habilitadas (asignar_materias_habilitadas) con
+// orientacion.get_plan_de_estudios (año y orientación de cada una, y selector agrupado). Disponibilidad declarada: grilla del turno con más
+// franjas declaradas (horarios.get_turnos).
+import { useEffect, useMemo, useState } from 'react';
+import type { Profesor } from '@sahs/contratos';
+import { horarios, orientacion, profesorSuplencias, usuario } from '../api';
+import { useIr, useParamRuta } from '../app/navegar';
+import { rutas } from '../app/rutas';
 import { Cabecera } from '../componentes/Cabecera';
 import { Cargando, MensajeError } from '../componentes/Estados';
-import { useCiclo } from '../estado/ciclo';
 import { useAccion, useConsulta } from '../estado/consultas';
 import { css } from '../lib/css';
+import './a7/responsive.css';
 import { DIAS, iniciales } from '../lib/formato';
-import {
-  ACCENT,
-  areaDeProfesor,
-  colorArea,
-  filasDelTurno,
-  franjasDeclaradas,
-  gruposDeMaterias,
-  horasDelTurno,
-  nombreCurso,
-  numeroAnio,
-  propuestaVigente,
-  turnoPrincipal,
-} from './a7/comun';
+import { ACCENT, colorArea, filasDelTurno, gruposDelPlan, materiasDelPlan, turnoPrincipal } from './a7/comun';
 
 const DIAS_CORTOS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie'];
 const CAMPO = 'height: 38px; padding: 0 12px; border-radius: 8px; border: 1px solid #dfe4ea; font-size: 13px; background: #fcfdfe; color: #14181f;';
@@ -35,75 +26,50 @@ const TARJETA = 'background: #fff; border: 1px solid #e2e6ec; border-radius: 10p
 const ETIQUETA = 'font-size: 11.5px; color: #7a8393; margin-bottom: 5px;';
 
 export default function A9ProfesorDetalle() {
-  const idParam = useParamNumero('id_profesor');
-  const qLista = useConsulta(['profesor_suplencias', 'get_profesores'], () => profesorSuplencias.get_profesores());
-  const id = idParam ?? qLista.data?.[0]?.id_profesor ?? null;
+  const ir = useIr();
+  const id = useParamRuta('id');
+  useEffect(() => {
+    if (id == null) ir(rutas.profesores());
+  }, [id, ir]);
   const qProf = useConsulta(['profesor_suplencias', 'get_profesor', id], () => profesorSuplencias.get_profesor(id!), { enabled: id != null });
 
   return (
-    <div style={css('width: 1440px; min-height: 980px; display: flex; flex-direction: column; background: #f4f6f8;')}>
+    <div style={css('width: 100%; min-height: 100vh; display: flex; flex-direction: column; background: #f4f6f8;')}>
       <Cabecera />
-      {(qLista.isLoading || qProf.isLoading) && <Cargando />}
-      {(qProf.error || qLista.error) && (
-        <div style={css('padding: 20px 28px;')}>
-          <MensajeError mensaje={(qProf.error ?? qLista.error)?.message} />
+      {qProf.isLoading && <Cargando />}
+      {qProf.error && (
+        <div className="r-margen" style={css('padding: 20px 28px;')}>
+          <MensajeError mensaje={qProf.error.message} />
         </div>
       )}
-      {!qLista.isLoading && id == null && <div style={css('padding: 24px 28px; font-size: 13px; color: #6b7482;')}>No hay profesores cargados.</div>}
-      {qProf.data && <Ficha key={qProf.data.id_profesor} p={qProf.data} profesores={qLista.data ?? []} />}
+      {qProf.data && <Ficha key={qProf.data.id_profesor} p={qProf.data} />}
     </div>
   );
 }
 
-function Ficha({ p, profesores }: { p: Profesor; profesores: Profesor[] }) {
-  const ir = useNavegar();
-  const { activo } = useCiclo();
-  const idCiclo = activo?.id_ciclo_lectivo;
+function Ficha({ p }: { p: Profesor }) {
+  const ir = useIr();
 
-  const qMat = useConsulta(['orientacion', 'get_materias'], () => orientacion.get_materias());
-  const qAnios = useConsulta(['planificacion', 'get_anios_academicos'], () => planificacion.get_anios_academicos());
+  const qPlan = useConsulta(['orientacion', 'get_plan_de_estudios'], () => orientacion.get_plan_de_estudios());
   const qTurnos = useConsulta(['horarios', 'get_turnos'], () => horarios.get_turnos());
   const qUsuarios = useConsulta(['usuario', 'get_usuarios'], () => usuario.get_usuarios());
-  const qProp = useConsulta(['planificacion', 'get_propuestas', idCiclo], () => planificacion.get_propuestas({ id_ciclo_lectivo: idCiclo }), { enabled: !!idCiclo });
-  const qCursos = useConsulta(['planificacion', 'get_cursos', idCiclo], () => planificacion.get_cursos({ id_ciclo_lectivo: idCiclo }), { enabled: !!idCiclo });
-  const vigente = propuestaVigente(qProp.data);
-  const qClases = useConsulta(
-    ['planificacion', 'get_clases', 'profesor', p.id_profesor, vigente?.id_propuesta],
-    () => planificacion.get_clases({ id_profesor: p.id_profesor, id_propuesta: vigente!.id_propuesta }),
-    { enabled: !!vigente },
-  );
-
-  const materias = useMemo(() => new Map<number, Materia>((qMat.data ?? []).map((m) => [m.id_materia, m])), [qMat.data]);
-  const area = areaDeProfesor(p, materias);
-  const ar = colorArea(area);
+  const materias = useMemo(() => materiasDelPlan(qPlan.data), [qPlan.data]);
 
   // ---- disponibilidad declarada ----
-  const franjas = franjasDeclaradas(p);
   const turno = turnoPrincipal(p, qTurnos.data);
   const marcadas = new Set((p.disponibilidad ?? []).map((f) => f.id_franja_horaria));
   const filas = filasDelTurno(turno);
 
-  // ---- clases asignadas en la propuesta vigente ----
-  const cursos = new Map((qCursos.data ?? []).map((c) => [c.id_curso, c]));
-  const asignadas = (qClases.data ?? []).map((c) => ({
-    id: c.id_clase,
-    materia: c.materia?.nombre_materia ?? materias.get(c.id_materia)?.nombre_materia ?? '—',
-    curso: nombreCurso(cursos.get(c.id_curso), qAnios.data),
-    horas: c.ids_franjas_horarias?.length ?? c.franjas_horarias?.length ?? 0,
-  }));
-  const totalHoras = asignadas.reduce((s, a) => s + a.horas, 0);
-  const sinMargen = franjas - totalHoras < 4;
-
   // ---- materias habilitadas ----
   const idsHab = new Set((p.lista_materias_habilitadas ?? []).map((m) => m.id_materia!));
-  const etiqueta = (m: Materia) => {
-    const n = numeroAnio(m.id_anio_academico, qAnios.data);
-    const o = m.orientacion?.nombre_orientacion ?? '';
+  const etiqueta = (m: NonNullable<ReturnType<typeof materias.get>>) => {
+    const n = parseInt(m.anio_curricular, 10);
+    const o = m.nombre_orientacion;
     return m.nombre_materia + (n ? ' ' + n + '°' : '') + (o && o !== 'Básica' ? ' · ' + o : '');
   };
   const habilitadas = (p.lista_materias_habilitadas ?? []).map((mr) => {
     const m = materias.get(mr.id_materia ?? -1);
-    return { id: mr.id_materia!, label: m ? etiqueta(m) : mr.nombre_materia ?? '', color: colorArea(m?.area?.nombre_area) };
+    return { id: mr.id_materia!, label: m ? etiqueta(m) : mr.nombre_materia ?? '', color: colorArea(mr.nombre_area) };
   });
   const [editandoHab, setEditandoHab] = useState(false);
   const accHab = useAccion(profesorSuplencias.asignar_materias_habilitadas, ['profesor_suplencias']);
@@ -153,10 +119,6 @@ function Ficha({ p, profesores }: { p: Profesor; profesores: Profesor[] }) {
       setErrorDatos('Completá nombre, apellido, documento y correo electrónico.');
       return;
     }
-    if (t(n.correo).indexOf('@') < 1) {
-      setErrorDatos('El correo electrónico no es válido.');
-      return;
-    }
     const r = await accDatos.ejecutar(p.id_profesor, {
       nombre: t(n.nombre),
       apellido: t(n.apellido),
@@ -187,8 +149,8 @@ function Ficha({ p, profesores }: { p: Profesor; profesores: Profesor[] }) {
   const [avisoUsr, setAvisoUsr] = useState<string | null>(null);
   const accEditUsr = useAccion(usuario.editar_usuario, ['usuario']);
   const accAsigUsr = useAccion(profesorSuplencias.asignar_usuario_profesor, ['profesor_suplencias']);
-  const tomados = new Set(profesores.filter((x) => x.id_profesor !== p.id_profesor && x.id_usuario != null).map((x) => x.id_usuario));
-  const libres = usuarios.filter((x) => !tomados.has(x.id_usuario) && x.id_usuario !== p.id_usuario);
+  // Si el usuario ya es de otro profesor, la API lo rechaza (409) y se muestra su mensaje.
+  const libres = usuarios.filter((x) => x.id_usuario !== p.id_usuario);
   const errUsr = errorUsr ?? accEditUsr.error ?? accAsigUsr.error;
   const limpiarErrUsr = () => {
     setErrorUsr(null);
@@ -216,14 +178,6 @@ function Ficha({ p, profesores }: { p: Profesor; profesores: Profesor[] }) {
       setErrorUsr('Completá el nombre de usuario y el email.');
       return;
     }
-    if (email.indexOf('@') < 1) {
-      setErrorUsr('El email no es válido.');
-      return;
-    }
-    if (usuarios.some((x) => x.id_usuario !== u.id_usuario && x.nombre_user === nombre)) {
-      setErrorUsr('Ya existe otro usuario con ese nombre.');
-      return;
-    }
     const r = await accEditUsr.ejecutar(u.id_usuario, { nombre_user: nombre, email });
     if (r) {
       setUsrModo(null);
@@ -231,14 +185,14 @@ function Ficha({ p, profesores }: { p: Profesor; profesores: Profesor[] }) {
     }
   };
 
-  const errorCarga = qMat.error ?? qAnios.error ?? qTurnos.error ?? qUsuarios.error ?? qProp.error ?? qCursos.error ?? qClases.error;
-  const grupos = gruposDeMaterias(qMat.data, qAnios.data);
+  const errorCarga = qPlan.error ?? qTurnos.error ?? qUsuarios.error;
+  const grupos = gruposDelPlan(qPlan.data);
 
   return (
     <>
-      <div style={css('padding: 22px 28px 22px; background: #fff; border-bottom: 1px solid #e2e6ec; flex-shrink: 0;')}>
+      <div className="r-margen" style={css('padding: 22px 28px 22px; background: #fff; border-bottom: 1px solid #e2e6ec; flex-shrink: 0;')}>
         <div style={css('display: flex; align-items: center; gap: 8px; font-size: 12px; color: #6b7482; margin-bottom: 15px;')}>
-          <span onClick={() => ir('A7')} style={css('display: flex; align-items: center; gap: 6px; color: #2f5fd0; cursor: pointer;')}>
+          <span onClick={() => ir(rutas.profesores())} style={css('display: flex; align-items: center; gap: 6px; color: #2f5fd0; cursor: pointer;')}>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M15 6l-6 6 6 6"></path>
             </svg>
@@ -252,7 +206,7 @@ function Ficha({ p, profesores }: { p: Profesor; profesores: Profesor[] }) {
           </span>
         </div>
 
-        <div style={css('display: flex; align-items: center; gap: 20px;')}>
+        <div className="r-envolver" style={css('display: flex; align-items: center; gap: 20px;')}>
           <span
             style={css(
               'width: 58px; height: 58px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 19px; font-weight: 600; background: ' +
@@ -263,42 +217,25 @@ function Ficha({ p, profesores }: { p: Profesor; profesores: Profesor[] }) {
             {iniciales(p.nombre, p.apellido)}
           </span>
           <div style={css('display: flex; flex-direction: column; gap: 9px;')}>
-            <div style={css('font-size: 28px; font-weight: 600; letter-spacing: -0.025em;')}>
+            <div className="r-titulo" style={css('font-size: 28px; font-weight: 600; letter-spacing: -0.025em;')}>
               {p.apellido}, {p.nombre}
             </div>
-            <div style={css('display: flex; align-items: center; gap: 8px;')}>
+            <div className="r-envolver" style={css('display: flex; align-items: center; gap: 8px;')}>
               <span className="mono" style={css('font-size: 11.5px; font-weight: 600; padding: 4px 11px; border-radius: 13px; background: #f2f4f7; color: #4a5462;')}>
                 {p.legajo || 'Sin legajo'}
               </span>
-              <span style={css('font-size: 11.5px; font-weight: 600; padding: 4px 11px; border-radius: 13px; background: #e9f2ec; color: #2f6b45;')}>Activo</span>
-              <span style={css(PILL + ' background: ' + ar.fondo + '; color: ' + ar.texto + ';')}>{area ?? 'Sin área'}</span>
             </div>
-          </div>
-          <div style={css('flex-grow: 1;')}></div>
-          <div style={css('display: flex; align-items: center; gap: 10px;')}>
-            <span style={css('font-size: 12px; color: #6b7482;')}>Ver otro profesor</span>
-            <select
-              value={String(p.id_profesor)}
-              onChange={(e) => ir('A9', { id_profesor: Number(e.target.value) })}
-              style={css('height: 38px; min-width: 230px; padding: 0 12px; border-radius: 8px; border: 1px solid #dfe4ea; font-size: 13px; background: #fcfdfe; color: #14181f;')}
-            >
-              {profesores.map((x) => (
-                <option key={x.id_profesor} value={String(x.id_profesor)}>
-                  {x.apellido}, {x.nombre}
-                </option>
-              ))}
-            </select>
           </div>
         </div>
       </div>
 
       {errorCarga && (
-        <div style={css('padding: 16px 28px 0;')}>
+        <div className="r-margen" style={css('padding: 16px 28px 0;')}>
           <MensajeError mensaje={errorCarga.message} />
         </div>
       )}
 
-      <div style={css('display: flex; gap: 18px; padding: 20px 28px 28px; align-items: flex-start;')}>
+      <div className="r-margen r-apilar" style={css('display: flex; gap: 18px; padding: 20px 28px 28px; align-items: flex-start;')}>
         {/* ---------------- columna izquierda ---------------- */}
         <div style={css('width: 468px; flex-shrink: 0; display: flex; flex-direction: column; gap: 16px;')}>
           <div style={css(TARJETA)}>
@@ -307,11 +244,10 @@ function Ficha({ p, profesores }: { p: Profesor; profesores: Profesor[] }) {
             </div>
             {avisoDatos && <div style={css(AVISO_OK)}>{avisoDatos}</div>}
             {!editDatos && (
-              <div style={css('padding: 18px 20px 20px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 17px;')}>
+              <div className="r-una-columna-movil a7-campos" style={css('padding: 18px 20px 20px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 17px;')}>
                 <Dato etiqueta="Documento" valor={p.documento} mono />
                 <Dato etiqueta="Legajo" valor={p.legajo || '—'} mono />
                 <Dato etiqueta="Teléfono" valor={p.telefono || '—'} mono />
-                <Dato etiqueta="Fecha de ingreso" valor="—" mono />
                 <Dato etiqueta="Correo electrónico" valor={p.correo_electronico || '—'} ancho />
                 <Dato etiqueta="Dirección" valor={p.direccion || '—'} ancho />
                 <Dato etiqueta="Cargo" valor={p.cargo_asociado || 'Sin cargo'} ancho />
@@ -321,8 +257,8 @@ function Ficha({ p, profesores }: { p: Profesor; profesores: Profesor[] }) {
             {/* editar_profesor: un solo formulario con todos los datos */}
             {editDatos && (
               <div style={css('padding: 16px 20px 20px; display: flex; flex-direction: column; gap: 12px; background: #fafbfc;')}>
-                <div style={css('font-size: 12px; color: #7a8393;')}>Los campos marcados con * son obligatorios. Legajo y cargo se pueden dejar vacíos.</div>
-                <div style={css('display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px;')}>
+                <div style={css('font-size: 12px; color: #7a8393;')}>Los campos marcados con * son obligatorios.</div>
+                <div className="r-una-columna-movil a7-campos" style={css('display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px;')}>
                   {CAMPOS.map(([k, label, ayuda, ancho]) => (
                     <label key={k} style={css('display: flex; flex-direction: column; gap: 6px;' + (ancho ? ' grid-column: span 2;' : ''))}>
                       <span style={css('font-size: 12px; font-weight: 600; color: #4a5462;')}>{label}</span>
@@ -340,7 +276,7 @@ function Ficha({ p, profesores }: { p: Profesor; profesores: Profesor[] }) {
                   ))}
                 </div>
                 {errDatos && <div style={css(ERROR_TXT)}>{errDatos}</div>}
-                <div style={css('display: flex; gap: 8px; justify-content: flex-end;')}>
+                <div className="r-envolver" style={css('display: flex; gap: 8px; justify-content: flex-end;')}>
                   <button
                     onClick={() => {
                       setEditDatos(null);
@@ -365,11 +301,8 @@ function Ficha({ p, profesores }: { p: Profesor; profesores: Profesor[] }) {
 
           {/* Usuario del profesor: asignar_usuario_profesor y usuario.editar_usuario */}
           <div style={css(TARJETA)}>
-            <div style={css('display: flex; align-items: center; gap: 12px; padding: 15px 20px 13px; border-bottom: 1px solid #eef1f5;')}>
-              <div style={css('display: flex; flex-direction: column; gap: 3px;')}>
-                <div style={css('font-size: 13px; font-weight: 600;')}>Usuario</div>
-                <div style={css('font-size: 12px; color: #6b7482;')}>Con este usuario el profesor ingresa al sistema</div>
-              </div>
+            <div className="r-envolver" style={css('display: flex; align-items: center; gap: 12px; padding: 15px 20px 13px; border-bottom: 1px solid #eef1f5;')}>
+              <div style={css('font-size: 13px; font-weight: 600;')}>Usuario</div>
               <div style={css('flex-grow: 1;')}></div>
               <span style={css(PILL + (tieneUsuario ? ' background: #e9f2ec; color: #2f6b45;' : ' background: #fdf4e7; color: #7a5310;'))}>
                 {tieneUsuario ? 'Asignado' : 'Sin usuario'}
@@ -380,12 +313,12 @@ function Ficha({ p, profesores }: { p: Profesor; profesores: Profesor[] }) {
 
             {modo === 'ver' && (
               <div style={css('padding: 16px 20px 18px; display: flex; flex-direction: column; gap: 14px;')}>
-                <div style={css('display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px;')}>
+                <div className="r-una-columna-movil a7-campos" style={css('display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px;')}>
                   <Dato etiqueta="Nombre de usuario" valor={u?.nombre_user ?? (qUsuarios.isLoading ? '…' : '—')} mono />
                   <Dato etiqueta="Rol" valor={u ? u.rol?.nombre_rol ?? 'Sin rol' : '—'} />
                   <Dato etiqueta="Email" valor={u?.email ?? '—'} ancho />
                 </div>
-                <div style={css('display: flex; gap: 8px;')}>
+                <div className="r-envolver" style={css('display: flex; gap: 8px;')}>
                   <button
                     disabled={!u}
                     onClick={() => {
@@ -441,9 +374,8 @@ function Ficha({ p, profesores }: { p: Profesor; profesores: Profesor[] }) {
                     style={css(CAMPO)}
                   />
                 </label>
-                <div style={css('font-size: 12px; color: #7a8393; line-height: 1.45;')}>La contraseña y el rol se cambian desde Usuarios.</div>
                 {errUsr && <div style={css(ERROR_TXT)}>{errUsr}</div>}
-                <div style={css('display: flex; gap: 8px; justify-content: flex-end;')}>
+                <div className="r-envolver" style={css('display: flex; gap: 8px; justify-content: flex-end;')}>
                   <button
                     onClick={() => {
                       setUsrModo(null);
@@ -466,11 +398,9 @@ function Ficha({ p, profesores }: { p: Profesor; profesores: Profesor[] }) {
 
             {(modo === 'asignar' || modo === 'cambiar') && (
               <div style={css('padding: 16px 20px 18px; display: flex; flex-direction: column; gap: 12px;')}>
-                <div style={css('font-size: 12.5px; color: #4a5462; line-height: 1.5;')}>
-                  {tieneUsuario
-                    ? 'Elegí el usuario que pasa a ser de este profesor. Reemplaza a ' + (u?.nombre_user ?? 'el actual') + '.'
-                    : 'Sin usuario asignado: el profesor todavía no puede ingresar al sistema. Elegí uno de los usuarios que no están vinculados a otro profesor.'}
-                </div>
+                {tieneUsuario && (
+                  <div style={css('font-size: 12.5px; color: #4a5462; line-height: 1.5;')}>Reemplaza a {u?.nombre_user ?? 'el usuario actual'}.</div>
+                )}
                 {libres.length > 0 && (
                   <div style={css('display: flex; gap: 8px;')}>
                     <select
@@ -499,7 +429,7 @@ function Ficha({ p, profesores }: { p: Profesor; profesores: Profesor[] }) {
                 )}
                 {!qUsuarios.isLoading && libres.length === 0 && (
                   <div style={css('font-size: 12.5px; color: #a56a10; background: #fdf6ec; border: 1px solid #f1dfc0; border-radius: 8px; padding: 10px 12px; line-height: 1.45;')}>
-                    No hay usuarios libres. Crealo en Usuarios y volvé a la ficha.
+                    No hay usuarios para asignar.
                   </div>
                 )}
                 {errUsr && <div style={css(ERROR_TXT)}>{errUsr}</div>}
@@ -520,7 +450,7 @@ function Ficha({ p, profesores }: { p: Profesor; profesores: Profesor[] }) {
 
           {/* Materias habilitadas: asignar_materias_habilitadas reemplaza la lista */}
           <div style={css(TARJETA)}>
-            <div style={css('display: flex; align-items: center; gap: 12px; padding: 15px 20px 13px; border-bottom: 1px solid #eef1f5;')}>
+            <div className="r-envolver" style={css('display: flex; align-items: center; gap: 12px; padding: 15px 20px 13px; border-bottom: 1px solid #eef1f5;')}>
               <div style={css('font-size: 13px; font-weight: 600;')}>Materias habilitadas</div>
               <div style={css('flex-grow: 1;')}></div>
               <div style={css('font-size: 12px; color: #6b7482;')}>{habilitadas.length === 1 ? '1 materia' : habilitadas.length + ' materias'}</div>
@@ -541,9 +471,6 @@ function Ficha({ p, profesores }: { p: Profesor; profesores: Profesor[] }) {
             </div>
             {editandoHab && (
               <div style={css('padding: 14px 20px 18px; border-top: 1px solid #eef1f5; background: #fafbfc; display: flex; flex-direction: column; gap: 12px;')}>
-                <div style={css('font-size: 12px; color: #6b7482;')}>
-                  Tocá una materia para habilitarla o quitarla. El cambio se ve en la ficha de la materia y en la planificación.
-                </div>
                 {accHab.error && <div style={css(ERROR_TXT)}>{accHab.error}</div>}
                 {grupos.map((g) => (
                   <div key={g.nombre} style={css('display: flex; flex-direction: column; gap: 7px;')}>
@@ -572,7 +499,7 @@ function Ficha({ p, profesores }: { p: Profesor; profesores: Profesor[] }) {
             )}
           </div>
 
-          <div style={css('background: #fff; border: 1px solid #e2e6ec; border-radius: 10px; padding: 16px; display: flex; gap: 10px;')}>
+          <div className="r-envolver" style={css('background: #fff; border: 1px solid #e2e6ec; border-radius: 10px; padding: 16px; display: flex; gap: 10px;')}>
             <button
               onClick={abrirEditar}
               style={css('flex-grow: 1; height: 40px; border-radius: 8px; border: 1px solid #d3d9e2; background: #fff; color: #14181f; font-size: 13px; font-weight: 500; display: flex; align-items: center; justify-content: center; gap: 9px;')}
@@ -582,28 +509,18 @@ function Ficha({ p, profesores }: { p: Profesor; profesores: Profesor[] }) {
               </svg>
               Editar datos
             </button>
-            <button
-              disabled
-              title="No disponible en la API: no hay un command para dar de baja a un profesor."
-              style={css('flex-grow: 1; height: 40px; border-radius: 8px; border: 1px solid #edc9c4; background: #fff; color: #b03a2e; font-size: 13px; font-weight: 500; opacity: 0.55; cursor: not-allowed;')}
-            >
-              Dar de baja
-            </button>
           </div>
         </div>
 
         {/* ---------------- columna derecha ---------------- */}
         <div style={css('flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 16px;')}>
-          {/* enlace 1: disponibilidad */}
+          {/* Disponibilidad */}
           <div style={css(TARJETA)}>
-            <div style={css('display: flex; align-items: center; gap: 12px; padding: 15px 20px 13px; border-bottom: 1px solid #eef1f5;')}>
-              <div style={css('display: flex; flex-direction: column; gap: 3px;')}>
-                <div style={css('font-size: 13px; font-weight: 600;')}>Disponibilidad declarada</div>
-                <div style={css('font-size: 12px; color: #6b7482;')}>La cargó el propio profesor desde su cuenta</div>
-              </div>
+            <div className="r-envolver" style={css('display: flex; align-items: center; gap: 12px; padding: 15px 20px 13px; border-bottom: 1px solid #eef1f5;')}>
+              <div style={css('font-size: 13px; font-weight: 600;')}>Disponibilidad declarada</div>
               <div style={css('flex-grow: 1;')}></div>
               <button
-                onClick={() => ir('A2', { id_profesor: p.id_profesor })}
+                onClick={() => ir(rutas.disponibilidad(p.id_profesor))}
                 style={css('display: flex; align-items: center; gap: 7px; height: 34px; padding: 0 14px; border-radius: 7px; border: 1px solid #d3d9e2; background: #fff; color: #14181f; font-size: 12.5px; font-weight: 600;')}
               >
                 Ver y editar
@@ -612,7 +529,7 @@ function Ficha({ p, profesores }: { p: Profesor; profesores: Profesor[] }) {
                 </svg>
               </button>
             </div>
-            <div style={css('padding: 18px 20px 20px; display: flex; gap: 26px; align-items: center;')}>
+            <div className="r-envolver" style={css('padding: 18px 20px 20px; display: flex; gap: 26px; align-items: center;')}>
               <div style={css('display: flex; flex-direction: column; gap: 5px;')}>
                 <div style={css('display: grid; grid-template-columns: 34px repeat(5, 26px); gap: 4px;')}>
                   <div></div>
@@ -651,102 +568,8 @@ function Ficha({ p, profesores }: { p: Profesor; profesores: Profesor[] }) {
                   ),
                 )}
               </div>
-              <div style={css('display: flex; flex-direction: column; gap: 10px;')}>
-                <div style={css('display: flex; align-items: baseline; gap: 8px;')}>
-                  <span className="mono" style={css(`font-size: 26px; font-weight: 600; color: ${ACCENT};`)}>
-                    {franjas}
-                  </span>
-                  <span style={css('font-size: 12.5px; color: #6b7482;')}>
-                    de {horasDelTurno(turno)} franjas declaradas · turno {turno?.nombre ?? '—'}
-                  </span>
-                </div>
-                <div style={css('display: flex; align-items: center; gap: 14px; font-size: 11.5px; color: #6b7482;')}>
-                  <span style={css('display: flex; align-items: center; gap: 6px;')}>
-                    <span style={css('width: 11px; height: 11px; border-radius: 3px; background: #e9f2ec; border: 1px solid #bfdcca;')}></span>Disponible
-                  </span>
-                  <span style={css('display: flex; align-items: center; gap: 6px;')}>
-                    <span style={css('width: 11px; height: 11px; border-radius: 3px; background: #fafbfc; border: 1px solid #e8ecf1;')}></span>No disponible
-                  </span>
-                </div>
-                <div style={css('font-size: 12px; color: #7a8393; line-height: 1.5; max-width: 300px;')}>
-                  Es lo que el generador usa para ubicarlo en la grilla: no se le puede asignar una materia en una franja que no declaró.
-                </div>
-              </div>
             </div>
           </div>
-
-          {/* enlace 2: materias asignadas */}
-          <div style={css(TARJETA)}>
-            <div style={css('display: flex; align-items: center; gap: 12px; padding: 15px 20px 13px; border-bottom: 1px solid #eef1f5;')}>
-              <div style={css('display: flex; flex-direction: column; gap: 3px;')}>
-                <div style={css('font-size: 13px; font-weight: 600;')}>Materias asignadas</div>
-                <div style={css('font-size: 12px; color: #6b7482;')}>Lo que dicta este ciclo, según la planilla validada</div>
-              </div>
-              <div style={css('flex-grow: 1;')}></div>
-              <button
-                onClick={() => ir('A12')}
-                style={css(`display: flex; align-items: center; gap: 7px; height: 34px; padding: 0 14px; border-radius: 7px; border: none; background: ${ACCENT}; color: #fff; font-size: 12.5px; font-weight: 600;`)}
-              >
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
-                  <path d="M12 5v14M5 12h14"></path>
-                </svg>
-                Asignar materias
-              </button>
-            </div>
-
-            <div style={css('display: grid; grid-template-columns: 1fr 120px 90px; gap: 12px; padding: 10px 20px; background: #fafbfc; border-bottom: 1px solid #eef1f5;')}>
-              <div style={css('font-size: 11.5px; font-weight: 600; color: #7a8393;')}>Materia</div>
-              <div style={css('font-size: 11.5px; font-weight: 600; color: #7a8393;')}>Curso</div>
-              <div style={css('font-size: 11.5px; font-weight: 600; color: #7a8393; text-align: right;')}>Horas</div>
-            </div>
-            {qClases.isLoading && <Cargando />}
-            {idCiclo && qProp.data && !vigente && (
-              <div style={css('padding: 12px 20px; border-bottom: 1px solid #f4f6f8; font-size: 12.5px; color: #6b7482;')}>
-                El ciclo {activo?.anio_calendario} todavía no tiene una planificación validada.
-              </div>
-            )}
-            {vigente && qClases.data && asignadas.length === 0 && (
-              <div style={css('padding: 12px 20px; border-bottom: 1px solid #f4f6f8; font-size: 12.5px; color: #6b7482;')}>
-                No tiene clases en {vigente.codigo}.
-              </div>
-            )}
-            {asignadas.map((a) => (
-              <div key={a.id} style={css('display: grid; grid-template-columns: 1fr 120px 90px; gap: 12px; padding: 12px 20px; border-bottom: 1px solid #f4f6f8;')}>
-                <div style={css('font-size: 13px; font-weight: 500;')}>{a.materia}</div>
-                <div style={css('font-size: 13px; color: #4a5462;')}>{a.curso}</div>
-                <div className="mono" style={css('font-size: 12.5px; color: #4a5462; text-align: right;')}>
-                  {a.horas} h
-                </div>
-              </div>
-            ))}
-
-            <div style={css('display: flex; align-items: center; gap: 16px; padding: 15px 20px;')}>
-              <div style={css('display: flex; align-items: baseline; gap: 7px;')}>
-                <span className="mono" style={css('font-size: 20px; font-weight: 600;')}>
-                  {totalHoras}
-                </span>
-                <span style={css('font-size: 12.5px; color: #6b7482;')}>horas cátedra semanales</span>
-              </div>
-              <div style={css('flex-grow: 1; max-width: 300px;')}>
-                <div style={css('height: 6px; border-radius: 3px; background: #eef1f5; overflow: hidden;')}>
-                  <div style={css('height: 6px; width: ' + Math.min(100, Math.round((totalHoras / 36) * 100)) + '%; background: ' + (totalHoras > 36 ? '#b03a2e' : ACCENT) + ';')}></div>
-                </div>
-              </div>
-              <span style={css('font-size: 12px; color: #6b7482;')}>Tope provincial 36 h</span>
-            </div>
-          </div>
-
-          {sinMargen && (
-            <div style={css('border-radius: 10px; padding: 14px 16px; background: #f3f6fc; border: 1px solid #cfdcf5; display: flex; gap: 11px; align-items: flex-start;')}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={ACCENT} strokeWidth="2" strokeLinecap="round" style={css('flex-shrink: 0; margin-top: 1px;')}>
-                <path d="M12 11.5v5M12 8v.5"></path>
-                <circle cx="12" cy="12" r="9"></circle>
-              </svg>
-              <span style={css('font-size: 12.5px; color: #2c4570; line-height: 1.55;')}>
-                Declaró {franjas} franjas y ya tiene {totalHoras} horas asignadas: queda poco margen para darle más materias o para que cubra una suplencia.
-              </span>
-            </div>
-          )}
         </div>
       </div>
     </>

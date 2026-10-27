@@ -66,3 +66,44 @@ export class Materia implements C.Materia {
   @ApiProperty({"type":"integer","format":"int64","isArray":true,"required":false})
   ids_clases?: number[];
 }
+
+/** Materia dentro del plan de estudios. */
+@ApiSchema({ name: "PlanDeEstudiosMateria" })
+export class PlanDeEstudiosMateria implements C.PlanDeEstudiosMateria {
+  @ApiProperty({"type":"integer","format":"int64","example":3,"required":true})
+  id_materia!: number;
+  @ApiProperty({"type":"string","example":"Matemática","required":true})
+  nombre_materia!: string;
+  @ApiProperty({"type":"string","example":"Números, operaciones y geometría básica.","required":false})
+  descripcion_materia?: string;
+  @ApiProperty({"type":"integer","format":"int64","example":5,"required":true})
+  horas_semanales!: number;
+  @ApiProperty({"type":"integer","format":"int64","example":2,"nullable":true,"required":false})
+  id_area?: number | null;
+  @ApiProperty({"type":"string","example":"Exactas","nullable":true,"required":false})
+  nombre_area?: string | null;
+}
+
+/** Orientación de un año del plan de estudios, con sus materias. */
+@ApiSchema({ name: "PlanDeEstudiosOrientacion" })
+export class PlanDeEstudiosOrientacion implements C.PlanDeEstudiosOrientacion {
+  @ApiProperty({"type":"integer","format":"int64","example":1,"required":true})
+  id_orientacion!: number;
+  @ApiProperty({"type":"string","example":"Básica","required":true})
+  nombre_orientacion!: string;
+  @ApiProperty({"type":"string","example":"BAS","required":true})
+  codigo!: string;
+  @ApiProperty({"type":[PlanDeEstudiosMateria],"required":true})
+  materias!: PlanDeEstudiosMateria[];
+}
+
+/** Un año académico del plan de estudios: año → orientaciones → materias. */
+@ApiSchema({ name: "PlanDeEstudiosAnio" })
+export class PlanDeEstudiosAnio implements C.PlanDeEstudiosAnio {
+  @ApiProperty({"type":"integer","format":"int64","example":1,"required":true})
+  id_anio_academico!: number;
+  @ApiProperty({"type":"string","description":"Nombre del año (servicio Planificación)","example":"1° año","required":true})
+  anio_curricular!: string;
+  @ApiProperty({"type":[PlanDeEstudiosOrientacion],"required":true})
+  orientaciones!: PlanDeEstudiosOrientacion[];
+}

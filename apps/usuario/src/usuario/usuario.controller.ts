@@ -13,7 +13,7 @@ import { UsuarioService } from './usuario.service';
 export class UsuarioController {
   constructor(private readonly servicio: UsuarioService) {}
 
-  @Post("crear_usuario")
+  @Post("usuarios")
   @ApiOperation({"operationId":"crear_usuario","summary":"Crear usuario"})
   @ApiResponse({ status: 201, description: "Creado", type: Usuario })
   @ApiResponse({ status: 400, description: 'Datos inválidos', type: ErrorApi })
@@ -21,7 +21,7 @@ export class UsuarioController {
     return this.servicio.crear_usuario(body);
   }
 
-  @Put("asignar_rol/:id")
+  @Put("usuarios/:id/rol")
   @ApiOperation({"operationId":"asignar_rol","summary":"Asignar el rol del usuario (reemplaza el anterior)"})
   @ApiParam({"name":"id","description":"Id del usuario","type":"integer","format":"int64"})
   @ApiResponse({ status: 200, description: "OK", type: Usuario })
@@ -31,7 +31,7 @@ export class UsuarioController {
     return this.servicio.asignar_rol(id, body);
   }
 
-  @Put("editar_usuario/:id")
+  @Put("usuarios/:id")
   @ApiOperation({"operationId":"editar_usuario","summary":"Editar usuario (nombre de usuario y email)","description":"Reemplaza el nombre de usuario y el email. No cambia la contraseña (`cambiar_contrasenia`) ni el rol (`asignar_rol`)."})
   @ApiParam({"name":"id","description":"Id del usuario","type":"integer","format":"int64"})
   @ApiResponse({ status: 200, description: "OK", type: Usuario })
@@ -41,7 +41,7 @@ export class UsuarioController {
     return this.servicio.editar_usuario(id, body);
   }
 
-  @Patch("cambiar_contrasenia/:id")
+  @Patch("usuarios/:id/contrasenia")
   @ApiOperation({"operationId":"cambiar_contrasenia","summary":"Cambiar contraseña"})
   @ApiParam({"name":"id","description":"Id del usuario","type":"integer","format":"int64"})
   @ApiResponse({ status: 200, description: "OK", type: Usuario })
@@ -51,7 +51,7 @@ export class UsuarioController {
     return this.servicio.cambiar_contrasenia(id, body);
   }
 
-  @Delete("eliminar_usuario/:id")
+  @Delete("usuarios/:id")
   @HttpCode(204)
   @ApiOperation({"operationId":"eliminar_usuario","summary":"Eliminar usuario"})
   @ApiParam({"name":"id","description":"Id del usuario","type":"integer","format":"int64"})
@@ -61,7 +61,7 @@ export class UsuarioController {
     return this.servicio.eliminar_usuario(id);
   }
 
-  @Get("get_usuario/:id")
+  @Get("usuarios/:id")
   @ApiOperation({"operationId":"get_usuario","summary":"Obtener usuario (con su rol anidado)"})
   @ApiParam({"name":"id","description":"Id del usuario","type":"integer","format":"int64"})
   @ApiResponse({ status: 200, description: "OK", type: Usuario })
@@ -70,7 +70,7 @@ export class UsuarioController {
     return this.servicio.get_usuario(id);
   }
 
-  @Get("get_usuarios")
+  @Get("usuarios")
   @ApiOperation({"operationId":"get_usuarios","summary":"Listar usuarios"})
   @ApiResponse({ status: 200, description: "OK", type: [Usuario] })
   get_usuarios(): Promise<Usuario[]> {

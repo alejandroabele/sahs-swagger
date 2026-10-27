@@ -4,7 +4,7 @@ import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsBoolean, IsInt, IsNotEmpty, IsOptional, IsString, Matches } from 'class-validator';
 import type * as C from '@sahs/contratos';
-/** Body de POST /horarios/crear_dia_lectivo */
+/** Body de POST /horarios/dias-lectivos */
 export class CrearDiaLectivoDto implements C.CrearDiaLectivoBody {
   @ApiProperty({"type":"string","example":"Lunes","required":true})
   @IsString()
@@ -12,7 +12,7 @@ export class CrearDiaLectivoDto implements C.CrearDiaLectivoBody {
   nombre_dia_lectivo!: string;
 }
 
-/** Body de POST /horarios/crear_franja_horaria */
+/** Body de POST /horarios/franjas-horarias */
 export class CrearFranjaHorariaDto implements C.CrearFranjaHorariaBody {
   @ApiProperty({"type":"string","example":"07:30","required":true})
   @IsString()
@@ -37,7 +37,7 @@ export class CrearFranjaHorariaDto implements C.CrearFranjaHorariaBody {
   id_dia_lectivo!: number;
 }
 
-/** Body de POST /horarios/crear_turno */
+/** Body de POST /horarios/turnos */
 export class CrearTurnoDto implements C.CrearTurnoBody {
   @ApiProperty({"type":"string","example":"Mañana","required":true})
   @IsString()
@@ -49,7 +49,7 @@ export class CrearTurnoDto implements C.CrearTurnoBody {
   cantidad_franjas_total!: number;
 }
 
-/** Body de POST /horarios/asignar_franja_a_turno/{id} */
+/** Body de POST /horarios/turnos/{id}/franjas-horarias */
 export class AsignarFranjaATurnoDto implements C.AsignarFranjaATurnoBody {
   @ApiProperty({"type":"integer","format":"int64","example":7,"required":true})
   @Type(() => Number)

@@ -16,6 +16,9 @@ export interface MateriaResumen {
   id_materia?: number;
   nombre_materia?: string;
   horas_semanales?: number;
+  /** Área de la materia (servicio Orientación), si tiene */
+  id_area?: number | null;
+  nombre_area?: string | null;
 }
 
 /** Resumen de FRANJA_HORARIA (servicio Horarios). */

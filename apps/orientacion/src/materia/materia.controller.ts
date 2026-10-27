@@ -1,9 +1,9 @@
 // Rutas de Materia. Generado una vez por tools/generar_scaffold.mjs; desde entonces se mantiene a mano.
-import { Body, Controller, Delete, Get, HttpCode, Param, ParseIntPipe, Post, Put } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, ParseIntPipe, Post, Put, Query } from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { ErrorApi } from '@sahs/comun';
-import { Materia, ProfesorResumen } from '../dto/modelos';
-import { AsignarAnioAcademicoAMateriaDto, AsignarClaseAMateriaDto, AsignarMateriaOrientacionDto, CrearMateriaDto } from '../dto/entradas';
+import { Materia, PlanDeEstudiosAnio, ProfesorResumen } from '../dto/modelos';
+import { AsignarAnioAcademicoAMateriaDto, AsignarClaseAMateriaDto, AsignarMateriaOrientacionDto, CrearMateriaDto, GetPlanDeEstudiosQuery } from '../dto/entradas';
 import { MateriaService } from './materia.service';
 
 @ApiTags("Materia")
@@ -13,7 +13,15 @@ import { MateriaService } from './materia.service';
 export class MateriaController {
   constructor(private readonly servicio: MateriaService) {}
 
-  @Post("crear_materia")
+  @Get("plan-de-estudios")
+  @ApiOperation({"operationId":"get_plan_de_estudios","summary":"Plan de estudios: año académico → orientación → materias","description":"El plan armado en tres niveles, para no cruzar en el cliente las materias con los años. Solo trae los años y orientaciones que tienen materias; con `id_orientacion`, esa orientación aparece en todos los años, aunque no tenga materias.\n\nInvoca: planificacion.get_anios_academicos"})
+  @ApiResponse({ status: 200, description: "OK", type: [PlanDeEstudiosAnio] })
+  @ApiResponse({ status: 400, description: 'Datos inválidos', type: ErrorApi })
+  get_plan_de_estudios(@Query() query: GetPlanDeEstudiosQuery): Promise<PlanDeEstudiosAnio[]> {
+    return this.servicio.get_plan_de_estudios(query);
+  }
+
+  @Post("materias")
   @ApiOperation({"operationId":"crear_materia","summary":"Crear materia"})
   @ApiResponse({ status: 201, description: "Creado", type: Materia })
   @ApiResponse({ status: 400, description: 'Datos inválidos', type: ErrorApi })
@@ -21,7 +29,7 @@ export class MateriaController {
     return this.servicio.crear_materia(body);
   }
 
-  @Delete("eliminar_materia/:id")
+  @Delete("materias/:id")
   @HttpCode(204)
   @ApiOperation({"operationId":"eliminar_materia","summary":"Eliminar materia"})
   @ApiParam({"name":"id","description":"Id de la materia","type":"integer","format":"int64"})
@@ -31,7 +39,7 @@ export class MateriaController {
     return this.servicio.eliminar_materia(id);
   }
 
-  @Put("asignar_materia_orientacion/:id")
+  @Put("materias/:id/orientacion")
   @ApiOperation({"operationId":"asignar_materia_orientacion","summary":"Asignar la orientación de la materia (reemplaza la anterior)"})
   @ApiParam({"name":"id","description":"Id de la materia","type":"integer","format":"int64"})
   @ApiResponse({ status: 200, description: "OK", type: Materia })
@@ -41,7 +49,7 @@ export class MateriaController {
     return this.servicio.asignar_materia_orientacion(id, body);
   }
 
-  @Post("asignar_clase_a_materia/:id")
+  @Post("materias/:id/clases")
   @HttpCode(200)
   @ApiOperation({"operationId":"asignar_clase_a_materia","summary":"Asignar una clase a la materia","description":"Invoca: planificacion.get_clase"})
   @ApiParam({"name":"id","description":"Id de la materia","type":"integer","format":"int64"})
@@ -52,7 +60,7 @@ export class MateriaController {
     return this.servicio.asignar_clase_a_materia(id, body);
   }
 
-  @Put("asignar_anio_academico_a_materia/:id")
+  @Put("materias/:id/anio-academico")
   @ApiOperation({"operationId":"asignar_anio_academico_a_materia","summary":"Asignar el año académico de la materia","description":"Invoca: planificacion.get_anio_academico"})
   @ApiParam({"name":"id","description":"Id de la materia","type":"integer","format":"int64"})
   @ApiResponse({ status: 200, description: "OK", type: Materia })
@@ -62,7 +70,7 @@ export class MateriaController {
     return this.servicio.asignar_anio_academico_a_materia(id, body);
   }
 
-  @Get("get_materia/:id")
+  @Get("materias/:id")
   @ApiOperation({"operationId":"get_materia","summary":"Obtener materia (área y orientación anidadas)"})
   @ApiParam({"name":"id","description":"Id de la materia","type":"integer","format":"int64"})
   @ApiResponse({ status: 200, description: "OK", type: Materia })
@@ -71,14 +79,14 @@ export class MateriaController {
     return this.servicio.get_materia(id);
   }
 
-  @Get("get_materias")
+  @Get("materias")
   @ApiOperation({"operationId":"get_materias","summary":"Listar materias"})
   @ApiResponse({ status: 200, description: "OK", type: [Materia] })
   get_materias(): Promise<Materia[]> {
     return this.servicio.get_materias();
   }
 
-  @Get("get_profesores_materia/:id")
+  @Get("materias/:id/profesores")
   @ApiOperation({"operationId":"get_profesores_materia","summary":"Profesores habilitados para la materia","description":"Invoca: profesor_suplencias.get_profesor"})
   @ApiParam({"name":"id","description":"Id de la materia","type":"integer","format":"int64"})
   @ApiResponse({ status: 200, description: "OK", type: [ProfesorResumen] })

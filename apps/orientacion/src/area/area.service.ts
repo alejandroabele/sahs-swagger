@@ -14,7 +14,7 @@ export class AreaService {
     const dup = await this.a.areas.createQueryBuilder('a').where('lower(a.nombre_area) = lower(:n)', { n: nombre }).getOne();
     if (dup) throw conflicto(`Ya existe el área ${nombre}`);
     if (body.id_profesor_coordinador != null) {
-      await this.a.profesores.exigir<C.Profesor>(`get_profesor/${body.id_profesor_coordinador}`, `No existe el profesor ${body.id_profesor_coordinador}`);
+      await this.a.profesores.exigir<C.Profesor>(`profesores/${body.id_profesor_coordinador}`, `No existe el profesor ${body.id_profesor_coordinador}`);
     }
     const area = await this.a.areas.save({
       nombre_area: nombre,

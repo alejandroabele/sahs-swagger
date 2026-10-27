@@ -1,36 +1,36 @@
 // A5 · Materias. Prototipo: <template id="tpl-materias"> y DC.registrar("materias") en prototipo/index.html.
-// Listado del plan de estudios (orientacion.get_materias) con filtro por año y búsqueda,
-// alta de materia (orientacion.crear_materia) y acceso a la ficha de cada una (A6).
+// Listado del plan de estudios (orientacion.get_plan_de_estudios: año → orientación → materias, aplanado en filas)
+// con filtro por año y búsqueda, alta de materia (orientacion.crear_materia; los años académicos, las orientaciones
+// y las áreas de sus selectores se piden al abrir el alta) y acceso a la ficha de cada una.
 import { useMemo, useState } from 'react';
-import { orientacion, planificacion, profesorSuplencias } from '../api';
-import { useNavegar } from '../app/navegar';
+import { orientacion, planificacion } from '../api';
+import { useIr } from '../app/navegar';
+import { rutas } from '../app/rutas';
 import { Cabecera } from '../componentes/Cabecera';
 import { Cargando, MensajeError } from '../componentes/Estados';
 import { useAccion, useConsulta } from '../estado/consultas';
 import { css } from '../lib/css';
-import { colorArea, habilitadosEn, numeroAnio, orientacionesParaAnio } from './a5/comun';
+import { colorArea, numeroAnio, numeroCurricular } from './a5/comun';
 import type { CrearMateriaBody } from '@sahs/contratos';
 
 const ACCENT = '#2f5fd0';
-const COLS = 'display: grid; grid-template-columns: 1fr 62px 128px 150px 56px 116px 28px; gap: 12px;';
+const COLS = 'display: grid; grid-template-columns: 1fr 62px 128px 150px 28px; gap: 12px;';
 const CAMPO = 'width: 100%; box-sizing: border-box; height: 42px; padding: 0 12px; border-radius: 8px; font-size: 13px; color: #14181f; background: #fcfdfe;';
 
 type Filtro = 'todos' | number;
 
 export default function A5Materias() {
-  const ir = useNavegar();
-  const qMaterias = useConsulta(['orientacion', 'get_materias'], () => orientacion.get_materias());
-  const qOrientaciones = useConsulta(['orientacion', 'get_orientaciones'], () => orientacion.get_orientaciones());
-  const qAreas = useConsulta(['orientacion', 'get_areas'], () => orientacion.get_areas());
-  const qAnios = useConsulta(['planificacion', 'get_anios_academicos'], () => planificacion.get_anios_academicos());
-  const qCursos = useConsulta(['planificacion', 'get_cursos'], () => planificacion.get_cursos());
-  const qProfesores = useConsulta(['profesor_suplencias', 'get_profesores'], () => profesorSuplencias.get_profesores());
+  const ir = useIr();
+  const qPlan = useConsulta(['orientacion', 'get_plan_de_estudios'], () => orientacion.get_plan_de_estudios());
+  // Años (todos, aunque no tengan materias), orientaciones y áreas solo los usa el formulario de alta: se piden al abrirlo.
+  const [mostrarAlta, setMostrarAlta] = useState(false);
+  const qAnios = useConsulta(['planificacion', 'get_anios_academicos'], () => planificacion.get_anios_academicos(), { enabled: mostrarAlta });
+  const qOrientaciones = useConsulta(['orientacion', 'get_orientaciones'], () => orientacion.get_orientaciones(), { enabled: mostrarAlta });
+  const qAreas = useConsulta(['orientacion', 'get_areas'], () => orientacion.get_areas(), { enabled: mostrarAlta });
   const crear = useAccion((b: CrearMateriaBody) => orientacion.crear_materia(b), ['orientacion']);
 
   const [busqueda, setBusqueda] = useState('');
   const [filtro, setFiltro] = useState<Filtro>('todos');
-  const [sel, setSel] = useState<number | null>(null);
-  const [mostrarAlta, setMostrarAlta] = useState(false);
   const [nuevas, setNuevas] = useState<Record<number, boolean>>({});
   const [aviso, setAviso] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -43,53 +43,37 @@ export default function A5Materias() {
   const [desc, setDesc] = useState('');
 
   const anios = qAnios.data;
-  const mats = useMemo(() => {
-    return [...(qMaterias.data ?? [])]
-      .map((m) => ({
-        m,
-        a: numeroAnio(m.id_anio_academico, anios),
-        o: m.orientacion?.nombre_orientacion ?? '—',
-        p: habilitadosEn(m.id_materia, qProfesores.data).length,
-      }))
-      .sort((x, y) => x.a - y.a || x.o.localeCompare(y.o) || x.m.nombre_materia.localeCompare(y.m.nombre_materia));
-  }, [qMaterias.data, anios, qProfesores.data]);
+  // El plan ya viene ordenado por año, orientación y materia: solo se aplana en filas.
+  const mats = useMemo(
+    () =>
+      (qPlan.data ?? []).flatMap((pa) =>
+        pa.orientaciones.flatMap((po) => po.materias.map((m) => ({ m, a: numeroCurricular(pa.anio_curricular), o: po.nombre_orientacion }))),
+      ),
+    [qPlan.data],
+  );
 
-  if (qMaterias.isLoading || qAnios.isLoading) {
+  if (qPlan.isLoading) {
     return (
-      <div style={css('width: 1440px; min-height: 980px; display: flex; flex-direction: column; background: #f4f6f8;')}>
+      <div style={css('width: 100%; min-height: 100vh; display: flex; flex-direction: column; background: #f4f6f8;')}>
         <Cabecera />
         <Cargando />
       </div>
     );
   }
 
-  const nums = (anios ?? []).map((a) => numeroAnio(a.id_anio_academico, anios)).filter(Boolean);
+  const nums = (qPlan.data ?? []).map((pa) => numeroCurricular(pa.anio_curricular)).filter(Boolean);
   const filtrosDef: { id: Filtro; label: string }[] = [{ id: 'todos', label: 'Todas' }, ...nums.map((n) => ({ id: n as Filtro, label: n + '°' }))];
   const ultimo = filtrosDef.length - 1;
 
   const texto = busqueda.trim().toLowerCase();
   const visibles = mats.filter((x) => (filtro === 'todos' || x.a === filtro) && (texto === '' || x.m.nombre_materia.toLowerCase().includes(texto)));
-  const seleccionada = mats.find((x) => x.m.id_materia === sel) ?? null;
 
   // formulario
   const horasNum = Number(horas);
   const horasOk = horas !== '' && horasNum >= 1 && horasNum <= 10 && Math.round(horasNum) === horasNum;
   const listo = nombre.trim() !== '' && anio !== '' && orient !== '' && horasOk;
   const anioN = anio === '' ? 0 : numeroAnio(Number(anio), anios);
-  const paraAnio = anio === '' ? [] : orientacionesParaAnio(Number(anio), qOrientaciones.data, qMaterias.data, qCursos.data);
-  const unica = paraAnio.length === 1;
-  const opcionesOr =
-    anio === ''
-      ? [{ valor: '', label: 'Primero elegí el año' }]
-      : paraAnio.length === 0
-        ? [{ valor: '', label: 'Ninguna asociada a ' + anioN + '° año' }]
-        : [...(unica ? [] : [{ valor: '', label: 'Seleccioná una orientación' }]), ...paraAnio.map((o) => ({ valor: String(o.id_orientacion), label: o.nombre_orientacion }))];
-  const orientacionAyuda =
-    anio === ''
-      ? 'Las orientaciones disponibles dependen del año académico.'
-      : paraAnio.length === 0
-        ? 'No hay orientaciones asociadas a ' + anioN + '° año. Se asocian desde la pantalla Orientaciones.'
-        : 'Orientaciones asociadas a ' + anioN + '° año: ' + paraAnio.map((o) => o.nombre_orientacion).join(', ') + '. La materia solo se ofrece a los cursos de esa orientación.';
+  const orientaciones = qOrientaciones.data ?? [];
 
   const limpiar = () => {
     setNombre('');
@@ -102,9 +86,7 @@ export default function A5Materias() {
   };
 
   const cambiarAnio = (v: string) => {
-    const ps = v === '' ? [] : orientacionesParaAnio(Number(v), qOrientaciones.data, qMaterias.data, qCursos.data);
     setAnio(v);
-    setOrient(ps.length === 1 ? String(ps[0].id_orientacion) : '');
     setError(null);
     setAviso(null);
   };
@@ -115,7 +97,7 @@ export default function A5Materias() {
       if (n !== '' && anio !== '' && orient !== '' && !horasOk) setError('Las horas semanales tienen que ser un número entero entre 1 y 10.');
       return;
     }
-    const nombreOr = paraAnio.find((o) => String(o.id_orientacion) === orient)?.nombre_orientacion ?? '';
+    const nombreOr = orientaciones.find((o) => String(o.id_orientacion) === orient)?.nombre_orientacion ?? '';
     const r = await crear.ejecutar({
       nombre_materia: n,
       descripcion_materia: desc.trim() || undefined,
@@ -128,25 +110,24 @@ export default function A5Materias() {
     setNuevas((x) => ({ ...x, [r.id_materia]: true }));
     setFiltro(anioN || 'todos');
     setBusqueda('');
-    setSel(null);
     limpiar();
-    setAviso(n + ' se agregó al plan de ' + anioN + '° año (' + nombreOr + '), con ' + horasNum + ' h semanales. Los docentes que pueden dictarla se habilitan desde su ficha.');
+    setAviso(n + ' se agregó al plan de ' + anioN + '° año (' + nombreOr + '), con ' + horasNum + ' h semanales.');
   };
 
   const errorNombre = error ?? crear.error;
 
   return (
-    <div style={css('width: 1440px; min-height: 980px; display: flex; flex-direction: column; background: #f4f6f8;')}>
+    <div style={css('width: 100%; min-height: 100vh; display: flex; flex-direction: column; background: #f4f6f8;')}>
       <Cabecera />
 
-      <div style={css('display: flex; align-items: flex-end; gap: 24px; padding: 22px 28px 18px; background: #fff; border-bottom: 1px solid #e2e6ec; flex-shrink: 0;')}>
+      <div className="r-margen r-envolver" style={css('display: flex; align-items: flex-end; gap: 24px; padding: 22px 28px 18px; background: #fff; border-bottom: 1px solid #e2e6ec; flex-shrink: 0;')}>
         <div style={css('display: flex; flex-direction: column; gap: 6px;')}>
           <div style={css('display: flex; align-items: center; gap: 8px; font-size: 12px; color: #6b7482;')}>
-            <span onClick={() => ir('A1')} style={css('cursor: pointer;')}>Inicio</span>
+            <span onClick={() => ir(rutas.inicio())} style={css('cursor: pointer;')}>Inicio</span>
             <span style={css('color: #c3cad4;')}>/</span>
             <span style={css('color: #14181f; font-weight: 500;')}>Materias</span>
           </div>
-          <div style={css('font-size: 24px; font-weight: 600; letter-spacing: -0.02em;')}>Materias del plan de estudios</div>
+          <div className="r-titulo" style={css('font-size: 24px; font-weight: 600; letter-spacing: -0.02em;')}>Materias del plan de estudios</div>
         </div>
         <div style={css('flex-grow: 1;')}></div>
         <button
@@ -168,24 +149,24 @@ export default function A5Materias() {
         </button>
       </div>
 
-      <div style={css('display: flex; gap: 18px; padding: 20px 28px 28px; align-items: flex-start;')}>
+      <div className="r-margen r-apilar" style={css('display: flex; gap: 18px; padding: 20px 28px 28px; align-items: flex-start;')}>
         <div style={css('flex-grow: 1; min-width: 0; background: #fff; border: 1px solid #e2e6ec; border-radius: 10px; overflow: hidden;')}>
-          <div style={css('display: flex; align-items: center; gap: 14px; padding: 15px 20px; border-bottom: 1px solid #eef1f5;')}>
+          <div className="r-envolver" style={css('display: flex; align-items: center; gap: 14px; padding: 15px 20px; border-bottom: 1px solid #eef1f5;')}>
             <input
               type="text"
               value={busqueda}
               onChange={(e) => {
                 setBusqueda(e.target.value);
-                setSel(null);
               }}
               placeholder="Buscar por nombre"
+              className="r-ancho-movil"
               style={css('width: 250px; box-sizing: border-box; height: 34px; padding: 0 12px; border-radius: 7px; border: 1px solid #dfe4ea; font-size: 12.5px; background: #fcfdfe;')}
             />
             <div style={css('flex-grow: 1;')}></div>
             <span style={css('font-size: 12px; color: #6b7482;')}>
               {visibles.length === mats.length ? mats.length + ' materias' : visibles.length + ' de ' + mats.length + ' materias'}
             </span>
-            <div style={css('display: flex; gap: 2px;')}>
+            <div className="r-desplazar" style={css('display: flex; gap: 2px;')}>
               {filtrosDef.map((o, i) => {
                 const activo = filtro === o.id;
                 return (
@@ -193,7 +174,6 @@ export default function A5Materias() {
                     key={String(o.id)}
                     onClick={() => {
                       setFiltro(o.id);
-                      setSel(null);
                     }}
                     style={css(
                       'height: 30px; padding: 0 12px; font-size: 12px; font-weight: 500;' +
@@ -210,38 +190,36 @@ export default function A5Materias() {
             </div>
           </div>
 
-          {qMaterias.error && (
+          {qPlan.error && (
             <div style={css('padding: 12px 20px;')}>
-              <MensajeError mensaje={qMaterias.error.message} />
+              <MensajeError mensaje={qPlan.error.message} />
             </div>
           )}
 
+          {/* En pantallas angostas la tabla se desplaza dentro de la tarjeta. */}
+          <div className="r-desplazar">
+          <div className="r-min-800">
           <div style={css(COLS + ' padding: 10px 20px; background: #fafbfc; border-bottom: 1px solid #eef1f5;')}>
             <div style={css('font-size: 11.5px; font-weight: 600; color: #7a8393;')}>Materia</div>
             <div style={css('font-size: 11.5px; font-weight: 600; color: #7a8393;')}>Año</div>
             <div style={css('font-size: 11.5px; font-weight: 600; color: #7a8393;')}>Orientación</div>
             <div style={css('font-size: 11.5px; font-weight: 600; color: #7a8393;')}>Área</div>
-            <div style={css('font-size: 11.5px; font-weight: 600; color: #7a8393; text-align: right;')}>Horas</div>
-            <div style={css('font-size: 11.5px; font-weight: 600; color: #7a8393;')}>Docentes</div>
             <div></div>
           </div>
 
           <div style={css('max-height: 636px; overflow-y: auto;')}>
-            {visibles.map(({ m, a, o, p }) => {
-              const ar = colorArea(m.area?.nombre_area);
+            {visibles.map(({ m, a, o }) => {
+              const ar = colorArea(m.nombre_area);
               const esNueva = !!nuevas[m.id_materia];
-              const activa = sel === m.id_materia;
               return (
                 <button
                   key={m.id_materia}
-                  onClick={() => ir('A6', { id_materia: m.id_materia })}
-                  onMouseEnter={() => setSel(m.id_materia)}
-                  onMouseLeave={() => setSel(null)}
+                  onClick={() => ir(rutas.materia(m.id_materia))}
                   style={css(
                     COLS +
                       ' width: 100%; padding: 12px 20px; border: none; border-top: 1px solid #f2f4f7; text-align: left;' +
-                      ' background: ' + (activa ? '#f3f6fc' : esNueva ? '#f2f8f4' : '#fff') + ';' +
-                      (activa ? ' box-shadow: inset 3px 0 0 ' + ACCENT + ';' : esNueva ? ' box-shadow: inset 3px 0 0 #2f6b45;' : ''),
+                      ' background: ' + (esNueva ? '#f2f8f4' : '#fff') + ';' +
+                      (esNueva ? ' box-shadow: inset 3px 0 0 #2f6b45;' : ''),
                   )}
                 >
                   <span style={css('display: flex; flex-direction: column; gap: 3px; min-width: 0; padding-right: 14px; text-align: left;')}>
@@ -252,19 +230,11 @@ export default function A5Materias() {
                   <span style={css('font-size: 12.5px; color: #4a5462; align-self: center; text-align: left;')}>{o}</span>
                   <span style={css('align-self: center; text-align: left;')}>
                     <span style={css('font-size: 11.5px; font-weight: 500; padding: 4px 10px; border-radius: 13px; background: ' + ar.fondo + '; color: ' + ar.texto + ';')}>
-                      {m.area?.nombre_area || 'Sin área'}
+                      {m.nombre_area || 'Sin área'}
                     </span>
                   </span>
-                  <span className="mono" style={css('font-size: 12.5px; color: #4a5462; align-self: center; text-align: right;')}>{m.horas_semanales + ' h'}</span>
-                  <span
-                    style={css(
-                      'font-size: 12px; align-self: center; text-align: left; color: ' + (p === 0 ? '#b03a2e' : '#6b7482') + ';' + (p === 0 ? ' font-weight: 500;' : ''),
-                    )}
-                  >
-                    {p === 0 ? 'Sin docente' : p === 1 ? '1 habilitado' : p + ' habilitados'}
-                  </span>
                   <span style={css('align-self: center; display: flex; justify-content: flex-end;')}>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={activa ? '#14181f' : '#c3cad4'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#c3cad4" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M9 6l6 6-6 6"></path>
                     </svg>
                   </span>
@@ -272,21 +242,7 @@ export default function A5Materias() {
               );
             })}
           </div>
-
-          <div
-            style={css(
-              'display: flex; align-items: center; gap: 10px; padding: 13px 20px; border-top: 1px solid #eef1f5; background: ' + (seleccionada ? '#f3f6fc' : '#fafbfc') + ';',
-            )}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={seleccionada ? ACCENT : '#8b95a5'} strokeWidth="2" strokeLinecap="round" style={css('flex-shrink: 0;')}>
-              <circle cx="12" cy="12" r="9"></circle>
-              <path d="M12 11.5v5M12 8v.5"></path>
-            </svg>
-            <span style={css('font-size: 12.5px; color: ' + (seleccionada ? '#2c4570' : '#6b7482') + '; line-height: 1.5;')}>
-              {seleccionada
-                ? seleccionada.m.nombre_materia + ' (' + (seleccionada.a ? seleccionada.a + '° año' : 'sin año') + ', ' + seleccionada.o + ') — se abre en la pantalla A6, con sus docentes habilitados y las acciones de edición y baja.'
-                : 'Hacé clic en cualquier materia para abrir su ficha.'}
-            </span>
+          </div>
           </div>
         </div>
 
@@ -310,7 +266,7 @@ export default function A5Materias() {
                     setAviso(null);
                     crear.limpiarError();
                   }}
-                  placeholder="Por ejemplo: Biología"
+                  placeholder="Ej.: Biología"
                   style={css(CAMPO + ' border: 1px solid ' + (errorNombre ? '#e0a9a2' : '#dfe4ea') + ';')}
                 />
                 {errorNombre && <span style={css('font-size: 11.5px; color: #b03a2e; line-height: 1.45;')}>{errorNombre}</span>}
@@ -337,18 +293,18 @@ export default function A5Materias() {
                     setError(null);
                     setAviso(null);
                   }}
-                  style={css(CAMPO + ' border: 1px solid #dfe4ea;' + (unica || anio === '' ? ' background: #f4f6f8; color: #6b7482;' : ''))}
+                  style={css(CAMPO + ' border: 1px solid #dfe4ea;')}
                 >
-                  {opcionesOr.map((o) => (
-                    <option key={o.valor} value={o.valor}>
-                      {o.label}
+                  <option value="">Seleccioná una orientación</option>
+                  {orientaciones.map((o) => (
+                    <option key={o.id_orientacion} value={String(o.id_orientacion)}>
+                      {o.nombre_orientacion}
                     </option>
                   ))}
                 </select>
-                <span style={css('font-size: 11.5px; color: #7a8393; line-height: 1.45;')}>{orientacionAyuda}</span>
               </div>
 
-              <div style={css('display: grid; grid-template-columns: 130px 1fr; gap: 12px;')}>
+              <div className="r-una-columna-movil" style={css('display: grid; grid-template-columns: 130px 1fr; gap: 12px;')}>
                 <div style={css('display: flex; flex-direction: column; gap: 7px;')}>
                   <label style={css('font-size: 12.5px; font-weight: 600; color: #4a5462;')}>Horas semanales *</label>
                   <input
@@ -393,7 +349,7 @@ export default function A5Materias() {
                 ></textarea>
               </div>
 
-              <div style={css('display: flex; align-items: center; gap: 10px; padding-top: 2px;')}>
+              <div className="r-envolver" style={css('display: flex; align-items: center; gap: 10px; padding-top: 2px;')}>
                 <button
                   onClick={alta}
                   disabled={crear.enCurso}

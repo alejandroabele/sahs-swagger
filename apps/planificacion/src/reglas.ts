@@ -28,13 +28,13 @@ export class Reglas {
   async validarClase(idCurso: number, idMateria: number, idsFranjas: number[], idsProfesores: number[]) {
     const curso = await this.a.curso(idCurso);
     const dicta = await this.a.materiasCurso.findOneBy({ id_curso: idCurso, id_materia: idMateria });
-    const materia = await this.a.orientacion.exigir<C.Materia>(`get_materia/${idMateria}`, `No existe la materia ${idMateria}`);
+    const materia = await this.a.orientacion.exigir<C.Materia>(`materias/${idMateria}`, `No existe la materia ${idMateria}`);
     if (!dicta) throw conflicto(`El curso no dicta ${materia.nombre_materia}`);
     if (!idsFranjas.length) throw conflicto('La clase tiene que tener al menos una franja');
     if (!idsProfesores.length) throw conflicto('La clase tiene que tener al menos un docente');
 
     const franjas = await this.a.franjasPorId();
-    const turno = await this.a.horarios.exigir<C.Turno>(`get_turno/${curso.id_turno}`, `No existe el turno ${curso.id_turno}`);
+    const turno = await this.a.horarios.exigir<C.Turno>(`turnos/${curso.id_turno}`, `No existe el turno ${curso.id_turno}`);
     const delTurno = new Set((turno.franjas_horarias ?? []).map((f) => f.id_franja_horaria));
     for (const id of idsFranjas) {
       const f = franjas.get(id);
@@ -50,7 +50,7 @@ export class Reglas {
       if (!(p.lista_materias_habilitadas ?? []).some((m) => m.id_materia === idMateria)) {
         throw conflicto(`${nombre} no tiene habilitada la materia ${materia.nombre_materia}`);
       }
-      const disp = await this.a.profesores.listar<C.FranjaHorariaResumen>(`get_disponibilidad_profesor/${idp}`);
+      const disp = await this.a.profesores.listar<C.FranjaHorariaResumen>(`profesores/${idp}/disponibilidad`);
       const libres = new Set(disp.map((d) => d.id_franja_horaria));
       for (const id of idsFranjas) {
         if (!libres.has(id)) throw conflicto(`${nombre} no está disponible el ${nombreFranja(franjas.get(id)!)}`);

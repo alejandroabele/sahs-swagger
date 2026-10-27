@@ -1,26 +1,4 @@
 services:
-  swagger-ui:
-    image: swaggerapi/swagger-ui:v5.17.14
-    container_name: sahs-swagger-ui
-    ports:
-      - "8080:8080"
-    volumes:
-      - ./specs:/usr/share/nginx/html/specs:ro
-    environment:
-      URLS: >-
-        [
-          { "url": "specs/usuario.json",             "name": "Usuario" },
-          { "url": "specs/pago.json",                "name": "Pago" },
-          { "url": "specs/horarios.json",            "name": "Horarios" },
-          { "url": "specs/planificacion.json",       "name": "Planificación" },
-          { "url": "specs/orientacion.json",         "name": "Orientación" },
-          { "url": "specs/profesor_suplencias.json", "name": "Profesor y Suplencias" }
-        ]
-      URLS_PRIMARY_NAME: "Usuario"
-      DOC_EXPANSION: "list"
-      DEFAULT_MODELS_EXPAND_DEPTH: "1"
-    restart: unless-stopped
-
   prototipo:
     image: nginx:1.27.5-alpine
     container_name: sahs-prototipo

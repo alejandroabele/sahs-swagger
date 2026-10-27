@@ -8,7 +8,7 @@ import { Cabecera } from '../componentes/Cabecera';
 import { Cargando, MensajeError } from '../componentes/Estados';
 import { useCiclo } from '../estado/ciclo';
 import { useConsulta } from '../estado/consultas';
-import { useSesion } from '../estado/sesion';
+import { useMiProfesor } from '../estado/sesion';
 import { css } from '../lib/css';
 import { DIAS, fecha } from '../lib/formato';
 
@@ -50,7 +50,7 @@ interface Celda {
 }
 
 export default function P2MiHorario() {
-  const { profesor } = useSesion();
+  const { profesor, cargando: cargandoProf } = useMiProfesor();
   const { ciclos } = useCiclo();
   const anio = new Date().getFullYear();
   const ciclo = ciclos.find((c) => c.anio_calendario === anio) ?? null;
@@ -165,20 +165,20 @@ export default function P2MiHorario() {
   );
 
   return (
-    <div style={css('width: 1440px; min-height: 980px; display: flex; flex-direction: column; background: #f4f6f8;')}>
+    <div style={css('width: 100%; min-height: 100vh; display: flex; flex-direction: column; background: #f4f6f8;')}>
       <Cabecera conCiclo={false} />
 
-      <div style={css('display: flex; align-items: flex-end; gap: 24px; padding: 22px 28px 18px; background: #fff; border-bottom: 1px solid #e2e6ec; flex-shrink: 0;')}>
+      <div className="r-margen r-envolver" style={css('display: flex; align-items: flex-end; gap: 24px; padding: 22px 28px 18px; background: #fff; border-bottom: 1px solid #e2e6ec; flex-shrink: 0;')}>
         <div style={css('display: flex; flex-direction: column; gap: 6px;')}>
-          <div style={css('display: flex; align-items: center; gap: 8px; font-size: 12px; color: #6b7482;')}>
+          <div className="r-envolver" style={css('display: flex; align-items: center; gap: 8px; font-size: 12px; color: #6b7482;')}>
             <span>Ciclo lectivo {anio}</span>
             <span style={css('color: #c3cad4;')}>/</span>
             <span>{vigente ? `Grilla validada el ${fecha(vigente.fecha_modificacion)}` : 'Sin grilla validada'}</span>
           </div>
-          <div style={css('font-size: 24px; font-weight: 600; letter-spacing: -0.02em;')}>Mi grilla horaria</div>
+          <div className="r-titulo" style={css('font-size: 24px; font-weight: 600; letter-spacing: -0.02em;')}>Mi grilla horaria</div>
         </div>
         <div style={css('flex-grow: 1;')}></div>
-        <div style={css('display: flex; align-items: center; gap: 16px; font-size: 12px; color: #6b7482;')}>
+        <div className="r-envolver" style={css('display: flex; align-items: center; gap: 16px; font-size: 12px; color: #6b7482;')}>
           {resumen.map((c) => (
             <span key={c.id} style={css('display: flex; align-items: center; gap: 7px;')}>
               <span style={css('width: 9px; height: 9px; border-radius: 3px; background: ' + c.color + ';')}></span>
@@ -189,10 +189,12 @@ export default function P2MiHorario() {
         </div>
       </div>
 
-      <div style={css('padding: 20px 28px 28px; display: flex; flex-direction: column; gap: 18px;')}>
-        {!profesor ? (
+      <div className="r-margen" style={css('padding: 20px 28px 28px; display: flex; flex-direction: column; gap: 18px;')}>
+        {cargandoProf ? (
+          <Cargando />
+        ) : !profesor ? (
           <div style={css('font-size: 12.5px; color: #a56a10; background: #fdf6ec; border: 1px solid #f1dfc0; border-radius: 8px; padding: 12px 14px;')}>
-            Tu usuario no está vinculado a ningún profesor, así que no hay grilla para mostrar. El vínculo se asigna desde la ficha del profesor.
+            Tu usuario no está vinculado a ningún profesor.
           </div>
         ) : !ciclos.length || cargando ? (
           <Cargando />
@@ -207,13 +209,13 @@ export default function P2MiHorario() {
         ) : (
           grillas.map((g) => (
             <div key={g.id} style={css('background: #fff; border: 1px solid #e2e6ec; border-radius: 10px; overflow: hidden;')}>
-              <div style={css('display: flex; align-items: center; gap: 14px; padding: 14px 20px; border-bottom: 1px solid #eef1f5;')}>
+              <div className="r-envolver" style={css('display: flex; align-items: center; gap: 14px; padding: 14px 20px; border-bottom: 1px solid #eef1f5;')}>
                 <div style={css('display: flex; flex-direction: column; gap: 3px;')}>
                   <div style={css('font-size: 13px; font-weight: 600;')}>{g.titulo}</div>
                   <div style={css('font-size: 11.5px; color: #6b7482;')}>{g.sub}</div>
                 </div>
                 <div style={css('flex-grow: 1;')}></div>
-                <div style={css('display: flex; align-items: center; gap: 16px; font-size: 11.5px; color: #6b7482;')}>
+                <div className="r-envolver" style={css('display: flex; align-items: center; gap: 16px; font-size: 11.5px; color: #6b7482;')}>
                   <span style={css('display: flex; align-items: center; gap: 6px;')}>
                     <span style={css('width: 12px; height: 12px; border-radius: 4px; background: #eaf0fb; border: 1px solid #cfdcf5;')}></span>Clase asignada
                   </span>
@@ -231,7 +233,8 @@ export default function P2MiHorario() {
                 </div>
               </div>
 
-              <div style={css('padding: 18px 20px 24px;')}>
+              <div className="r-desplazar" style={css('padding: 18px 20px 24px;')}>
+                <div className="r-min-600">
                 <div style={css('display: grid; grid-template-columns: 120px repeat(5, minmax(0, 1fr)); gap: 6px; margin-bottom: 8px;')}>
                   <div></div>
                   {DIAS.map((d) => (
@@ -294,6 +297,7 @@ export default function P2MiHorario() {
                     </div>
                   ),
                 )}
+                </div>
               </div>
             </div>
           ))

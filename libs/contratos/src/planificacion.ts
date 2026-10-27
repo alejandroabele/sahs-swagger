@@ -31,6 +31,9 @@ export interface MateriaCurso {
   nombre_materia: string;
   /** Horas de la materia en este curso. Si no se definen, se toman las de la materia. */
   horas_semanales: number;
+  /** Área de la materia (servicio Orientación), si tiene */
+  id_area?: number | null;
+  nombre_area?: string | null;
 }
 
 /** Catálogo gestionado con crear_estado_propuesta. Carga inicial: Borrador (BOR), En revisión (REV), Validada (VAL) y Cerrada (CER). El estado es de toda la propuesta, no de cada curso. */
@@ -92,7 +95,7 @@ export interface Clase {
   readonly suplencia?: SuplenciaResumen | null;
 }
 
-/** Body de POST /planificacion/crear_propuesta */
+/** Body de POST /planificacion/propuestas */
 export interface CrearPropuestaBody {
   nombre: string;
   descripcion_propuesta?: string;
@@ -100,23 +103,23 @@ export interface CrearPropuestaBody {
   id_ciclo_lectivo: number;
 }
 
-/** Body de POST /planificacion/crear_estado_propuesta */
+/** Body de POST /planificacion/estados-propuesta */
 export interface CrearEstadoPropuestaBody {
   nombre: string;
   codigo: string;
 }
 
-/** Body de PUT /planificacion/asignar_estado_a_propuesta/{id} */
+/** Body de PUT /planificacion/propuestas/{id}/estado */
 export interface AsignarEstadoAPropuestaBody {
   id_estado: number;
 }
 
-/** Body de POST /planificacion/crear_ciclo_lectivo */
+/** Body de POST /planificacion/ciclos-lectivos */
 export interface CrearCicloLectivoBody {
   anio_calendario: number;
 }
 
-/** Body de POST /planificacion/crear_curso */
+/** Body de POST /planificacion/cursos */
 export interface CrearCursoBody {
   division: string;
   id_ciclo_lectivo: number;
@@ -125,7 +128,7 @@ export interface CrearCursoBody {
   id_orientacion: number;
 }
 
-/** Body de POST /planificacion/crear_clase */
+/** Body de POST /planificacion/clases */
 export interface CrearClaseBody {
   descripcion?: string;
   codigo: string;
@@ -135,42 +138,41 @@ export interface CrearClaseBody {
   ids_profesores: number[];
 }
 
-/** Body de POST /planificacion/asignar_materia_a_curso/{id} */
+/** Body de POST /planificacion/cursos/{id}/materias */
 export interface AsignarMateriaACursoBody {
   id_materia: number;
   /** Horas semanales de la materia en el curso */
   horas_semanales?: number;
 }
 
-/** Body de PATCH /planificacion/cambiar_horas_materia_curso/{id} */
+/** Body de PATCH /planificacion/cursos/{id}/materias/{id_materia} */
 export interface CambiarHorasMateriaCursoBody {
-  id_materia: number;
   /** Horas semanales de la materia en el curso */
   horas_semanales: number;
 }
 
-/** Body de PUT /planificacion/asignar_curso_a_clase/{id} */
+/** Body de PUT /planificacion/clases/{id}/curso */
 export interface AsignarCursoAClaseBody {
   id_curso: number;
 }
 
-/** Body de POST /planificacion/crear_anio_academico */
+/** Body de POST /planificacion/anios-academicos */
 export interface CrearAnioAcademicoBody {
   anio_curricular: string;
   codigo: string;
 }
 
-/** Body de POST /planificacion/asignar_clase_a_propuesta/{id} */
+/** Body de POST /planificacion/propuestas/{id}/clases */
 export interface AsignarClaseAPropuestaBody {
   id_clase: number;
 }
 
-/** Body de POST /planificacion/asignar_curso_a_anio_academico/{id} */
+/** Body de POST /planificacion/anios-academicos/{id}/cursos */
 export interface AsignarCursoAAnioAcademicoBody {
   id_curso: number;
 }
 
-/** Query de GET /planificacion/get_propuestas */
+/** Query de GET /planificacion/propuestas */
 export interface GetPropuestasQuery {
   /** Ciclo lectivo de la propuesta (filtro opcional) */
   id_ciclo_lectivo?: number;
@@ -178,13 +180,13 @@ export interface GetPropuestasQuery {
   id_estado?: number;
 }
 
-/** Query de GET /planificacion/get_cursos */
+/** Query de GET /planificacion/cursos */
 export interface GetCursosQuery {
   /** Ciclo lectivo del curso (filtro opcional) */
   id_ciclo_lectivo?: number;
 }
 
-/** Query de GET /planificacion/get_clases */
+/** Query de GET /planificacion/clases */
 export interface GetClasesQuery {
   /** Profesor que figura en `ids_profesores` (filtro opcional) */
   id_profesor?: number;
@@ -194,11 +196,48 @@ export interface GetClasesQuery {
   id_propuesta?: number;
 }
 
-/** Body de PUT /planificacion/editar_clase/{id} (agregado: no está en el documento) */
+/** Body de PUT /planificacion/clases/{id} (agregado: no está en el documento) */
 export interface EditarClaseBody {
   descripcion?: string;
   /** Reemplaza las franjas de la clase */
   ids_franjas_horarias: number[];
   /** Reemplaza los docentes de la clase (los mismos en todas sus franjas) */
   ids_profesores: number[];
+}
+
+/** Body de POST /planificacion/propuestas/{id}/generacion (agregado: no está en el documento). */
+export interface GenerarPlanillaBody {
+  /** Solo ese curso. Sin él, todos los cursos del ciclo de la propuesta. */
+  id_curso?: number;
+}
+
+/** Horas de una materia de un curso que la generación no pudo ubicar. */
+export interface HorasSinUbicar {
+  id_curso: number;
+  id_materia: number;
+  /** "1° A" */
+  curso: string;
+  materia: string;
+  horas: number;
+}
+
+/** Clase creada o editada por la generación, con lo que tenía antes (para deshacer). */
+export interface CambioGeneracion {
+  id_clase: number;
+  /** true si la generación creó la clase (deshacer = eliminarla). */
+  creada: boolean;
+  /** Franjas que tenía la clase antes de generar (vacío si se creó). */
+  ids_franjas_horarias_previas: number[];
+  /** Docentes que tenía la clase antes de generar (vacío si se creó). */
+  ids_profesores_previos: number[];
+}
+
+/** Resultado de generar_planilla. */
+export interface ResultadoGeneracion {
+  /** Horas cátedra ubicadas y guardadas. */
+  horas_ubicadas: number;
+  sin_ubicar: HorasSinUbicar[];
+  cambios: CambioGeneracion[];
+  /** Mensajes de las reglas que rechazaron un cambio (409); el resto se guardó igual. */
+  errores: string[];
 }

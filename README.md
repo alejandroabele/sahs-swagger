@@ -25,6 +25,24 @@ docker compose -f docker-compose.app.yml down -v         # baja todo y borra la 
 - **Swagger UI:** http://localhost:8180 (elegir el servicio en "Select a definition"; "Try it out" responde de verdad)
 - **Usuarios de ejemplo:** `secretaria` (Administrativo), `jramirez` (Profesor) y `sferreyra` (Coordinador de área), entre otros. La contraseña de todos es **`sahs2026`**.
 
+Rutas de la web (las mismas que usa el prototipo, en el hash):
+
+| Pantalla | Ruta |
+|---|---|
+| Login | `/login` |
+| Inicio | `/` |
+| Materias y su ficha | `/materias`, `/materias/:id` |
+| Profesores, alta y ficha | `/profesores`, `/profesores/nuevo`, `/profesores/:id` |
+| Relevamiento de disponibilidad | `/disponibilidad`, `/disponibilidad/:idProfesor` |
+| Cursos, alta y edición | `/cursos`, `/cursos/nuevo`, `/cursos/:id` |
+| Planificaciones, armado y generación | `/planificaciones`, `/planificaciones/:id`, `/planificaciones/:id/cursos/:idCurso`, `/planificaciones/:id/generacion[/:idCurso]` |
+| Suplencias, orientaciones, ciclos lectivos y turnos | `/suplencias`, `/orientaciones`, `/ciclos-lectivos`, `/turnos` |
+| Usuarios y roles | `/usuarios`, `/roles` |
+| Cambiar mi contraseña | `/mi-cuenta/contrasenia` |
+| Profesor: mi horario, mi disponibilidad y mis recibos | `/mi-horario`, `/mi-disponibilidad`, `/mis-recibos` |
+
+Cada pantalla consulta el servicio dueño de lo que muestra. A otro servicio lo consulta solo para mostrar el nombre de un id, para llenar un selector que una acción necesita o cuando cruzar datos es su función (generación, suplencias, armado y mi horario). No hay totales ni avances calculados en el front cruzando servicios: si hace falta uno, se agrega como query del servicio dueño.
+
 Qué levanta el compose:
 
 | Contenedor | Qué hace |
@@ -36,7 +54,7 @@ Qué levanta el compose:
 
 La base es un solo archivo, `/data/sahs.sqlite`, en el volumen **`sahs-data`**. Cada tabla tiene un servicio dueño (el prefijo de la tabla: `usuario_`, `pago_`, ...), que es el único que escribe en ella. Las referencias a datos de otro servicio se guardan como ids sin clave foránea, y esos datos se piden por HTTP.
 
-Los dos compose pueden estar levantados a la vez: el original (`docker-compose.yml`) usa los puertos 8080 y 8090.
+Los dos compose pueden estar levantados a la vez: el original (`docker-compose.yml`) solo levanta el prototipo, en el puerto 8090.
 
 ### Desarrollo local
 
@@ -101,18 +119,19 @@ Todas las respuestas de error tienen el cuerpo `Error { codigo, mensaje }`, con 
 El prototipo HTML quedó como **referencia visual** de la app web (`apps/web` reproduce sus pantallas con datos reales). Se levanta con el compose original:
 
 ```bash
-docker compose up -d      # Swagger UI de los contratos originales (:8080) y el prototipo (:8090)
+docker compose up -d      # el prototipo (:8090)
 docker compose down
 ```
 
 La carpeta `prototipo/` tiene el prototipo navegable de SAHS, servido con nginx en **http://localhost:8090**. Es una sola aplicación, en un solo archivo (`index.html`) y con una sola URL. No hay backend: los datos son de ejemplo y no se guardan.
 
-- **Entrar:** la URL abre el Login (L1). Sirve cualquier usuario de ejemplo (por nombre o por email) con cualquier contraseña que no esté vacía. La lista de la derecha completa el usuario con un toque: `secretaria` es Administrativo, `jramirez` es Profesor y `sferreyra` es Coordinador de área.
+- **Entrar:** la URL abre el Login. Sirve cualquier usuario de los datos del prototipo (por nombre o por email) con cualquier contraseña que no esté vacía: `secretaria` es Administrativo, `jramirez` es Profesor y `sferreyra` es Coordinador de área.
 - **Cambiar de rol:** se toca "Cerrar sesión" en la cabecera y se entra con otro usuario, en la misma URL. La sesión es de cada pestaña y se mantiene al recargar, así que se pueden tener dos roles abiertos en dos pestañas.
-- **Menú:** el inicio (A1) es el mismo para todos los roles. Muestra una tarjeta por cada privilegio del rol del usuario que entró: `login` → `usuario.rol.id_rol` → `get_rol_privilegios`. No hay grupos, y el título de cada tarjeta es `descripcion_privilegio`. El front decide qué pantalla abre cada tarjeta según el `id_privilegio` (`CONFIG.privilegios`). Las que todavía no tienen pantalla ("Recibos de sueldo" y "Áreas") figuran como "Pendiente". Los privilegios se asignan y se quitan en Usuarios → Roles (A17), y el cambio se ve en el menú sin recargar.
-- **Cabecera:** es una sola, la del diseño. Muestra el usuario que entró y su rol, el candado de "Cambiar mi contraseña" (A18, la misma pantalla para todos, con `cambiar_contrasenia` y el id del usuario que entró) y "Cerrar sesión". El logo SAHS lleva al inicio.
-- **Acceso:** cada pantalla pertenece a un privilegio. Si se pide por URL (`#A17`) una pantalla que el rol no tiene, se vuelve al inicio.
-- **Pantallas:** L1 (Login), A1 a A18 y P2 a P4. El código de cada una es el del canvas del diseño.
+- **Menú:** el inicio (A1) es el mismo para todos los roles. Muestra una tarjeta por cada privilegio del rol del usuario que entró: `login` → `usuario.rol.id_rol` → `get_rol_privilegios`. No hay grupos, y el título de cada tarjeta es `descripcion_privilegio`. El front decide qué pantalla abre cada tarjeta según el `id_privilegio` (`CONFIG.privilegios`). Los privilegios que todavía no tienen pantalla ("Recibos de sueldo" y "Áreas") no se muestran. Los privilegios se asignan y se quitan en Usuarios → Roles, y el cambio se ve en el menú sin recargar.
+- **Cabecera:** es una sola, la del diseño. Muestra el usuario que entró y su rol, el candado de "Cambiar mi contraseña" (la misma pantalla para todos, con `cambiar_contrasenia` y el id del usuario que entró) y "Cerrar sesión". El logo SAHS lleva al inicio.
+- **Direcciones:** son las mismas rutas que la web, en el hash (`#/materias`, `#/profesores/3`). En las fichas, el id es la posición de la fila en los datos del prototipo.
+- **Acceso:** cada pantalla pertenece a un privilegio. Si se pide por URL (`#/usuarios`) una pantalla que el rol no tiene, o una ruta que no existe, se vuelve al inicio.
+- **Pantallas:** L1 (Login), A1 a A18 y P2 a P4. El código de cada una es el del canvas del diseño y es interno: no aparece en las URLs.
 
 `index.html` se genera desde las pantallas del diseño (`*.dc.html`) con `tools/exportar_prototipo.py`. No se edita a mano, salvo el armazón (ver abajo).
 
@@ -123,38 +142,38 @@ python3 tools/exportar_prototipo.py .. --check   # solo avisa si index.html qued
 
 El script reemplaza tres partes del HTML: los estilos, un `<template>` por pantalla y la lógica de cada pantalla (el script del `.dc.html` envuelto en `DC.registrar`). No toca lo que está hecho a mano:
 
-- el armazón, que es solo el contenedor que escala la pantalla y la navegación (sesión, privilegios y hash);
+- el armazón, que es solo el contenedor que escala la pantalla y la navegación (sesión, privilegios y rutas en el hash);
 - el runtime que reemplaza a `support.js`;
-- `CONFIG`, que define las pantallas, el privilegio de cada una, qué pantalla abre cada tarjeta y los atajos entre pantallas.
+- `CONFIG`, que define las pantallas, el privilegio y las rutas de cada una, qué pantalla abre cada tarjeta y los atajos entre pantallas.
 
-Para sumar una pantalla, se agrega a `CONFIG.pantallas` con el id del `.dc.html` en minúsculas y su privilegio. Como la carpeta está montada, alcanza con recargar la página: no hace falta reiniciar el contenedor.
+Para sumar una pantalla, se agrega a `CONFIG.pantallas` con el id del `.dc.html` en minúsculas, su privilegio y sus rutas. Como la carpeta está montada, alcanza con recargar la página: no hace falta reiniciar el contenedor.
 
 - Las fuentes de diseño (`*.dc.html`, `planilla-horarios-sahs.html`, `canvas.json` y los diagramas) **no** forman parte de este repo. Los `*.dc.html` sueltos no funcionan solos, porque dependen de un runtime (`support.js`) que no viaja con ellos.
 - Si el puerto 8090 está ocupado, se cambia en `docker-compose.yml` (`"8090:80"`).
 
 ## Convenciones
 
-- **Una ruta por función** del documento: `/<prefijo>/<nombre_funcion>`. El `operationId` es el mismo nombre.
+- **Rutas REST:** cada función del documento es una operación sobre un recurso: `/<prefijo>/<recurso>[/{id}[/<subrecurso>[/{id_secundario}]]]`. El prefijo es el nombre del servicio y todos los segmentos van en kebab-case: `/planificacion/ciclos-lectivos`, `/profesor-suplencias/profesores/{id}/materias-habilitadas`. El `operationId` es el nombre de la función del documento (`get_materias`), así que el mapeo con el documento se mantiene por `operationId` y no por la ruta. La tabla completa está en "Cambios respecto del documento".
 - **Verbos HTTP** según lo que hace cada función:
 
-  | Función | Verbo | Respuesta |
-  |---|---|---|
-  | `crear_*` | `POST` | `201` |
-  | `get_*` y acciones sin efectos (`bajar_recibo_sueldo`, `calcular_monto_a_liquidar`) | `GET` | `200` |
-  | `cambiar_*` / `modificar_*` | `PATCH` | `200` |
-  | `asignar_*` que reemplaza un valor o una lista (`asignar_rol`, `asignar_disponibilidad`) | `PUT` | `200` |
-  | `editar_*`, que reemplaza todos los datos editables (`editar_profesor`, `editar_usuario`) | `PUT` | `200` |
-  | `asignar_*` que agrega a una colección (`asignar_privilegio`, `asignar_franja_a_turno`) | `POST` | `200` |
-  | `eliminar_*` | `DELETE` | `204` |
-  | `quitar_*`, `eliminar_franja_horaria_turno` | `DELETE` | `200` + entidad modificada |
-  | Acciones de negocio (`login`, `validar_pago`, `firmar_recibo_de_sueldo`) | `POST` | `200` |
+  | Función | Verbo | Ejemplo | Respuesta |
+  |---|---|---|---|
+  | `get_*` y acciones sin efectos | `GET` | `GET /orientacion/materias`, `GET /pago/recibos-de-sueldo/{id}/pdf` | `200` |
+  | `crear_*` | `POST` | `POST /usuario/usuarios` | `201` |
+  | `asignar_*` que agrega a una colección | `POST` | `POST /usuario/roles/{id}/privilegios` | `200` |
+  | `asignar_*` que reemplaza un valor o una lista, y `editar_*` | `PUT` | `PUT /usuario/usuarios/{id}/rol`, `PUT /profesor-suplencias/profesores/{id}` | `200` |
+  | `cambiar_*` / `modificar_*` | `PATCH` | `PATCH /usuario/usuarios/{id}/contrasenia` | `200` |
+  | `eliminar_*` | `DELETE` | `DELETE /usuario/usuarios/{id}` | `204` |
+  | `quitar_*`, `eliminar_franja_horaria_turno` | `DELETE` | `DELETE /orientacion/areas/{id}/materias/{id_materia}` | `200` + entidad modificada |
+  | Acciones de negocio, como sub-recurso | `POST` | `POST /pago/pagos/{id}/validacion`, `POST /pago/recibos-de-sueldo/{id}/firma` | `200` |
 
-  Las rutas mantienen el nombre de la función, así que el verbo y el nombre se repiten (`DELETE /usuario/eliminar_usuario/{id}`). Lo eligió el grupo para mantener el mapeo 1 a 1 con el documento.
-- **Nombres:** tal cual el documento, en snake_case y sin tildes (`ñ` → `ni`). Por ejemplo, `get_día_lectivo` → `get_dia_lectivo` y `crear_año_academico` → `crear_anio_academico`.
-- **Ids:** el id de la entidad principal va en la ruta (`/{id}`) y el resto de los datos en el body JSON. En los `asignar_X_a_Y`, el id de la ruta es el de la entidad del propio servicio y el otro id va en el body. Por ejemplo, `POST /horarios/asignar_franja_a_turno/{id_turno}` con body `{ "id_franja_horaria": 7 }`.
-  - **Excepción:** `DELETE` y `GET` no llevan body. Por eso los `quitar_*` y `eliminar_franja_horaria_turno` llevan el segundo id en la ruta (`DELETE /orientacion/quitar_materia_area/{id}/{id_materia}`) y `calcular_monto_a_liquidar` recibe el período como query (`?periodo=2026-03`).
-- **Datos anidados:** si una relación tiene un solo elemento (la materia de una clase, el rol de un usuario), el dato viene **anidado** en la entidad y no tiene query propia. Las relaciones con varios elementos tienen su query de listado (`get_curso_clases`, `get_rol_privilegios`…).
-- **Filtros:** algunos listados aceptan filtros opcionales por query, con el nombre del campo que filtran. Se combinan con AND y, si no se pasa ninguno, el listado devuelve todo. Por ejemplo, `GET /planificacion/get_clases?id_profesor=12&id_propuesta=5` devuelve la grilla de un profesor.
+  La única excepción es `POST /usuario/login`.
+- **Nombres:** el `operationId` va tal cual el documento, en snake_case y sin tildes (`ñ` → `ni`): `get_día_lectivo` → `get_dia_lectivo` (`GET /horarios/dias-lectivos/{id}`). Los segmentos de ruta van en kebab-case, también sin tildes.
+- **Ids:** el id de la entidad principal va en la ruta (`/{id}`) y el resto de los datos en el body JSON. En los `asignar_X_a_Y`, el id de la ruta es el de la entidad del propio servicio y el otro id va en el body. Por ejemplo, `POST /horarios/turnos/{id}/franjas-horarias` con body `{ "id_franja_horaria": 7 }`.
+  - Cuando la operación actúa sobre un elemento de una sub-colección, ese id va como segundo parámetro de ruta: `DELETE /orientacion/areas/{id}/materias/{id_materia}`, `PATCH /planificacion/cursos/{id}/materias/{id_materia}`.
+  - `GET` y `DELETE` no llevan body: `calcular_monto_a_liquidar` recibe el período como query (`?periodo=2026-03`).
+- **Datos anidados:** si una relación tiene un solo elemento (la materia de una clase, el rol de un usuario), el dato viene **anidado** en la entidad y no tiene query propia. Las relaciones con varios elementos tienen su query de listado como sub-recurso (`GET /planificacion/cursos/{id}/clases`, `GET /usuario/roles/{id}/privilegios`).
+- **Filtros:** algunos listados aceptan filtros opcionales por query, con el nombre del campo que filtran. Se combinan con AND y, si no se pasa ninguno, el listado devuelve todo. Por ejemplo, `GET /planificacion/clases?id_profesor=12&id_propuesta=5` devuelve la grilla de un profesor.
 
   | Listado | Filtros |
   |---|---|
@@ -172,14 +191,120 @@ Para sumar una pantalla, se agrega a `CONFIG.pantallas` con el id del `.dc.html`
 
 ## Cambios respecto del documento
 
+- **Rutas REST (todas las operaciones):** el documento nombra funciones y el corte inicial publicaba una ruta por función (`GET /orientacion/get_materias`). Ahora cada función es una operación REST sobre un recurso, y el nombre de la función queda como `operationId`, así que el cliente web y la trazabilidad con el documento no cambian. Las únicas operaciones que cambian de forma, además de la ruta, son:
+  - `cambiar_horas_materia_curso`: `id_materia` pasa del body a la ruta (`PATCH /planificacion/cursos/{id}/materias/{id_materia}`, body `{ horas_semanales }`).
+  - `asignar_curso_a_anio_academico`: pasa a `POST /planificacion/anios-academicos/{id}/cursos`.
+  - ORIENTACIÓN suma `get_plan_de_estudios` (`GET /orientacion/plan-de-estudios`, filtros `id_orientacion` e `id_anio_academico`): el plan armado en tres niveles, año académico → orientación → materias (con su área). Así el cliente no cruza `get_materias` con `get_anios_academicos` para agrupar. El nombre del año lo pide el servicio a Planificación. El verificador la tiene en `AGREGADOS`.
+  - La materia anidada en el curso (`Curso.materias[]`) y en la clase (`Clase.materia`) suma `id_area` y `nombre_area`, para mostrar el área sin pedir el catálogo de materias. El verificador la tiene en `PROPIEDADES_AGREGADAS`.
+  - PLANIFICACIÓN suma `generar_planilla` (`POST /planificacion/propuestas/{id}/generacion`, body opcional `{ id_curso }`): genera la planilla en el servidor y la guarda. Completa las horas que faltan en todos los cursos del ciclo de la propuesta (o solo en `id_curso`) respetando lo ya ubicado, la disponibilidad declarada, que un docente no esté en dos clases a la vez y el tope de 2 horas diarias por materia. Guarda con `crear_clase` + `asignar_clase_a_propuesta` o `editar_clase` (corren las mismas reglas) y responde `ResultadoGeneracion { horas_ubicadas, sin_ubicar[], cambios[], errores[] }`, donde `cambios` trae lo que tenía cada clase antes, para deshacer. Solo en Borrador (`409`). Antes la generación corría en el navegador y obligaba a bajar todos los profesores y todas las clases. El verificador la tiene en `AGREGADOS`.
+  - `crear_suplencia`: la suplencia es del profesor que la cubre, así que el suplente pasa del body a la ruta (`POST /profesor-suplencias/profesores/{id}/suplencias`, con `404` si el profesor no existe).
+
+  `npm run verificar-contratos` compara contra `specs/*.json` por `operationId`, con esas diferencias como excepciones.
+
+<details>
+<summary>Tabla de rutas por operación</summary>
+
+**usuario**
+| operationId | Ruta nueva |
+|---|---|
+| login | `POST /usuario/login` |
+| get_privilegios | `GET /usuario/privilegios` |
+| crear_rol / get_roles | `POST` / `GET /usuario/roles` |
+| eliminar_rol / cambiar_nombre_rol | `DELETE` / `PATCH /usuario/roles/{id}` |
+| asignar_privilegio / get_rol_privilegios | `POST` / `GET /usuario/roles/{id}/privilegios` |
+| quitar_privilegio | `DELETE /usuario/roles/{id}/privilegios/{id_privilegio}` |
+| crear_usuario / get_usuarios | `POST` / `GET /usuario/usuarios` |
+| get_usuario / editar_usuario / eliminar_usuario | `GET` / `PUT` / `DELETE /usuario/usuarios/{id}` |
+| asignar_rol | `PUT /usuario/usuarios/{id}/rol` |
+| cambiar_contrasenia | `PATCH /usuario/usuarios/{id}/contrasenia` |
+
+**horarios**
+| operationId | Ruta nueva |
+|---|---|
+| crear_dia_lectivo / get_dias_lectivos | `POST` / `GET /horarios/dias-lectivos` |
+| get_dia_lectivo / eliminar_dia_lectivo | `GET` / `DELETE /horarios/dias-lectivos/{id}` |
+| get_franja_horaria_dia_lectivo | `GET /horarios/dias-lectivos/{id}/franjas-horarias` |
+| crear_franja_horaria / get_franjas_horarias | `POST` / `GET /horarios/franjas-horarias` |
+| get_franja_horaria | `GET /horarios/franjas-horarias/{id}` |
+| crear_turno / get_turnos | `POST` / `GET /horarios/turnos` |
+| get_turno / eliminar_turno | `GET` / `DELETE /horarios/turnos/{id}` |
+| asignar_franja_a_turno | `POST /horarios/turnos/{id}/franjas-horarias` |
+| eliminar_franja_horaria_turno | `DELETE /horarios/turnos/{id}/franjas-horarias/{id_franja_horaria}` |
+
+**orientacion**
+| operationId | Ruta nueva |
+|---|---|
+| crear_area / get_areas | `POST` / `GET /orientacion/areas` |
+| get_area / eliminar_area | `GET` / `DELETE /orientacion/areas/{id}` |
+| asignar_materia_area / get_materias_area | `POST` / `GET /orientacion/areas/{id}/materias` |
+| quitar_materia_area | `DELETE /orientacion/areas/{id}/materias/{id_materia}` |
+| get_profesores_area | `GET /orientacion/areas/{id}/profesores` |
+| crear_materia / get_materias | `POST` / `GET /orientacion/materias` |
+| get_materia / eliminar_materia | `GET` / `DELETE /orientacion/materias/{id}` |
+| asignar_materia_orientacion | `PUT /orientacion/materias/{id}/orientacion` |
+| asignar_anio_academico_a_materia | `PUT /orientacion/materias/{id}/anio-academico` |
+| asignar_clase_a_materia | `POST /orientacion/materias/{id}/clases` |
+| get_profesores_materia | `GET /orientacion/materias/{id}/profesores` |
+| crear_orientacion / get_orientaciones | `POST` / `GET /orientacion/orientaciones` |
+| get_orientacion / eliminar_orientacion | `GET` / `DELETE /orientacion/orientaciones/{id}` |
+| asignar_curso_a_orientacion | `POST /orientacion/orientaciones/{id}/cursos` |
+| get_materias_orientacion | `GET /orientacion/orientaciones/{id}/materias` |
+
+**planificacion**
+| operationId | Ruta nueva |
+|---|---|
+| crear_anio_academico / get_anios_academicos | `POST` / `GET /planificacion/anios-academicos` |
+| get_anio_academico | `GET /planificacion/anios-academicos/{id}` |
+| asignar_curso_a_anio_academico / get_cursos_anio_academico | `POST` / `GET /planificacion/anios-academicos/{id}/cursos` |
+| crear_ciclo_lectivo / get_ciclos_lectivos | `POST` / `GET /planificacion/ciclos-lectivos` |
+| get_ciclo_lectivo | `GET /planificacion/ciclos-lectivos/{id}` |
+| crear_clase / get_clases | `POST` / `GET /planificacion/clases` |
+| get_clase / editar_clase / eliminar_clase | `GET` / `PUT` / `DELETE /planificacion/clases/{id}` |
+| asignar_curso_a_clase | `PUT /planificacion/clases/{id}/curso` |
+| crear_curso / get_cursos | `POST` / `GET /planificacion/cursos` |
+| get_curso | `GET /planificacion/cursos/{id}` |
+| asignar_materia_a_curso | `POST /planificacion/cursos/{id}/materias` |
+| cambiar_horas_materia_curso | `PATCH /planificacion/cursos/{id}/materias/{id_materia}` (body `{ horas_semanales }`) |
+| quitar_materia_curso | `DELETE /planificacion/cursos/{id}/materias/{id_materia}` |
+| get_curso_clases | `GET /planificacion/cursos/{id}/clases` |
+| crear_estado_propuesta / get_posibles_estados_de_propuestas | `POST` / `GET /planificacion/estados-propuesta` |
+| crear_propuesta / get_propuestas | `POST` / `GET /planificacion/propuestas` |
+| get_propuesta | `GET /planificacion/propuestas/{id}` |
+| asignar_estado_a_propuesta / get_estado_actual_de_propuesta | `PUT` / `GET /planificacion/propuestas/{id}/estado` |
+| asignar_clase_a_propuesta | `POST /planificacion/propuestas/{id}/clases` |
+| generar_planilla (agregada) | `POST /planificacion/propuestas/{id}/generacion` |
+
+**pago**
+| operationId | Ruta nueva |
+|---|---|
+| crear_pago / get_pagos | `POST` / `GET /pago/pagos` |
+| validar_pago | `POST /pago/pagos/{id}/validacion` |
+| calcular_monto_a_liquidar | `GET /pago/profesores/{id}/monto-a-liquidar` |
+| get_recibos_de_sueldo | `GET /pago/recibos-de-sueldo` |
+| bajar_recibo_sueldo | `GET /pago/recibos-de-sueldo/{id}/pdf` |
+| firmar_recibo_de_sueldo | `POST /pago/recibos-de-sueldo/{id}/firma` |
+
+**profesor_suplencias**
+| operationId | Ruta nueva |
+|---|---|
+| crear_profesor / get_profesores | `POST` / `GET /profesor-suplencias/profesores` |
+| get_profesor / editar_profesor | `GET` / `PUT /profesor-suplencias/profesores/{id}` |
+| asignar_usuario_profesor | `PUT /profesor-suplencias/profesores/{id}/usuario` |
+| asignar_materias_habilitadas | `PUT /profesor-suplencias/profesores/{id}/materias-habilitadas` |
+| asignar_disponibilidad / get_disponibilidad_profesor | `PUT` / `GET /profesor-suplencias/profesores/{id}/disponibilidad` |
+| crear_suplencia | `POST /profesor-suplencias/profesores/{id}/suplencias` (`{id}` = suplente) |
+| get_suplencias | `GET /profesor-suplencias/suplencias` (cruza profesores; filtros `id_profesor`, `id_clase`, fechas…) |
+
+</details>
+
 - **USUARIO:**
   - `asignar_roles` pasa a `asignar_rol`, porque cada usuario tiene un solo rol.
   - `eliminar_rol`, que aparecía dos veces, queda una sola vez.
   - Se agregan `login`, `get_usuarios`, `get_roles` y `get_privilegios`.
   - Los privilegios se cargan por configuración, así que se sacan `crear_privilegio`, `modificar_privilegio`, `eliminar_privilegio` y `get_privilegio`.
   - Se sacan `cambiar_email`, `cambiar_nombre`, `get_rol` y `get_usuario_privilegios`. Los privilegios de un usuario se obtienen con su rol anidado y `get_rol_privilegios`.
-  - Se agrega `editar_usuario` (`PUT /usuario/editar_usuario/{id}`), que reemplaza el nombre de usuario y el email. No cambia la contraseña ni el rol. Lo usa la ficha del profesor para editar su usuario.
-  - Se agrega `quitar_privilegio` (`DELETE /usuario/quitar_privilegio/{id}/{id_privilegio}`), el espejo de `asignar_privilegio`.
+  - Se agrega `editar_usuario` (`PUT /usuario/usuarios/{id}`), que reemplaza el nombre de usuario y el email. No cambia la contraseña ni el rol. Lo usa la ficha del profesor para editar su usuario.
+  - Se agrega `quitar_privilegio` (`DELETE /usuario/roles/{id}/privilegios/{id_privilegio}`), el espejo de `asignar_privilegio`.
 - **Duplicados:**
   - Queda `asignar_estado_a_propuesta` en PLANIFICACIÓN.
   - Se saca `asignar_suplencias_a_clase` de PLANIFICACIÓN: las clases de una suplencia se cargan en `crear_suplencia` (PROFESOR Y SUPLENCIAS).
@@ -194,7 +319,7 @@ Para sumar una pantalla, se agrega a `CONFIG.pantallas` con el id del `.dc.html`
   - La disponibilidad del profesor: `asignar_disponibilidad` y `get_disponibilidad_profesor`.
   - Los recreos se marcan con `es_recreo` en la franja horaria.
 - **Alineación con el prototipo:**
-  - ORIENTACIÓN: cada materia tiene **una sola orientación** (`Materia.id_orientacion`, obligatoria). Dos materias con el mismo nombre en distintas orientaciones son materias distintas. `asignar_materia_orientacion` pasa a `PUT /orientacion/asignar_materia_orientacion/{id_materia}` y se elimina `quitar_materia_orientacion`.
+  - ORIENTACIÓN: cada materia tiene **una sola orientación** (`Materia.id_orientacion`, obligatoria). Dos materias con el mismo nombre en distintas orientaciones son materias distintas. `asignar_materia_orientacion` pasa a `PUT /orientacion/materias/{id}/orientacion` y se elimina `quitar_materia_orientacion`.
   - PLANIFICACIÓN: la orientación del curso es obligatoria, también en el ciclo básico, que tiene su propia orientación (por ejemplo "Básica"). `crear_curso` la recibe en el body.
   - PLANIFICACIÓN: cada curso define qué materias dicta y cuántas horas tiene cada una (`MateriaCurso`). Se agregan `asignar_materia_a_curso`, `cambiar_horas_materia_curso` y `quitar_materia_curso`.
   - PLANIFICACIÓN: el catálogo de estados de propuesta arranca con Borrador, En revisión, Validada y Cerrada. La propuesta nace en Borrador y se valida completa, no curso por curso.
@@ -213,8 +338,8 @@ Para sumar una pantalla, se agrega a `CONFIG.pantallas` con el id del `.dc.html`
   - PLANIFICACIÓN → `profesor_suplencias.get_disponibilidad_profesor`.
 
 - **Implementación (monorepo NestJS):**
-  - PLANIFICACIÓN: se agregan `editar_clase` (`PUT /planificacion/editar_clase/{id}`, reemplaza franjas y docentes) y `eliminar_clase` (`DELETE /planificacion/eliminar_clase/{id}`). Solo funcionan si todas las propuestas que incluyen la clase están en Borrador. Sin ellas no se podía mover ni quitar una hora en el armado (A13).
-  - PLANIFICACIÓN: `crear_clase` controla que el curso dicte la materia, que las franjas sean del turno del curso y no sean recreos, y que los docentes estén habilitados y disponibles. Los choques (dos clases del curso en la misma franja, un docente en dos clases a la vez) se controlan en `asignar_clase_a_propuesta`, porque `crear_clase` no sabe a qué propuesta va la clase. Una propuesta solo recibe clases en Borrador.
+  - PLANIFICACIÓN: se agregan `editar_clase` (`PUT /planificacion/clases/{id}`, reemplaza franjas y docentes) y `eliminar_clase` (`DELETE /planificacion/clases/{id}`). Solo funcionan si todas las propuestas que incluyen la clase están en Borrador. Sin ellas no se podía mover ni quitar una hora en el armado de la planificación.
+  - PLANIFICACIÓN: `crear_clase` controla que el curso dicte la materia, que las franjas sean del turno del curso y no sean recreos, y que los docentes estén habilitados y disponibles. Los choques (dos clases del curso en la misma franja, un docente en dos clases a la vez) se controlan en `asignar_clase_a_propuesta`, porque `crear_clase` no sabe a qué propuesta va la clase. Una propuesta solo recibe clases en Borrador. Para pasar a En revisión o a Validada, `asignar_estado_a_propuesta` exige que la propuesta esté completa (todas las materias de todos los cursos del ciclo con sus horas ubicadas) y, si no, responde `409` con los cursos que faltan.
   - PLANIFICACIÓN: transiciones de estado de la propuesta: Borrador → En revisión → Validada → Cerrada, y En revisión → Borrador. Cualquier otra responde `409`. Al validar una propuesta, la que estaba validada en el mismo ciclo pasa a Cerrada. No se puede enviar a revisión una propuesta sin clases.
   - ORIENTACIÓN es el dueño de la orientación de cada curso (`Orientacion.ids_cursos`): `crear_curso` la registra llamando a `orientacion.asignar_curso_a_orientacion`, y `Curso.id_orientacion` se lee de ahí. Así se puede cambiar después desde Orientación, como dice el contrato. Del mismo modo, `crear_clase` registra la clase en `Materia.ids_clases` (`asignar_clase_a_materia`, que responde `409` si la clase es de otra materia).
   - USUARIO: `login` acepta en `email` también el nombre de usuario (sin distinguir mayúsculas), como el prototipo. Las contraseñas se guardan con bcrypt y tienen al menos 6 caracteres. El token es un JWT con el id del usuario; la API todavía no lo valida.
@@ -251,11 +376,13 @@ Desde el corte, **la API se cambia en el código de cada servicio** (controllers
 
   `db-init` aplica las migraciones pendientes en el siguiente `up`. Los datos de ejemplo están en `apps/db/src/seeds/`.
 - **Cliente de la web:** `apps/web/src/api/*.ts` se genera a partir del swagger de los servicios (levantados en sus puertos de desarrollo): `node tools/generar_cliente_web.mjs`.
-- **Pruebas:** `npm test` (e2e de los servicios) y `npm run verificar-contratos` (diferencias con los contratos originales; las operaciones agregadas a propósito están en la lista `AGREGADOS` del script).
+- **Pruebas:** `npm test` (e2e de los servicios) y `npm run verificar-contratos` (diferencias con los contratos originales, por `operationId`; las operaciones agregadas y las diferencias de forma aceptadas están en `AGREGADOS` y `EXCEPCIONES` del script).
 - **Historial:** `tools/generar_specs.py` generó los contratos originales de `specs/` y `tools/generar_scaffold.mjs` generó el código inicial de los servicios a partir de ellos. Los dos quedan congelados; el segundo no corre si las apps ya existen, para no pisar el código.
 
-Para validar los contratos originales con redocly (usa la configuración de `redocly.yaml`):
+Para validar con redocly el swagger que publican los servicios (con la app levantada; usa la configuración de `redocly.yaml`):
 
 ```bash
-docker run --rm -v "$PWD:/work:ro" -w /work redocly/cli:1.25.11 lint specs/*.json
+mkdir -p /tmp/sahs-docs && for s in usuario pago horarios planificacion orientacion profesor-suplencias; do
+  curl -s http://localhost:8100/docs/$s-json > /tmp/sahs-docs/$s.json; done
+docker run --rm -v "$PWD:/work:ro" -v /tmp/sahs-docs:/docs:ro -w /work redocly/cli:1.25.11 lint /docs/*.json
 ```

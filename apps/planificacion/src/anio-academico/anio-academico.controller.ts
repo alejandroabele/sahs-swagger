@@ -13,7 +13,7 @@ import { AnioAcademicoService } from './anio-academico.service';
 export class AnioAcademicoController {
   constructor(private readonly servicio: AnioAcademicoService) {}
 
-  @Post("crear_anio_academico")
+  @Post("anios-academicos")
   @ApiOperation({"operationId":"crear_anio_academico","summary":"Crear año académico"})
   @ApiResponse({ status: 201, description: "Creado", type: AnioAcademico })
   @ApiResponse({ status: 400, description: 'Datos inválidos', type: ErrorApi })
@@ -21,7 +21,7 @@ export class AnioAcademicoController {
     return this.servicio.crear_anio_academico(body);
   }
 
-  @Post("asignar_curso_a_anio_academico/:id")
+  @Post("anios-academicos/:id/cursos")
   @HttpCode(200)
   @ApiOperation({"operationId":"asignar_curso_a_anio_academico","summary":"Asignar un curso al año académico"})
   @ApiParam({"name":"id","description":"Id del año académico","type":"integer","format":"int64"})
@@ -32,7 +32,7 @@ export class AnioAcademicoController {
     return this.servicio.asignar_curso_a_anio_academico(id, body);
   }
 
-  @Get("get_anio_academico/:id")
+  @Get("anios-academicos/:id")
   @ApiOperation({"operationId":"get_anio_academico","summary":"Obtener año académico"})
   @ApiParam({"name":"id","description":"Id del año académico","type":"integer","format":"int64"})
   @ApiResponse({ status: 200, description: "OK", type: AnioAcademico })
@@ -41,14 +41,14 @@ export class AnioAcademicoController {
     return this.servicio.get_anio_academico(id);
   }
 
-  @Get("get_anios_academicos")
+  @Get("anios-academicos")
   @ApiOperation({"operationId":"get_anios_academicos","summary":"Listar años académicos"})
   @ApiResponse({ status: 200, description: "OK", type: [AnioAcademico] })
   get_anios_academicos(): Promise<AnioAcademico[]> {
     return this.servicio.get_anios_academicos();
   }
 
-  @Get("get_cursos_anio_academico/:id")
+  @Get("anios-academicos/:id/cursos")
   @ApiOperation({"operationId":"get_cursos_anio_academico","summary":"Cursos del año académico"})
   @ApiParam({"name":"id","description":"Id del año académico","type":"integer","format":"int64"})
   @ApiResponse({ status: 200, description: "OK", type: [Curso] })

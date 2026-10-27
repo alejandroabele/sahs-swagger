@@ -1,7 +1,7 @@
 // Modelo compartido por A13 (armado de la planificación) y A3 (generación de la planilla):
 // grilla de un curso a partir de las franjas de su turno, ocupación de los docentes,
 // colores de las áreas y nombres que muestra el diseño.
-import type { AnioAcademico, Clase, Curso, FranjaHorariaResumen, Materia, Profesor } from '@sahs/contratos';
+import type { AnioAcademico, Clase, Curso, FranjaHorariaResumen, Profesor, Propuesta } from '@sahs/contratos';
 import { planificacion } from '../../api';
 import { DIAS } from '../../lib/formato';
 
@@ -161,6 +161,23 @@ export function codigoClase(codigoPropuesta: string, nombreDelCurso: string, nom
   return `${codigoPropuesta.replace(/^PLAN-/i, '')}-${nombreDelCurso.replace(/\s+/g, '')}-${letras}`;
 }
 
+/** Siguiente código libre PLAN-<año>-NN entre todas las propuestas. */
+export function siguienteCodigo(anio: number, propuestas: Propuesta[]): string {
+  const re = new RegExp('^PLAN-' + anio + '-(\\d+)$');
+  const max = propuestas.reduce((m, p) => {
+    const r = re.exec(p.codigo);
+    return r ? Math.max(m, Number(r[1])) : m;
+  }, 0);
+  return 'PLAN-' + anio + '-' + String(max + 1).padStart(2, '0');
+}
+
+/** Código de la clase copiada: "2026-01-1B-MAT" → "2026-03-1B-MAT" para PLAN-2026-03. */
+export function codigoClaseCopia(viejo: string, nuevoPlan: string): string {
+  const base = nuevoPlan.replace(/^PLAN-/, '');
+  const p = viejo.split('-');
+  return p.length > 2 && /^\d{4}$/.test(p[0]) ? base + '-' + p.slice(2).join('-') : base + '-' + viejo;
+}
+
 /**
  * Crea la clase y la agrega a la propuesta. Si la propuesta la rechaza (choque, 409),
  * borra la clase recién creada para no dejarla suelta y vuelve a lanzar el error.
@@ -191,8 +208,7 @@ export const AREAS: Record<string, { solido: string; punto: string }> = {
 };
 
 /** Nombre del área de la materia, o "Sin área". */
-export function areaDe(idMateria: number, materias: Materia[]): string {
-  const m = materias.find((x) => x.id_materia === idMateria);
-  const n = m?.area?.nombre_area;
-  return n && AREAS[n] ? n : 'Sin área';
+/** Área de una materia para los colores: la que viene anidada en el curso o en la clase. */
+export function areaDe(nombreArea: string | null | undefined): string {
+  return nombreArea && AREAS[nombreArea] ? nombreArea : 'Sin área';
 }

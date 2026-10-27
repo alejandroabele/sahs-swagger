@@ -1,0 +1,17 @@
+/* A3 · ajustes responsive propios de la pantalla (los estilos de escritorio están en línea).
+   En escritorio (> 1100 px) nada de esto aplica. */
+
+@media (max-width: 1100px) {
+  /* Lista de carga horaria más corta para que la grilla quede cerca al apilarse. */
+  .a3-lista { max-height: 320px !important; }
+  /* Grilla semanal: se desplaza horizontalmente con un ancho mínimo por día. */
+  .a3-desplazar { overflow-x: auto !important; -webkit-overflow-scrolling: touch; max-width: 100%; }
+  .a3-grilla-min { min-width: 640px; }
+}
+
+@media (max-width: 700px) {
+  /* Bloque de estado: alineado a la izquierda. */
+  .a3-estado { align-items: flex-start !important; }
+  .a3-lista { max-height: 280px !important; }
+  .a3-grilla { padding: 12px 12px 14px !important; }
+}

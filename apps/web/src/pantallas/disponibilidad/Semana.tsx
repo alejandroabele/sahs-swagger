@@ -127,7 +127,7 @@ export function SemanaDisponibilidad({
 
   return (
     <div style={css('padding: 18px 20px 22px;')}>
-      <div style={css('display: flex; align-items: center; gap: 10px; margin-bottom: 16px;')}>
+      <div className="r-envolver" style={css('display: flex; align-items: center; gap: 10px; margin-bottom: 16px;')}>
         <span style={css('font-size: 12px; color: #6b7482;')}>Turno</span>
         <div style={css('display: flex; gap: 6px; flex-wrap: wrap;')}>
           {turnos.map((t) => {
@@ -165,67 +165,72 @@ export function SemanaDisponibilidad({
         </span>
       </div>
 
-      <div style={css('display: grid; grid-template-columns: 104px repeat(5, minmax(0, 1fr)); gap: 6px; margin-bottom: 8px;')}>
-        <div></div>
-        {DIAS.map((d) => (
-          <div key={d} style={css('font-size: 12px; color: #4a5462; text-align: center; font-weight: 500;')}>
-            {d}
+      {/* En pantallas angostas la grilla se desplaza horizontalmente dentro de la tarjeta. */}
+      <div className="r-desplazar">
+        <div className="r-min-600">
+          <div style={css('display: grid; grid-template-columns: 104px repeat(5, minmax(0, 1fr)); gap: 6px; margin-bottom: 8px;')}>
+            <div></div>
+            {DIAS.map((d) => (
+              <div key={d} style={css('font-size: 12px; color: #4a5462; text-align: center; font-weight: 500;')}>
+                {d}
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
-      {filas.map((row) => {
-        const horario = row.inicio + ' – ' + row.fin;
-        if (row.es_recreo) {
-          return (
-            <div key={horario + 'r'} style={css('display: grid; grid-template-columns: 104px minmax(0, 1fr); gap: 6px; margin-bottom: 6px;')}>
-              <div className="mono" style={css('display: flex; align-items: center; font-size: 10.5px; color: #9aa3af;')}>
-                {horario}
-              </div>
-              <div
-                style={css(
-                  'height: 20px; border-radius: 6px; background: repeating-linear-gradient(135deg, #f2f4f7 0 6px, #f8f9fb 6px 12px); display: flex; align-items: center; justify-content: center; font-size: 10.5px; font-weight: 600; color: #8b95a5; letter-spacing: 0.04em;',
-                )}
-              >
-                Recreo
-              </div>
-            </div>
-          );
-        }
-        return (
-          <div key={horario} style={css('display: grid; grid-template-columns: 104px repeat(5, minmax(0, 1fr)); gap: 6px; margin-bottom: 6px;')}>
-            <div style={css('display: flex; flex-direction: column; justify-content: center; gap: 1px;')}>
-              <span style={css('font-size: 12px; font-weight: 500; color: #4a5462;')}>{row.hora}ª hora</span>
-              <span className="mono" style={css('font-size: 10.5px; color: #8b95a5;')}>
-                {horario}
-              </span>
-            </div>
-            {DIAS.map((dia) => {
-              const f = row.porDia[dia];
-              const libre = !!(f && set.has(f.id_franja_horaria));
+          {filas.map((row) => {
+            const horario = row.inicio + ' – ' + row.fin;
+            if (row.es_recreo) {
               return (
-                <button
-                  key={dia}
-                  disabled={!f}
-                  onClick={() => f && alternar(f.id_franja_horaria)}
-                  style={css(
-                    'height: ' +
-                      alto +
-                      'px; width: 100%; border-radius: 7px; font-size: 10.5px; font-weight: 500;' +
-                      ' display: flex; align-items: center; justify-content: center;' +
-                      (libre
-                        ? ' background: #e9f2ec; border: 1px solid #bfdcca; color: #2f6b45;'
-                        : ' background: #fafbfc; border: 1px dashed #d6dce4; color: transparent;'),
-                  )}
-                >
-                  {libre ? 'Disponible' : ''}
-                </button>
+                <div key={horario + 'r'} style={css('display: grid; grid-template-columns: 104px minmax(0, 1fr); gap: 6px; margin-bottom: 6px;')}>
+                  <div className="mono" style={css('display: flex; align-items: center; font-size: 10.5px; color: #9aa3af;')}>
+                    {horario}
+                  </div>
+                  <div
+                    style={css(
+                      'height: 20px; border-radius: 6px; background: repeating-linear-gradient(135deg, #f2f4f7 0 6px, #f8f9fb 6px 12px); display: flex; align-items: center; justify-content: center; font-size: 10.5px; font-weight: 600; color: #8b95a5; letter-spacing: 0.04em;',
+                    )}
+                  >
+                    Recreo
+                  </div>
+                </div>
               );
-            })}
-          </div>
-        );
-      })}
+            }
+            return (
+              <div key={horario} style={css('display: grid; grid-template-columns: 104px repeat(5, minmax(0, 1fr)); gap: 6px; margin-bottom: 6px;')}>
+                <div style={css('display: flex; flex-direction: column; justify-content: center; gap: 1px;')}>
+                  <span style={css('font-size: 12px; font-weight: 500; color: #4a5462;')}>{row.hora}ª hora</span>
+                  <span className="mono" style={css('font-size: 10.5px; color: #8b95a5;')}>
+                    {horario}
+                  </span>
+                </div>
+                {DIAS.map((dia) => {
+                  const f = row.porDia[dia];
+                  const libre = !!(f && set.has(f.id_franja_horaria));
+                  return (
+                    <button
+                      key={dia}
+                      disabled={!f}
+                      onClick={() => f && alternar(f.id_franja_horaria)}
+                      style={css(
+                        'height: ' +
+                          alto +
+                          'px; width: 100%; border-radius: 7px; font-size: 10.5px; font-weight: 500;' +
+                          ' display: flex; align-items: center; justify-content: center;' +
+                          (libre
+                            ? ' background: #e9f2ec; border: 1px solid #bfdcca; color: #2f6b45;'
+                            : ' background: #fafbfc; border: 1px dashed #d6dce4; color: transparent;'),
+                      )}
+                    >
+                      {libre ? 'Disponible' : ''}
+                    </button>
+                  );
+                })}
+              </div>
+            );
+          })}
+        </div>
+      </div>
 
-      <div style={css('display: flex; align-items: center; gap: 18px; margin-top: 20px; padding-top: 16px; border-top: 1px solid #eef1f5;')}>
+      <div className="r-envolver" style={css('display: flex; align-items: center; gap: 18px; margin-top: 20px; padding-top: 16px; border-top: 1px solid #eef1f5;')}>
         <div style={css('display: flex; align-items: center; gap: 7px; font-size: 11.5px; color: #6b7482;')}>
           <span style={css('width: 13px; height: 13px; border-radius: 4px; background: #e9f2ec; border: 1px solid #bfdcca;')}></span>Disponible
         </div>
@@ -251,25 +256,3 @@ export function SemanaDisponibilidad({
 }
 
 /** Bloque "N franjas declaradas de M" con la barra y el detalle por turno (Resumen del docente / Mi semana). */
-export function ResumenDeclaradas({ ids, turnos, turno }: { ids: number[]; turnos: Turno[]; turno: Turno | null }) {
-  const declaradas = contarEn(ids, turnos);
-  const enTurno = contarEn(ids, turnos, turno);
-  const totalTurno = horasDe(turno).length;
-  const otros = declaradas - enTurno;
-  return (
-    <>
-      <div style={css('display: flex; align-items: baseline; gap: 8px;')}>
-        <span className="mono" style={css('font-size: 26px; font-weight: 600; color: ' + ACCENT + ';')}>
-          {declaradas}
-        </span>
-        <span style={css('font-size: 12.5px; color: #6b7482;')}>franjas declaradas de {totalTurno}</span>
-      </div>
-      <div style={css('height: 6px; border-radius: 3px; background: #eef1f5; overflow: hidden;')}>
-        <div style={css('height: 6px; width: ' + (totalTurno ? Math.round((enTurno / totalTurno) * 100) : 0) + '%; background: ' + ACCENT + ';')}></div>
-      </div>
-      <div style={css('font-size: 11.5px; color: #7a8393; line-height: 1.5;')}>
-        {'En el turno ' + (turno?.nombre ?? '') + ': ' + enTurno + ' de ' + totalTurno + ' horas cátedra.' + (otros > 0 ? ' En otros turnos: ' + otros + '.' : '')}
-      </div>
-    </>
-  );
-}

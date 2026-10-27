@@ -14,8 +14,10 @@ const SERVICIOS: Record<string, number> = {
   profesor_suplencias: 8086,
 };
 
+// Con SAHS_API (por ejemplo http://localhost:8100, la web de Docker) todo va a esa dirección.
+const base = process.env.SAHS_API;
 const proxy = Object.fromEntries(
-  Object.entries(SERVICIOS).map(([s, p]) => [`/${s}/`, { target: `http://localhost:${p}`, changeOrigin: true }]),
+  Object.entries(SERVICIOS).map(([s, p]) => [`/${s.replace(/_/g, '-')}/`, { target: base || `http://localhost:${p}`, changeOrigin: true }]),
 );
 
 export default defineConfig({

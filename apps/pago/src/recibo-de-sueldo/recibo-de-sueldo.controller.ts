@@ -13,7 +13,7 @@ import { ReciboDeSueldoService } from './recibo-de-sueldo.service';
 export class ReciboDeSueldoController {
   constructor(private readonly servicio: ReciboDeSueldoService) {}
 
-  @Get("bajar_recibo_sueldo/:id")
+  @Get("recibos-de-sueldo/:id/pdf")
   @ApiOperation({"operationId":"bajar_recibo_sueldo","summary":"Descargar el recibo en PDF","description":"Es GET porque solo descarga el PDF (en el documento figura como command)."})
   @ApiParam({"name":"id","description":"Id del recibo de sueldo","type":"integer","format":"int64"})
   @ApiResponse({ status: 200, description: "PDF del recibo", content: { 'application/pdf': { schema: { type: 'string', format: 'binary' } } } })
@@ -22,7 +22,7 @@ export class ReciboDeSueldoController {
     return this.servicio.bajar_recibo_sueldo(id);
   }
 
-  @Post("firmar_recibo_de_sueldo/:id")
+  @Post("recibos-de-sueldo/:id/firma")
   @HttpCode(200)
   @ApiOperation({"operationId":"firmar_recibo_de_sueldo","summary":"Firmar recibo (profesor)","description":"Completa `firma_receptor` con el usuario y la fecha. La firma es definitiva: no hay operación para revertirla."})
   @ApiParam({"name":"id","description":"Id del recibo de sueldo","type":"integer","format":"int64"})
@@ -33,7 +33,7 @@ export class ReciboDeSueldoController {
     return this.servicio.firmar_recibo_de_sueldo(id, body);
   }
 
-  @Get("get_recibos_de_sueldo")
+  @Get("recibos-de-sueldo")
   @ApiOperation({"operationId":"get_recibos_de_sueldo","summary":"Listar recibos de sueldo"})
   @ApiResponse({ status: 200, description: "OK", type: [ReciboSueldo] })
   @ApiResponse({ status: 400, description: 'Datos inválidos', type: ErrorApi })

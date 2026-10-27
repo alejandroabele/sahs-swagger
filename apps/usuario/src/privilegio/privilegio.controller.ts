@@ -12,7 +12,7 @@ import { PrivilegioService } from './privilegio.service';
 export class PrivilegioController {
   constructor(private readonly servicio: PrivilegioService) {}
 
-  @Get("get_privilegios")
+  @Get("privilegios")
   @ApiOperation({"operationId":"get_privilegios","summary":"Listar privilegios"})
   @ApiResponse({ status: 200, description: "OK", type: [Privilegio] })
   get_privilegios(): Promise<Privilegio[]> {

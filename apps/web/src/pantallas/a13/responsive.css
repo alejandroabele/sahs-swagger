@@ -1,0 +1,32 @@
+/* A13 · ajustes responsive propios de la pantalla (los estilos de escritorio están en línea).
+   En escritorio (> 1100 px) nada de esto aplica. */
+
+@media (max-width: 1100px) {
+  /* Bloque de avance + pestañas de cursos: ocupa toda la línea debajo del título. */
+  .a13-avance {
+    flex: 1 1 100% !important;
+    min-width: 0 !important;
+    justify-content: space-between !important;
+    flex-wrap: wrap !important;
+    row-gap: 10px !important;
+  }
+  .a13-progreso { align-items: flex-start !important; }
+  /* Las pestañas de cursos (botones pegados) se desplazan horizontalmente. */
+  .a13-pestanias { min-width: 0 !important; max-width: 100% !important; flex-shrink: 1 !important; }
+  .a13-pestanias > button { flex-shrink: 0 !important; white-space: nowrap; }
+
+  /* Grilla del curso: ancho mínimo para que cada franja siga siendo tocable. */
+  /* (el desplazamiento va solo acá: en escritorio no se recorta la sombra de las celdas) */
+  .a13-desplazar { overflow-x: auto !important; -webkit-overflow-scrolling: touch; max-width: 100%; }
+  .a13-grilla-min { min-width: 720px; }
+
+  /* Lista de materias más corta para que la grilla quede cerca al apilarse. */
+  .a13-lista { max-height: 320px !important; }
+}
+
+@media (max-width: 700px) {
+  .a13-avance { flex-direction: column !important; align-items: stretch !important; }
+  .a13-progreso-barra { width: 100% !important; }
+  .a13-grilla { padding: 12px 12px 14px !important; }
+  .a13-lista { max-height: 260px !important; }
+}

@@ -1,0 +1,4 @@
+/* A12 · Planificaciones: ancho mínimo de la tabla cuando se desplaza horizontalmente.
+   Las columnas fijas (estado, fecha y la acción) suman unos 480 px con los espacios;
+   con 680 px la columna de la planificación conserva unos 200 px. */
+.a12-tabla { min-width: 680px; }

@@ -1,13 +1,18 @@
 // A11 · Alta y edición de curso. Prototipo: <template id="tpl-cursoform"> y DC.registrar("cursoform") en prototipo/index.html.
-// Alta (?nuevo=1): crear_curso + asignar_curso_a_anio_academico + asignar_materia_a_curso por cada materia elegida.
-// Edición (?id_curso=): año (asignar_curso_a_anio_academico), orientación (orientacion.asignar_curso_a_orientacion)
+// Consulta el curso en edición (get_curso) y, para los selectores, años académicos, orientaciones y turnos.
+// Las materias que se ofrecen son las del plan de estudios del año y la orientación elegidos
+// (orientacion.get_plan_de_estudios({ id_anio_academico, id_orientacion }), cuando están los dos); en la edición
+// también las que el curso ya dicta fuera de ese plan (curso.materias).
+// Alta (/cursos/nuevo): crear_curso + asignar_curso_a_anio_academico + asignar_materia_a_curso por cada materia elegida.
+// Edición (/cursos/:id): año (asignar_curso_a_anio_academico), orientación (orientacion.asignar_curso_a_orientacion)
 // y materias (asignar_materia_a_curso, cambiar_horas_materia_curso, quitar_materia_curso).
 // División, turno y ciclo no se cambian en un curso existente: la API no tiene command para eso.
 import { useEffect, useMemo, useState } from 'react';
-import type { AnioAcademico, Curso, Materia, Turno } from '@sahs/contratos';
+import type { AnioAcademico } from '@sahs/contratos';
 import { horarios, orientacion as apiOrientacion, planificacion } from '../api';
 import { mensajeDeError } from '../api/http';
-import { useNavegar, useParamNumero } from '../app/navegar';
+import { useIr, useParamRuta } from '../app/navegar';
+import { rutas } from '../app/rutas';
 import { Cabecera } from '../componentes/Cabecera';
 import { Cargando, MensajeError } from '../componentes/Estados';
 import { useCiclo } from '../estado/ciclo';
@@ -39,21 +44,6 @@ function numeroDeAnio(anios: AnioAcademico[] | undefined, id: number | null | un
   return isNaN(n) ? null : n;
 }
 
-/** Horas cátedra (sin recreos) de un turno, agrupadas por día y ordenadas por hora. */
-function horasDelTurno(t: Turno | undefined) {
-  const porDia = new Map<string, { inicio: string; fin: string }[]>();
-  for (const f of t?.franjas_horarias ?? []) {
-    if (f.es_recreo) continue;
-    const dia = f.dia_lectivo?.nombre_dia_lectivo ?? String(f.id_dia_lectivo);
-    if (!porDia.has(dia)) porDia.set(dia, []);
-    porDia.get(dia)!.push({ inicio: f.hora_inicio, fin: f.hora_fin });
-  }
-  const dias = [...porDia.values()].map((l) => l.sort((a, b) => a.inicio.localeCompare(b.inicio)));
-  const total = dias.reduce((s, l) => s + l.length, 0);
-  const primero = dias[0] ?? [];
-  return { total, porDia: primero.length, inicio: primero[0]?.inicio ?? '', fin: primero[primero.length - 1]?.fin ?? '' };
-}
-
 interface Form {
   idAnio: number | null;
   division: string;
@@ -65,34 +55,35 @@ interface Form {
 }
 
 export default function A11CursoForm() {
-  const ir = useNavegar();
+  const ir = useIr();
   const ciclo = useCiclo();
   const invalidar = useInvalidar();
-  const idCurso = useParamNumero('id_curso');
+  const idCurso = useParamRuta('id');
   const esNuevo = idCurso == null;
 
-  const qCursos = useConsulta(['planificacion', 'get_cursos'], () => planificacion.get_cursos());
+  const qCurso = useConsulta(['planificacion', 'get_curso', idCurso], () => planificacion.get_curso(idCurso!), { enabled: !esNuevo, retry: false });
   const qAnios = useConsulta(['planificacion', 'get_anios_academicos'], () => planificacion.get_anios_academicos());
   const qOrient = useConsulta(['orientacion', 'get_orientaciones'], () => apiOrientacion.get_orientaciones());
-  const qMaterias = useConsulta(['orientacion', 'get_materias'], () => apiOrientacion.get_materias());
   const qTurnos = useConsulta(['horarios', 'get_turnos'], () => horarios.get_turnos());
-  const curso: Curso | null = (idCurso != null && qCursos.data?.find((c) => c.id_curso === idCurso)) || null;
+  const curso = esNuevo ? null : qCurso.data ?? null;
 
   const [f, setF] = useState<Form>({ idAnio: null, division: 'A', idCiclo: null, idOrientacion: null, idTurno: null, elegidas: {} });
   const [error, setError] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
   const [guardando, setGuardando] = useState(false);
 
+  // Plan de estudios del año y la orientación elegidos.
+  const qPlan = useConsulta(
+    ['orientacion', 'get_plan_de_estudios', { id_anio_academico: f.idAnio, id_orientacion: f.idOrientacion }],
+    () => apiOrientacion.get_plan_de_estudios({ id_anio_academico: f.idAnio!, id_orientacion: f.idOrientacion! }),
+    { enabled: f.idAnio != null && f.idOrientacion != null },
+  );
+
   const anios = useMemo(() => [...(qAnios.data ?? [])].sort((a, b) => a.id_anio_academico - b.id_anio_academico), [qAnios.data]);
-  const materias = qMaterias.data ?? [];
   const turnos = qTurnos.data ?? [];
 
-  // Orientaciones que tienen materias en el año elegido.
-  const orientacionesPara = (idAnio: number | null) =>
-    (qOrient.data ?? []).filter((o) => materias.some((m) => m.id_anio_academico === idAnio && m.id_orientacion === o.id_orientacion));
-
   // Carga del formulario: valores por defecto en el alta, o los del curso en la edición.
-  const listo = !!qCursos.data && !!qAnios.data && !!qOrient.data && !!qMaterias.data && !!qTurnos.data;
+  const listo = (esNuevo || !qCurso.isLoading) && !!qAnios.data && !!qOrient.data && !!qTurnos.data;
   const claveCarga = esNuevo ? 'nuevo' : curso ? 'curso-' + curso.id_curso : null;
   useEffect(() => {
     if (!listo || !claveCarga) return;
@@ -108,14 +99,12 @@ export default function A11CursoForm() {
         elegidas: e,
       });
     } else {
-      const idAnio = anios[0]?.id_anio_academico ?? null;
-      const ps = orientacionesPara(idAnio);
       setF({
-        idAnio,
+        idAnio: anios[0]?.id_anio_academico ?? null,
         division: 'A',
         idCiclo: ciclo.activo?.id_ciclo_lectivo ?? null,
-        idOrientacion: ps.length === 1 ? ps[0].id_orientacion : null,
-        idTurno: turnos.find((t) => t.nombre === 'Doble turno')?.id_turno ?? turnos[0]?.id_turno ?? null,
+        idOrientacion: null,
+        idTurno: turnos[0]?.id_turno ?? null,
         elegidas: {},
       });
     }
@@ -124,10 +113,10 @@ export default function A11CursoForm() {
 
   if (!listo) {
     return (
-      <div style={css('width: 1440px; min-height: 980px; display: flex; flex-direction: column; background: #f4f6f8;')}>
+      <div style={css('width: 100%; min-height: 100vh; display: flex; flex-direction: column; background: #f4f6f8;')}>
         <Cabecera />
-        <div style={css('padding: 20px 28px;')}>
-          <MensajeError mensaje={(qCursos.error ?? qAnios.error ?? qOrient.error ?? qMaterias.error ?? qTurnos.error)?.message} />
+        <div className="r-margen" style={css('padding: 20px 28px;')}>
+          <MensajeError mensaje={(qAnios.error ?? qOrient.error ?? qTurnos.error)?.message} />
           <Cargando />
         </div>
       </div>
@@ -136,35 +125,24 @@ export default function A11CursoForm() {
 
   const anioNum = numeroDeAnio(anios, f.idAnio);
   const anioTxt = anioNum != null ? anioNum + '°' : '?°';
-  const basico = (anioNum ?? 0) <= 3;
-  const paraAnio = orientacionesPara(f.idAnio);
   const or = qOrient.data!.find((o) => o.id_orientacion === f.idOrientacion) ?? null;
   const nombreOr = or?.nombre_orientacion ?? '';
   const cicloSel = ciclo.ciclos.find((c) => c.id_ciclo_lectivo === f.idCiclo) ?? null;
   const anioCal = cicloSel?.anio_calendario ?? '';
 
-  // Plan: materias del año y la orientación; en la edición también las que el curso ya dicta fuera de ese plan.
-  const plan: Materia[] = materias
-    .filter((m) => f.idOrientacion != null && m.id_anio_academico === f.idAnio && m.id_orientacion === f.idOrientacion)
-    .sort((a, b) => a.nombre_materia.localeCompare(b.nombre_materia));
-  for (const id of Object.keys(f.elegidas).map(Number)) {
-    if (!plan.some((m) => m.id_materia === id)) {
-      const m = materias.find((x) => x.id_materia === id);
-      if (m) plan.push(m);
-    }
+  // Plan: materias del año y la orientación (ya ordenadas); en la edición también las que el curso ya dicta fuera de ese plan.
+  type Fila = { id_materia: number; nombre_materia: string; horas_semanales: number; nombre_area?: string | null; fueraDelPlan: boolean };
+  const plan: Fila[] =
+    f.idOrientacion == null ? [] : (qPlan.data?.[0]?.orientaciones[0]?.materias ?? []).map((m) => ({ ...m, fueraDelPlan: false }));
+  for (const m of qPlan.isLoading ? [] : curso?.materias ?? []) {
+    if (f.elegidas[m.id_materia] != null && !plan.some((x) => x.id_materia === m.id_materia)) plan.push({ ...m, fueraDelPlan: true });
   }
-  const elegidaHoras = (m: Materia) => f.elegidas[m.id_materia];
+  const elegidaHoras = (m: Fila) => f.elegidas[m.id_materia];
   const total = plan.reduce((s, m) => s + (elegidaHoras(m) ?? 0), 0);
   const cantidad = plan.filter((m) => elegidaHoras(m) != null).length;
 
-  const turnoSel = turnos.find((t) => t.id_turno === f.idTurno);
-  const ht = horasDelTurno(turnoSel);
-  const capacidad = ht.total;
-  const excede = total > capacidad;
-  const turnoNombre = turnoSel?.nombre ?? '';
-
-  const identificacion = anioTxt + ' ' + f.division + (basico || !nombreOr ? '' : ' · ' + nombreOr) + ' · ' + anioCal;
-  const puedeGuardar = cantidad > 0 && !excede && !guardando && f.idAnio != null && f.idOrientacion != null && f.idTurno != null && f.idCiclo != null;
+  const identificacion = anioTxt + ' ' + f.division + (nombreOr ? ' · ' + nombreOr : '') + ' · ' + anioCal;
+  const puedeGuardar = !guardando && f.idAnio != null && f.idOrientacion != null && f.idTurno != null && f.idCiclo != null;
 
   const cambiar = (p: Partial<Form>) => {
     setF((x) => ({ ...x, ...p }));
@@ -172,23 +150,10 @@ export default function A11CursoForm() {
     setAviso(null);
   };
 
-  const cursosOpciones = [...(qCursos.data ?? [])]
-    .map((c) => ({ c, n: numeroDeAnio(anios, c.id_anio_academico), anio: ciclo.ciclos.find((x) => x.id_ciclo_lectivo === c.id_ciclo_lectivo)?.anio_calendario ?? 0 }))
-    .sort((a, b) => b.anio - a.anio || (a.n ?? 99) - (b.n ?? 99) || a.c.division.localeCompare(b.c.division));
-
   async function guardar() {
     if (!puedeGuardar) return;
     setError(null);
     setAviso(null);
-    if (esNuevo) {
-      const repetido = (qCursos.data ?? []).some(
-        (c) => c.id_ciclo_lectivo === f.idCiclo && c.id_anio_academico === f.idAnio && c.division.toUpperCase() === f.division.toUpperCase(),
-      );
-      if (repetido) {
-        setError('Ya existe el curso ' + identificacion + '. No puede haber dos divisiones iguales en el mismo ciclo lectivo.');
-        return;
-      }
-    }
     setGuardando(true);
     const elegidas = plan.filter((m) => elegidaHoras(m) != null);
     try {
@@ -210,10 +175,10 @@ export default function A11CursoForm() {
             (elegidas.length - fallas.length) +
             ' materias y ' +
             total +
-            ' horas semanales. Ya se le puede armar la grilla.',
+            ' horas semanales.',
         );
         if (fallas.length) setError('No se pudieron agregar algunas materias. ' + fallas.join(' · '));
-        ir('A11', { id_curso: nuevo.id_curso });
+        ir(rutas.curso(nuevo.id_curso));
       } else {
         const c = curso!;
         if (f.idAnio !== (c.id_anio_academico ?? null)) await planificacion.asignar_curso_a_anio_academico(f.idAnio!, { id_curso: c.id_curso });
@@ -223,10 +188,10 @@ export default function A11CursoForm() {
         for (const [idTxt, horas] of Object.entries(f.elegidas)) {
           const id = Number(idTxt);
           if (!antes.has(id)) await planificacion.asignar_materia_a_curso(c.id_curso, { id_materia: id, horas_semanales: horas });
-          else if (antes.get(id) !== horas) await planificacion.cambiar_horas_materia_curso(c.id_curso, { id_materia: id, horas_semanales: horas });
+          else if (antes.get(id) !== horas) await planificacion.cambiar_horas_materia_curso(c.id_curso, id, { horas_semanales: horas });
         }
         await invalidar('planificacion', 'orientacion');
-        setAviso('Los cambios de ' + identificacion + ' quedaron guardados. Si la grilla ya estaba validada, hay que volver a armarla en una planificación nueva.');
+        setAviso('Los cambios de ' + identificacion + ' quedaron guardados.');
       }
     } catch (e) {
       await invalidar('planificacion', 'orientacion');
@@ -237,12 +202,12 @@ export default function A11CursoForm() {
   }
 
   return (
-    <div style={css('width: 1440px; min-height: 980px; display: flex; flex-direction: column; background: #f4f6f8;')}>
+    <div style={css('width: 100%; min-height: 100vh; display: flex; flex-direction: column; background: #f4f6f8;')}>
       <Cabecera />
 
-      <div style={css('padding: 22px 28px 20px; background: #fff; border-bottom: 1px solid #e2e6ec; flex-shrink: 0;')}>
-        <div style={css('display: flex; align-items: center; gap: 8px; font-size: 12px; color: #6b7482; margin-bottom: 14px;')}>
-          <span onClick={() => ir('A10')} style={css('display: flex; align-items: center; gap: 6px; color: #2f5fd0; cursor: pointer;')}>
+      <div className="r-margen" style={css('padding: 22px 28px 20px; background: #fff; border-bottom: 1px solid #e2e6ec; flex-shrink: 0;')}>
+        <div className="r-envolver" style={css('display: flex; align-items: center; gap: 8px; font-size: 12px; color: #6b7482; margin-bottom: 14px;')}>
+          <span onClick={() => ir(rutas.cursos())} style={css('display: flex; align-items: center; gap: 6px; color: #2f5fd0; cursor: pointer;')}>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M15 6l-6 6 6 6"></path>
             </svg>
@@ -254,45 +219,17 @@ export default function A11CursoForm() {
           <span style={css('color: #14181f; font-weight: 500;')}>{esNuevo ? 'Nuevo' : identificacion}</span>
         </div>
 
-        <div style={css('display: flex; align-items: flex-end; gap: 20px;')}>
-          <div style={css('display: flex; flex-direction: column; gap: 7px;')}>
-            <div style={css('font-size: 26px; font-weight: 600; letter-spacing: -0.025em;')}>{esNuevo ? 'Nuevo curso' : identificacion}</div>
-            <div style={css('font-size: 12.5px; color: #6b7482;')}>
-              {esNuevo
-                ? 'Definí el año, la división, el ciclo lectivo, la orientación y qué materias se dictan'
-                : 'Modificá el año, la orientación o las materias que se dictan en este curso'}
-            </div>
-          </div>
-          <div style={css('flex-grow: 1;')}></div>
-          <div style={css('display: flex; align-items: center; gap: 10px;')}>
-            <span style={css('font-size: 12px; color: #6b7482;')}>Crear uno nuevo o modificar</span>
-            <select
-              value={esNuevo ? 'nuevo' : String(idCurso)}
-              onChange={(e) => {
-                setAviso(null);
-                setError(null);
-                if (e.target.value === 'nuevo') ir('A11', { nuevo: 1 });
-                else ir('A11', { id_curso: Number(e.target.value) });
-              }}
-              style={css('height: 38px; min-width: 210px; padding: 0 12px; border-radius: 8px; border: 1px solid #dfe4ea; font-size: 13px; background: #fcfdfe; color: #14181f;')}
-            >
-              <option value="nuevo">+ Nuevo curso</option>
-              {cursosOpciones.map(({ c, n, anio }) => (
-                <option key={c.id_curso} value={String(c.id_curso)}>
-                  {(n ?? '?') + '° ' + c.division + ((n ?? 0) >= 4 ? ' · ' + (c.orientacion?.nombre_orientacion ?? '') : '') + ' · ' + anio}
-                </option>
-              ))}
-            </select>
-          </div>
+        <div className="r-envolver r-apilar-movil" style={css('display: flex; align-items: flex-end; gap: 20px;')}>
+          <div className="r-titulo" style={css('font-size: 26px; font-weight: 600; letter-spacing: -0.025em;')}>{esNuevo ? 'Nuevo curso' : identificacion}</div>
         </div>
       </div>
 
       {!esNuevo && !curso ? (
-        <div style={css('padding: 20px 28px;')}>
-          <MensajeError mensaje={'No existe el curso ' + idCurso + '.'} />
+        <div className="r-margen" style={css('padding: 20px 28px;')}>
+          <MensajeError mensaje={qCurso.error?.message ?? 'No existe el curso ' + idCurso + '.'} />
         </div>
       ) : (
-        <div style={css('display: flex; gap: 18px; padding: 20px 28px 28px; align-items: flex-start;')}>
+        <div className="r-margen r-apilar" style={css('display: flex; gap: 18px; padding: 20px 28px 28px; align-items: flex-start;')}>
           <div style={css('width: 440px; flex-shrink: 0; display: flex; flex-direction: column; gap: 16px;')}>
             <div style={css('background: #fff; border: 1px solid #e2e6ec; border-radius: 10px; overflow: hidden;')}>
               <div style={css('padding: 15px 20px 13px; border-bottom: 1px solid #eef1f5;')}>
@@ -307,9 +244,7 @@ export default function A11CursoForm() {
                         value={f.idAnio ?? ''}
                         onChange={(e) => {
                           // Cambiar de año cambia el plan de estudios: las materias se vuelven a elegir.
-                          const idAnio = Number(e.target.value);
-                          const ps = orientacionesPara(idAnio);
-                          cambiar({ idAnio, idOrientacion: ps.length === 1 ? ps[0].id_orientacion : null, elegidas: {} });
+                          cambiar({ idAnio: Number(e.target.value), elegidas: {} });
                         }}
                         style={css(CAMPO)}
                       >
@@ -325,7 +260,6 @@ export default function A11CursoForm() {
                       <select
                         value={f.division}
                         disabled={!esNuevo}
-                        title={esNuevo ? undefined : 'No disponible en la API: la división de un curso existente no se puede cambiar'}
                         onChange={(e) => cambiar({ division: e.target.value })}
                         style={css(esNuevo ? CAMPO : CAMPO_FIJO)}
                       >
@@ -341,7 +275,6 @@ export default function A11CursoForm() {
                       <select
                         value={f.idCiclo ?? ''}
                         disabled={!esNuevo}
-                        title={esNuevo ? undefined : 'No disponible en la API: el ciclo de un curso existente no se puede cambiar'}
                         onChange={(e) => cambiar({ idCiclo: Number(e.target.value) })}
                         style={css(esNuevo ? CAMPO : CAMPO_FIJO)}
                       >
@@ -355,11 +288,6 @@ export default function A11CursoForm() {
                       </select>
                     </div>
                   </div>
-                  {!esNuevo && (
-                    <span style={css('font-size: 11.5px; color: #7a8393; line-height: 1.45;')}>
-                      La división y el ciclo no se cambian en un curso existente (la API no lo permite). Si hacen falta otros, creá un curso nuevo.
-                    </span>
-                  )}
                 </div>
 
                 <div style={css('display: flex; flex-direction: column; gap: 7px;')}>
@@ -367,23 +295,15 @@ export default function A11CursoForm() {
                   <select
                     value={f.idOrientacion ?? ''}
                     onChange={(e) => cambiar({ idOrientacion: e.target.value ? Number(e.target.value) : null, elegidas: {} })}
-                    style={css(paraAnio.length === 1 && f.idOrientacion === paraAnio[0].id_orientacion ? CAMPO_FIJO : CAMPO)}
+                    style={css(CAMPO)}
                   >
-                    {!(paraAnio.length === 1 && f.idOrientacion === paraAnio[0].id_orientacion) && (
-                      <option value="">{paraAnio.length ? 'Seleccioná una orientación' : 'Ninguna asociada a este año'}</option>
-                    )}
-                    {paraAnio.map((o) => (
+                    <option value="">Seleccioná una orientación</option>
+                    {qOrient.data!.map((o) => (
                       <option key={o.id_orientacion} value={o.id_orientacion}>
                         {o.nombre_orientacion}
                       </option>
                     ))}
-                    {or && !paraAnio.some((o) => o.id_orientacion === or.id_orientacion) && <option value={or.id_orientacion}>{or.nombre_orientacion}</option>}
                   </select>
-                  <span style={css('font-size: 11.5px; color: #7a8393; line-height: 1.45;')}>
-                    {paraAnio.length === 0
-                      ? 'Ninguna orientación tiene materias de ' + anioTxt + ' año. Se cargan desde las pantallas Materias y Orientaciones.'
-                      : 'Solo se ofrecen las materias de ' + anioTxt + ' año de esta orientación, y lo mismo pasa al planificar su grilla.'}
-                  </span>
                 </div>
 
                 <div style={css('display: flex; flex-direction: column; gap: 7px;')}>
@@ -391,25 +311,15 @@ export default function A11CursoForm() {
                   <select
                     value={f.idTurno ?? ''}
                     disabled={!esNuevo}
-                    title={esNuevo ? undefined : 'No disponible en la API: el turno de un curso existente no se puede cambiar'}
                     onChange={(e) => cambiar({ idTurno: Number(e.target.value) })}
                     style={css(esNuevo ? CAMPO : CAMPO_FIJO)}
                   >
-                    {turnos.map((t) => {
-                      const h = horasDelTurno(t);
-                      return (
-                        <option key={t.id_turno} value={t.id_turno}>
-                          {t.nombre + ' · ' + h.inicio + ' a ' + h.fin + ' · ' + h.total + ' franjas'}
-                        </option>
-                      );
-                    })}
+                    {turnos.map((t) => (
+                      <option key={t.id_turno} value={t.id_turno}>
+                        {t.nombre}
+                      </option>
+                    ))}
                   </select>
-                  <span style={css('font-size: 11.5px; color: #7a8393; line-height: 1.45;')}>
-                    {turnoSel
-                      ? ht.porDia + ' horas cátedra por día, de ' + ht.inicio + ' a ' + ht.fin + '. La grilla del curso se arma con estas franjas.' +
-                        (esNuevo ? '' : ' El turno de un curso existente no se puede cambiar.')
-                      : 'Elegí un turno.'}
-                  </span>
                 </div>
 
                 <div style={css('display: flex; align-items: center; gap: 14px; padding: 14px 16px; border-radius: 9px; background: #fafbfc; border: 1px solid #eef1f5;')}>
@@ -423,7 +333,6 @@ export default function A11CursoForm() {
                     {anioTxt + ' ' + f.division}
                   </span>
                   <div style={css('display: flex; flex-direction: column; gap: 3px;')}>
-                    <div style={css('font-size: 11.5px; color: #7a8393;')}>Así queda identificado</div>
                     <div style={css('font-size: 17px; font-weight: 600; letter-spacing: -0.01em;')}>{identificacion}</div>
                   </div>
                 </div>
@@ -443,20 +352,10 @@ export default function A11CursoForm() {
             <div style={css('background: #fff; border: 1px solid #e2e6ec; border-radius: 10px; padding: 18px; display: flex; flex-direction: column; gap: 14px;')}>
               <div style={css('font-size: 13px; font-weight: 600;')}>Carga horaria semanal</div>
               <div style={css('display: flex; align-items: baseline; gap: 9px;')}>
-                <span className="mono" style={css('font-size: 30px; font-weight: 600; color: ' + (excede ? '#b03a2e' : ACCENT) + ';')}>
+                <span className="mono" style={css('font-size: 30px; font-weight: 600; color: ' + ACCENT + ';')}>
                   {total}
                 </span>
-                <span style={css('font-size: 12.5px; color: #6b7482;')}>de {capacidad} franjas semanales del turno</span>
-              </div>
-              <div style={css('height: 7px; border-radius: 4px; background: #eef1f5; overflow: hidden;')}>
-                <div style={css('height: 7px; width: ' + Math.min(100, Math.round((total / (capacidad || 1)) * 100)) + '%; background: ' + (excede ? '#b03a2e' : ACCENT) + ';')}></div>
-              </div>
-              <div style={css('font-size: 12px; color: ' + (excede ? '#b03a2e' : '#6b7482') + '; line-height: 1.55;')}>
-                {excede
-                  ? 'No entra en el turno ' + turnoNombre + ': tiene ' + capacidad + ' franjas por semana. Bajá horas' + (esNuevo ? ' o elegí un turno más largo.' : '.')
-                  : total === 0
-                    ? 'Elegí las materias que se dictan en este curso.'
-                    : 'Quedan ' + (capacidad - total) + ' franjas libres en la semana del turno ' + turnoNombre + '.'}
+                <span style={css('font-size: 12.5px; color: #6b7482;')}>horas semanales</span>
               </div>
               <button
                 onClick={guardar}
@@ -485,11 +384,11 @@ export default function A11CursoForm() {
           </div>
 
           <div style={css('flex-grow: 1; min-width: 0; background: #fff; border: 1px solid #e2e6ec; border-radius: 10px; overflow: hidden;')}>
-            <div style={css('display: flex; align-items: center; gap: 12px; padding: 15px 20px 13px; border-bottom: 1px solid #eef1f5;')}>
+            <div className="r-envolver" style={css('display: flex; align-items: center; gap: 12px; padding: 15px 20px 13px; border-bottom: 1px solid #eef1f5;')}>
               <div style={css('display: flex; flex-direction: column; gap: 3px;')}>
                 <div style={css('font-size: 13px; font-weight: 600;')}>Materias a dictar</div>
                 <div style={css('font-size: 12px; color: #6b7482;')}>
-                  Del plan de estudios de {anioTxt + ' año' + (nombreOr ? ', orientación ' + nombreOr : '')}. Ajustá las horas de cada una
+                  Del plan de estudios de {anioTxt + ' año' + (nombreOr ? ', orientación ' + nombreOr : '')}
                 </div>
               </div>
               <div style={css('flex-grow: 1;')}></div>
@@ -509,8 +408,8 @@ export default function A11CursoForm() {
                   const horasEl = elegidaHoras(m);
                   const elegida = horasEl != null;
                   const horas = horasEl ?? m.horas_semanales;
-                  const area = m.area?.nombre_area ?? '';
-                  const fueraDelPlan = !(m.id_anio_academico === f.idAnio && m.id_orientacion === f.idOrientacion);
+                  const area = m.nombre_area ?? '';
+                  const fueraDelPlan = m.fueraDelPlan;
                   const toggle = () => {
                     const e = { ...f.elegidas };
                     if (elegida) delete e[m.id_materia];
@@ -519,7 +418,7 @@ export default function A11CursoForm() {
                   };
                   const sumar = (d: number) => {
                     if (!elegida) return;
-                    cambiar({ elegidas: { ...f.elegidas, [m.id_materia]: Math.max(1, Math.min(8, horas + d)) } });
+                    cambiar({ elegidas: { ...f.elegidas, [m.id_materia]: Math.max(1, horas + d) } });
                   };
                   const botonEstilo =
                     'width: 26px; height: 26px; border-radius: 6px; font-size: 15px; line-height: 1;' +
@@ -579,6 +478,8 @@ export default function A11CursoForm() {
                   );
                 })}
               </div>
+            ) : qPlan.isLoading ? (
+              <Cargando />
             ) : (
               <div style={css('padding: 40px 28px; display: flex; flex-direction: column; align-items: center; gap: 13px; text-align: center;')}>
                 <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#b9c1cc" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
@@ -586,9 +487,7 @@ export default function A11CursoForm() {
                   <path d="M8 3v18"></path>
                 </svg>
                 <div style={css('font-size: 13px; color: #6b7482; line-height: 1.6; max-width: 330px;')}>
-                  {!or
-                    ? 'Elegí la orientación del curso: las materias de ' + anioTxt + ' año cambian según la orientación.'
-                    : 'El plan de estudios de ' + anioTxt + ' año (' + nombreOr + ') todavía no tiene materias cargadas. Cargalas primero desde Materias y después volvé a armar el curso.'}
+                  {!or ? 'Elegí la orientación del curso.' : 'El plan de estudios de ' + anioTxt + ' año (' + nombreOr + ') no tiene materias cargadas.'}
                 </div>
               </div>
             )}

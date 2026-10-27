@@ -20,11 +20,11 @@ export class CursoService {
     if (!(await this.a.ciclos.findOneBy({ id_ciclo_lectivo: body.id_ciclo_lectivo }))) {
       throw referenciaInvalida(`No existe el ciclo lectivo ${body.id_ciclo_lectivo}`);
     }
-    await this.a.horarios.exigir<C.Turno>(`get_turno/${body.id_turno}`, `No existe el turno ${body.id_turno}`);
-    await this.a.orientacion.exigir<C.Orientacion>(`get_orientacion/${body.id_orientacion}`, `No existe la orientación ${body.id_orientacion}`);
+    await this.a.horarios.exigir<C.Turno>(`turnos/${body.id_turno}`, `No existe el turno ${body.id_turno}`);
+    await this.a.orientacion.exigir<C.Orientacion>(`orientaciones/${body.id_orientacion}`, `No existe la orientación ${body.id_orientacion}`);
     const c = await this.a.cursos.save({ division, id_ciclo_lectivo: body.id_ciclo_lectivo, id_turno: body.id_turno, id_anio_academico: null });
     try {
-      await this.a.orientacion.enviar('POST', `asignar_curso_a_orientacion/${body.id_orientacion}`, { id_curso: c.id_curso });
+      await this.a.orientacion.enviar('POST', `orientaciones/${body.id_orientacion}/cursos`, { id_curso: c.id_curso });
     } catch (e) {
       await this.a.cursos.delete(c.id_curso);
       throw e;
@@ -35,7 +35,7 @@ export class CursoService {
   /** Si no se indican las horas, se toman las de la materia. Invoca: orientacion.get_materia. */
   async asignar_materia_a_curso(id: number, body: AsignarMateriaACursoDto): Promise<Curso> {
     await this.a.curso(id);
-    const m = await this.a.orientacion.exigir<C.Materia>(`get_materia/${body.id_materia}`, `No existe la materia ${body.id_materia}`);
+    const m = await this.a.orientacion.exigir<C.Materia>(`materias/${body.id_materia}`, `No existe la materia ${body.id_materia}`);
     if (await this.a.materiasCurso.findOneBy({ id_curso: id, id_materia: body.id_materia })) {
       throw conflicto(`El curso ya dicta ${m.nombre_materia}`);
     }
@@ -46,12 +46,12 @@ export class CursoService {
   }
 
   /** Solo cambia las horas en este curso; la materia no se modifica. */
-  async cambiar_horas_materia_curso(id: number, body: CambiarHorasMateriaCursoDto): Promise<Curso> {
+  async cambiar_horas_materia_curso(id: number, idMateria: number, body: CambiarHorasMateriaCursoDto): Promise<Curso> {
     await this.a.curso(id);
-    const mc = await this.a.materiasCurso.findOneBy({ id_curso: id, id_materia: body.id_materia });
-    if (!mc) throw noEncontrado(`El curso no dicta la materia ${body.id_materia}`);
+    const mc = await this.a.materiasCurso.findOneBy({ id_curso: id, id_materia: idMateria });
+    if (!mc) throw noEncontrado(`El curso no dicta la materia ${idMateria}`);
     if (body.horas_semanales < 1 || body.horas_semanales > 20) throw invalido('Las horas semanales van de 1 a 20');
-    await this.a.materiasCurso.update({ id_curso: id, id_materia: body.id_materia }, { horas_semanales: body.horas_semanales });
+    await this.a.materiasCurso.update({ id_curso: id, id_materia: idMateria }, { horas_semanales: body.horas_semanales });
     return this.get_curso(id);
   }
 

@@ -1,0 +1,10 @@
+/* A4 · Suplencias: ajustes responsive propios de la pantalla. */
+
+/* Atajos de semana en la banda del título: cuando la banda se parte, quedan alineados a la izquierda
+   y los botones segmentados se desplazan si no entran. */
+@media (max-width: 700px) {
+  .a4-atajos { align-items: flex-start !important; max-width: 100% !important; min-width: 0 !important; }
+}
+
+/* Los botones de semana no parten su texto: el grupo se desplaza horizontalmente. */
+.a4-atajos button { white-space: nowrap; flex-shrink: 0; }

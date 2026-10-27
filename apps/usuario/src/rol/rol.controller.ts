@@ -13,7 +13,7 @@ import { RolService } from './rol.service';
 export class RolController {
   constructor(private readonly servicio: RolService) {}
 
-  @Post("crear_rol")
+  @Post("roles")
   @ApiOperation({"operationId":"crear_rol","summary":"Crear rol"})
   @ApiResponse({ status: 201, description: "Creado", type: Rol })
   @ApiResponse({ status: 400, description: 'Datos inválidos', type: ErrorApi })
@@ -21,7 +21,7 @@ export class RolController {
     return this.servicio.crear_rol(body);
   }
 
-  @Post("asignar_privilegio/:id")
+  @Post("roles/:id/privilegios")
   @HttpCode(200)
   @ApiOperation({"operationId":"asignar_privilegio","summary":"Asignar un privilegio al rol"})
   @ApiParam({"name":"id","description":"Id del rol","type":"integer","format":"int64"})
@@ -32,7 +32,7 @@ export class RolController {
     return this.servicio.asignar_privilegio(id, body);
   }
 
-  @Delete("quitar_privilegio/:id/:id_privilegio")
+  @Delete("roles/:id/privilegios/:id_privilegio")
   @ApiOperation({"operationId":"quitar_privilegio","summary":"Quitar un privilegio del rol"})
   @ApiParam({"name":"id","description":"Id del rol","type":"integer","format":"int64"})
   @ApiParam({"name":"id_privilegio","description":"Id del privilegio a quitar","type":"integer","format":"int64"})
@@ -42,7 +42,7 @@ export class RolController {
     return this.servicio.quitar_privilegio(id, idPrivilegio);
   }
 
-  @Delete("eliminar_rol/:id")
+  @Delete("roles/:id")
   @HttpCode(204)
   @ApiOperation({"operationId":"eliminar_rol","summary":"Eliminar rol"})
   @ApiParam({"name":"id","description":"Id del rol","type":"integer","format":"int64"})
@@ -52,7 +52,7 @@ export class RolController {
     return this.servicio.eliminar_rol(id);
   }
 
-  @Patch("cambiar_nombre_rol/:id")
+  @Patch("roles/:id")
   @ApiOperation({"operationId":"cambiar_nombre_rol","summary":"Cambiar nombre del rol"})
   @ApiParam({"name":"id","description":"Id del rol","type":"integer","format":"int64"})
   @ApiResponse({ status: 200, description: "OK", type: Rol })
@@ -62,14 +62,14 @@ export class RolController {
     return this.servicio.cambiar_nombre_rol(id, body);
   }
 
-  @Get("get_roles")
+  @Get("roles")
   @ApiOperation({"operationId":"get_roles","summary":"Listar roles"})
   @ApiResponse({ status: 200, description: "OK", type: [Rol] })
   get_roles(): Promise<Rol[]> {
     return this.servicio.get_roles();
   }
 
-  @Get("get_rol_privilegios/:id")
+  @Get("roles/:id/privilegios")
   @ApiOperation({"operationId":"get_rol_privilegios","summary":"Privilegios del rol"})
   @ApiParam({"name":"id","description":"Id del rol","type":"integer","format":"int64"})
   @ApiResponse({ status: 200, description: "OK", type: [Privilegio] })

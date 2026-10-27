@@ -1,5 +1,5 @@
 // Piezas compartidas por A7 (Profesores), A8 (Alta de profesor) y A9 (Ficha del profesor).
-import type { AnioAcademico, Curso, FranjaHoraria, Materia, Profesor, Propuesta, Turno } from '@sahs/contratos';
+import type { FranjaHoraria, PlanDeEstudiosAnio, PlanDeEstudiosMateria, Profesor, Turno } from '@sahs/contratos';
 
 export const ACCENT = '#2f5fd0';
 
@@ -13,25 +13,6 @@ export const COLORES_AREA: Record<string, { fondo: string; texto: string }> = {
 };
 export const SIN_AREA = { fondo: '#f2f4f7', texto: '#4a5462' };
 export const colorArea = (nombre: string | null | undefined) => (nombre && COLORES_AREA[nombre]) || SIN_AREA;
-
-/**
- * Área de un profesor: la que más se repite entre sus materias habilitadas
- * (cada materia del catálogo tiene su área). null si no tiene materias con área.
- */
-export function areaDeProfesor(p: Profesor, materias: Map<number, Materia>): string | null {
-  const cuenta = new Map<string, number>();
-  for (const m of p.lista_materias_habilitadas ?? []) {
-    const nombre = materias.get(m.id_materia ?? -1)?.area?.nombre_area;
-    if (nombre) cuenta.set(nombre, (cuenta.get(nombre) ?? 0) + 1);
-  }
-  let mejor: string | null = null;
-  let max = 0;
-  for (const [nombre, n] of cuenta) if (n > max) { max = n; mejor = nombre; }
-  return mejor;
-}
-
-/** Franjas declaradas que no son recreo. */
-export const franjasDeclaradas = (p: Profesor) => (p.disponibilidad ?? []).filter((f) => !f.es_recreo).length;
 
 /**
  * Turno que muestra la disponibilidad de un profesor: el que tiene más franjas declaradas,
@@ -49,9 +30,6 @@ export function turnoPrincipal(p: Profesor, turnos: Turno[] | undefined): Turno 
   return elegido ?? turnos.find((t) => t.nombre === 'Mañana') ?? turnos[0];
 }
 
-/** Horas cátedra (no recreos) de un turno. */
-export const horasDelTurno = (t: Turno | null) => (t ? (t.franjas_horarias ?? []).filter((f) => !f.es_recreo).length : 0);
-
 /** Filas de la grilla de un turno: una por horario de inicio (recreos incluidos), ordenadas. */
 export function filasDelTurno(t: Turno | null): { hora_inicio: string; es_recreo: boolean; porDia: Map<string, FranjaHoraria> }[] {
   const filas = new Map<string, { hora_inicio: string; es_recreo: boolean; porDia: Map<string, FranjaHoraria> }>();
@@ -63,37 +41,20 @@ export function filasDelTurno(t: Turno | null): { hora_inicio: string; es_recreo
   return [...filas.values()].sort((a, b) => a.hora_inicio.localeCompare(b.hora_inicio));
 }
 
-/** Propuesta vigente de un ciclo: la Validada. */
-export const propuestaVigente = (ps: Propuesta[] | undefined) => ps?.find((p) => p.estado?.codigo === 'VAL') ?? null;
-
-/** Número del año académico ("1° año" → 1). Si no se conoce, 0. */
-export function numeroAnio(id: number | null | undefined, anios: AnioAcademico[] | undefined): number {
-  const a = anios?.find((x) => x.id_anio_academico === id);
-  const n = a ? parseInt(a.anio_curricular, 10) : NaN;
-  return isNaN(n) ? 0 : n;
+/** Grupos del selector de materias habilitadas ("1° año · Básica"), en el orden en que los devuelve el plan de estudios. */
+export function gruposDelPlan(plan: PlanDeEstudiosAnio[] | undefined) {
+  return (plan ?? []).flatMap((pa) =>
+    pa.orientaciones.map((po) => ({ nombre: pa.anio_curricular + ' · ' + po.nombre_orientacion, materias: po.materias })),
+  );
 }
 
-/** Nombre de un curso: "<n>° <división>". */
-export function nombreCurso(c: Curso | undefined, anios: AnioAcademico[] | undefined): string {
-  if (!c) return '—';
-  const n = numeroAnio(c.id_anio_academico, anios);
-  return (n ? n + '° ' : '') + c.division;
-}
-
-/** Materias del catálogo agrupadas por año y orientación ("1° año · Básica"), en orden. */
-export function gruposDeMaterias(materias: Materia[] | undefined, anios: AnioAcademico[] | undefined) {
-  const grupos = new Map<string, { nombre: string; anio: number; orientacion: string; materias: Materia[] }>();
-  for (const m of materias ?? []) {
-    const anio = numeroAnio(m.id_anio_academico, anios);
-    const orientacion = m.orientacion?.nombre_orientacion ?? '';
-    const clave = anio + '|' + orientacion;
-    let g = grupos.get(clave);
-    if (!g) { g = { nombre: (anio ? anio + '° año' : 'Sin año') + (orientacion ? ' · ' + orientacion : ''), anio, orientacion, materias: [] }; grupos.set(clave, g); }
-    g.materias.push(m);
-  }
-  const lista = [...grupos.values()].sort((a, b) => a.anio - b.anio || a.orientacion.localeCompare(b.orientacion));
-  for (const g of lista) g.materias.sort((a, b) => a.nombre_materia.localeCompare(b.nombre_materia));
-  return lista;
+/** Materias del plan de estudios por id, con el año y la orientación en que se dictan. */
+export function materiasDelPlan(plan: PlanDeEstudiosAnio[] | undefined) {
+  const porId = new Map<number, PlanDeEstudiosMateria & { anio_curricular: string; nombre_orientacion: string }>();
+  for (const pa of plan ?? [])
+    for (const po of pa.orientaciones)
+      for (const m of po.materias) porId.set(m.id_materia, { ...m, anio_curricular: pa.anio_curricular, nombre_orientacion: po.nombre_orientacion });
+  return porId;
 }
 
 /** Correo con formato válido (como en el prototipo). */

@@ -11,8 +11,8 @@ export interface DefPantalla {
 }
 
 /**
- * Pantallas de la app, con el mismo código que en el canvas del diseño
- * (CONFIG.pantallas del prototipo).
+ * Pantallas de la app, con el mismo código interno que en el canvas del diseño
+ * (CONFIG.pantallas del prototipo). Sus rutas están en app/rutas.ts.
  */
 export const PANTALLAS: Record<string, DefPantalla> = {
   L1: { titulo: 'Login', ancho: 1440, privilegio: null, publica: true, componente: lazy(() => import('../pantallas/L1Login')) },
@@ -37,26 +37,6 @@ export const PANTALLAS: Record<string, DefPantalla> = {
   P2: { titulo: 'Mi grilla horaria', ancho: 1440, privilegio: 12, componente: lazy(() => import('../pantallas/P2MiHorario')) },
   P3: { titulo: 'Mi disponibilidad', ancho: 1440, privilegio: 13, componente: lazy(() => import('../pantallas/P3MiDisponibilidad')) },
   P4: { titulo: 'Mis recibos', ancho: 1440, privilegio: 14, componente: lazy(() => import('../pantallas/P4MisRecibos')) },
-};
-
-/**
- * Qué pantalla abre cada tarjeta del inicio (CONFIG.privilegios del prototipo).
- * Los privilegios sin pantalla (2 "Recibos de sueldo" y 6 "Áreas") se muestran como "Pendiente".
- */
-export const PANTALLA_DE_PRIVILEGIO: Record<number, string> = {
-  1: 'A12',
-  3: 'A5',
-  4: 'A7',
-  5: 'A10',
-  7: 'A16',
-  8: 'A4',
-  9: 'A17',
-  10: 'A14',
-  11: 'A15',
-  12: 'P2',
-  13: 'P3',
-  14: 'P4',
-  15: 'A2',
 };
 
 export function puedeVer(codigo: string, privilegios: number[]): boolean {

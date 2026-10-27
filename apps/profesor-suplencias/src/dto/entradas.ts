@@ -4,7 +4,7 @@ import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsArray, IsDateString, IsEmail, IsInt, IsNotEmpty, IsOptional, IsString, ValidateIf } from 'class-validator';
 import type * as C from '@sahs/contratos';
-/** Body de POST /profesor_suplencias/crear_suplencia */
+/** Body de POST /profesor-suplencias/suplencias */
 export class CrearSuplenciaDto implements C.CrearSuplenciaBody {
   @ApiProperty({"type":"string","format":"date","example":"2026-05-04","required":true})
   @IsDateString()
@@ -18,17 +18,13 @@ export class CrearSuplenciaDto implements C.CrearSuplenciaBody {
   @IsString()
   @IsNotEmpty()
   motivo!: string;
-  @ApiProperty({"type":"integer","format":"int64","description":"Profesor que cubre la suplencia","example":12,"required":true})
-  @Type(() => Number)
-  @IsInt()
-  id_profesor!: number;
   @ApiProperty({"type":"integer","format":"int64","isArray":true,"description":"Clases que cubre","required":true})
   @IsArray()
   @IsInt({ each: true })
   ids_clases!: number[];
 }
 
-/** Body de POST /profesor_suplencias/crear_profesor */
+/** Body de POST /profesor-suplencias/profesores */
 export class CrearProfesorDto implements C.CrearProfesorBody {
   @ApiProperty({"type":"string","example":"Juan","required":true})
   @IsString()
@@ -56,7 +52,7 @@ export class CrearProfesorDto implements C.CrearProfesorBody {
   direccion?: string;
 }
 
-/** Body de PUT /profesor_suplencias/editar_profesor/{id} */
+/** Body de PUT /profesor-suplencias/profesores/{id} */
 export class EditarProfesorDto implements C.EditarProfesorBody {
   @ApiProperty({"type":"string","example":"Juan","required":true})
   @IsString()
@@ -92,7 +88,7 @@ export class EditarProfesorDto implements C.EditarProfesorBody {
   cargo_asociado!: string | null;
 }
 
-/** Body de PUT /profesor_suplencias/asignar_usuario_profesor/{id} */
+/** Body de PUT /profesor-suplencias/profesores/{id}/usuario */
 export class AsignarUsuarioProfesorDto implements C.AsignarUsuarioProfesorBody {
   @ApiProperty({"type":"integer","format":"int64","example":10,"required":true})
   @Type(() => Number)
@@ -100,7 +96,7 @@ export class AsignarUsuarioProfesorDto implements C.AsignarUsuarioProfesorBody {
   id_usuario!: number;
 }
 
-/** Body de PUT /profesor_suplencias/asignar_materias_habilitadas/{id} */
+/** Body de PUT /profesor-suplencias/profesores/{id}/materias-habilitadas */
 export class AsignarMateriasHabilitadasDto implements C.AsignarMateriasHabilitadasBody {
   @ApiProperty({"type":"integer","format":"int64","isArray":true,"required":true})
   @IsArray()
@@ -108,7 +104,7 @@ export class AsignarMateriasHabilitadasDto implements C.AsignarMateriasHabilitad
   ids_materias!: number[];
 }
 
-/** Body de PUT /profesor_suplencias/asignar_disponibilidad/{id} */
+/** Body de PUT /profesor-suplencias/profesores/{id}/disponibilidad */
 export class AsignarDisponibilidadDto implements C.AsignarDisponibilidadBody {
   @ApiProperty({"type":"integer","format":"int64","isArray":true,"required":true})
   @IsArray()
@@ -116,7 +112,7 @@ export class AsignarDisponibilidadDto implements C.AsignarDisponibilidadBody {
   ids_franjas_horarias!: number[];
 }
 
-/** Query de GET /profesor_suplencias/get_profesores */
+/** Query de GET /profesor-suplencias/profesores */
 export class GetProfesoresQuery implements C.GetProfesoresQuery {
   @ApiProperty({"type":"integer","format":"int64","description":"Usuario del profesor (filtro opcional)","example":10,"required":false})
   @IsOptional()
@@ -125,7 +121,7 @@ export class GetProfesoresQuery implements C.GetProfesoresQuery {
   id_usuario?: number;
 }
 
-/** Query de GET /profesor_suplencias/get_suplencias */
+/** Query de GET /profesor-suplencias/suplencias */
 export class GetSuplenciasQuery implements C.GetSuplenciasQuery {
   @ApiProperty({"type":"string","format":"date","description":"Inicio del rango (filtro opcional)","example":"2026-05-11","required":false})
   @IsOptional()

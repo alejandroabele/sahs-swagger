@@ -111,25 +111,26 @@ export class Armado {
   /* ---------- datos de otros servicios (un listado por request) ---------- */
 
   async materiasPorId(): Promise<Map<number, C.Materia>> {
-    return new Map((await this.orientacion.listar<C.Materia>('get_materias')).map((m) => [m.id_materia, m]));
+    // Con su área anidada: el curso y la clase la muestran junto a la materia.
+    return new Map((await this.orientacion.listar<C.Materia>('materias', { completo: true })).map((m) => [m.id_materia, m]));
   }
 
   async franjasPorId(): Promise<Map<number, C.FranjaHoraria>> {
-    return new Map((await this.horarios.listar<C.FranjaHoraria>('get_franjas_horarias')).map((f) => [f.id_franja_horaria, f]));
+    return new Map((await this.horarios.listar<C.FranjaHoraria>('franjas-horarias')).map((f) => [f.id_franja_horaria, f]));
   }
 
   async turnosPorId(): Promise<Map<number, C.Turno>> {
-    return new Map((await this.horarios.listar<C.Turno>('get_turnos')).map((t) => [t.id_turno, t]));
+    return new Map((await this.horarios.listar<C.Turno>('turnos')).map((t) => [t.id_turno, t]));
   }
 
   async profesoresPorId(): Promise<Map<number, C.Profesor>> {
-    return new Map((await this.profesores.listar<C.Profesor>('get_profesores')).map((p) => [p.id_profesor, p]));
+    return new Map((await this.profesores.listar<C.Profesor>('profesores')).map((p) => [p.id_profesor, p]));
   }
 
   /** Orientación de cada curso (la guarda el servicio Orientación en ids_cursos). */
   async orientacionPorCurso(): Promise<Map<number, C.Orientacion>> {
     const out = new Map<number, C.Orientacion>();
-    for (const o of await this.orientacion.listar<C.Orientacion>('get_orientaciones')) {
+    for (const o of await this.orientacion.listar<C.Orientacion>('orientaciones')) {
       for (const id of o.ids_cursos ?? []) out.set(id, o);
     }
     return out;
@@ -172,7 +173,10 @@ export class Armado {
         id_orientacion: o?.id_orientacion as number,
         materias: mc
           .filter((m) => m.id_curso === c.id_curso)
-          .map((m) => ({ id_materia: m.id_materia, nombre_materia: materias.get(m.id_materia)?.nombre_materia as string, horas_semanales: m.horas_semanales }))
+          .map((m) => {
+            const mat = materias.get(m.id_materia);
+            return { id_materia: m.id_materia, nombre_materia: mat?.nombre_materia as string, horas_semanales: m.horas_semanales, id_area: mat?.id_area ?? null, nombre_area: mat?.area?.nombre_area ?? null };
+          })
           .sort((a, b) => (a.nombre_materia ?? '').localeCompare(b.nombre_materia ?? '')),
       };
       if (!anidar) return base;
@@ -224,7 +228,7 @@ export class Armado {
       const m = materias.get(c.id_materia);
       const clase: Clase = {
         ...base,
-        materia: m ? { id_materia: m.id_materia, nombre_materia: m.nombre_materia, horas_semanales: m.horas_semanales } : undefined,
+        materia: m ? { id_materia: m.id_materia, nombre_materia: m.nombre_materia, horas_semanales: m.horas_semanales, id_area: m.id_area ?? null, nombre_area: m.area?.nombre_area ?? null } : undefined,
         franjas_horarias: idsFr.map((id) => franjas.get(id)).filter((f): f is C.FranjaHoraria => !!f).map(aFranjaResumen),
         profesores: idsPr.map((id) => profes.get(id)).filter((p): p is C.Profesor => !!p).map(aProfesorResumen),
       };
@@ -237,7 +241,7 @@ export class Armado {
   /** Suplencia vigente hoy. Invoca: profesor_suplencias.get_suplencias (id_clase y la fecha del día). */
   async suplenciaVigente(idClase: number): Promise<SuplenciaResumen | null> {
     const f = hoy();
-    const l = await this.profesores.listar<C.Suplencia>('get_suplencias', { query: { id_clase: idClase, fecha_desde: f, fecha_hasta: f } });
+    const l = await this.profesores.listar<C.Suplencia>('suplencias', { query: { id_clase: idClase, fecha_desde: f, fecha_hasta: f } });
     const s = l[0];
     if (!s) return null;
     return {

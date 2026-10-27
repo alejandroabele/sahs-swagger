@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { In } from 'typeorm';
-import { conflicto, invalido, referenciaInvalida } from '@sahs/comun';
+import { conflicto, invalido, noEncontrado } from '@sahs/comun';
 import type * as C from '@sahs/contratos';
 import type { Suplencia } from '../dto/modelos';
 import type { CrearSuplenciaDto, GetSuplenciasQuery } from '../dto/entradas';
@@ -14,7 +14,7 @@ export class SuplenciaService {
    * Crea la suplencia completa: el suplente y las clases que cubre en el período.
    * Cada clase se cubre entera. Invoca: planificacion.get_clase.
    */
-  async crear_suplencia(body: CrearSuplenciaDto): Promise<Suplencia> {
+  async crear_suplencia(idProfesor: number, body: CrearSuplenciaDto): Promise<Suplencia> {
     const desde = body.fecha_inicio.slice(0, 10);
     const hasta = body.fecha_fin.slice(0, 10);
     if (desde > hasta) throw invalido('La fecha de inicio tiene que ser anterior o igual a la de fin');
@@ -22,12 +22,12 @@ export class SuplenciaService {
     if (!ids.length) throw invalido('La suplencia tiene que cubrir al menos una clase');
     const motivo = body.motivo.trim();
     if (!motivo) throw invalido('motivo es obligatorio');
-    if (!(await this.a.profesores.findOneBy({ id_profesor: body.id_profesor }))) {
-      throw referenciaInvalida(`No existe el profesor ${body.id_profesor}`);
+    if (!(await this.a.profesores.findOneBy({ id_profesor: idProfesor }))) {
+      throw noEncontrado(`No existe el profesor ${idProfesor}`);
     }
     for (const id of ids) {
-      const clase = await this.a.planificacion.exigir<C.Clase>(`get_clase/${id}`, `No existe la clase ${id}`);
-      if ((clase.ids_profesores ?? []).includes(body.id_profesor)) {
+      const clase = await this.a.planificacion.exigir<C.Clase>(`clases/${id}`, `No existe la clase ${id}`);
+      if ((clase.ids_profesores ?? []).includes(idProfesor)) {
         throw conflicto(`El suplente ya es docente de la clase ${clase.codigo}`);
       }
     }
@@ -41,7 +41,7 @@ export class SuplenciaService {
     if (previas.length) throw conflicto(`Alguna de las clases ya tiene una suplencia entre el ${previas[0].fecha_inicio} y el ${previas[0].fecha_fin}`);
 
     const s = await this.a.suplencias.manager.transaction(async (tx) => {
-      const nueva = await tx.save(this.a.suplencias.target, { fecha_inicio: desde, fecha_fin: hasta, motivo, id_profesor: body.id_profesor });
+      const nueva = await tx.save(this.a.suplencias.target, { fecha_inicio: desde, fecha_fin: hasta, motivo, id_profesor: idProfesor });
       await tx.insert(this.a.suplenciaClases.target, ids.map((id_clase) => ({ id_suplencia: (nueva as any).id_suplencia, id_clase })));
       return nueva as { id_suplencia: number };
     });
@@ -62,7 +62,7 @@ export class SuplenciaService {
     let idsClases: number[] | null = null;
     if (query.id_clase != null) idsClases = [query.id_clase];
     if (query.id_curso != null) {
-      const delCurso = (await this.a.planificacion.listar<C.Clase>('get_clases', { query: { id_curso: query.id_curso } })).map((c) => c.id_clase);
+      const delCurso = (await this.a.planificacion.listar<C.Clase>('clases', { query: { id_curso: query.id_curso } })).map((c) => c.id_clase);
       idsClases = idsClases ? idsClases.filter((x) => delCurso.includes(x)) : delCurso;
     }
     if (idsClases) {

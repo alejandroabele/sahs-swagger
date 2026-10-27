@@ -7,7 +7,7 @@
 #   Web:          http://localhost:8100   (usuario secretaria, contraseña sahs2026)
 #   Swagger UI:   http://localhost:8180   (los 6 servicios)
 #
-# Convive con docker-compose.yml (Swagger UI de los contratos en :8080 y el prototipo en :8090).
+# Convive con docker-compose.yml (el prototipo en :8090).
 
 name: sahs-app
 
@@ -150,7 +150,7 @@ services:
           { "url": "http://localhost:8100/docs/horarios-json",            "name": "Horarios" },
           { "url": "http://localhost:8100/docs/planificacion-json",       "name": "Planificación" },
           { "url": "http://localhost:8100/docs/orientacion-json",         "name": "Orientación" },
-          { "url": "http://localhost:8100/docs/profesor_suplencias-json", "name": "Profesor y Suplencias" }
+          { "url": "http://localhost:8100/docs/profesor-suplencias-json", "name": "Profesor y Suplencias" }
         ]
       URLS_PRIMARY_NAME: "Usuario"
       DOC_EXPANSION: "list"

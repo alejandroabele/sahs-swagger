@@ -21,7 +21,6 @@ export interface Sesion {
   privilegios: number[];
   privilegiosDetalle: Privilegio[];
   /** Profesor vinculado al usuario (para las pantallas P2 a P4), si lo hay. */
-  profesor: Profesor | null;
   entrar: (r: LoginRespuesta) => void;
   salir: () => void;
 }
@@ -52,11 +51,6 @@ export function SesionProvider({ children }: { children: ReactNode }) {
   const qPriv = useConsulta(['usuario', 'get_rol_privilegios', idRol], () => apiUsuario.get_rol_privilegios(idRol!), {
     enabled: idRol != null,
   });
-  const qProfesor = useConsulta(
-    ['profesor_suplencias', 'get_profesores', { id_usuario: guardada?.id_usuario }],
-    () => profesorSuplencias.get_profesores({ id_usuario: guardada!.id_usuario }),
-    { enabled: !!guardada },
-  );
 
   // Si el usuario de la sesión ya no existe (lo borraron), se cierra la sesión.
   useEffect(() => {
@@ -89,13 +83,27 @@ export function SesionProvider({ children }: { children: ReactNode }) {
       usuario: qUsuario.data ?? null,
       privilegios: (qPriv.data ?? []).map((p) => p.id_privilegio),
       privilegiosDetalle: qPriv.data ?? [],
-      profesor: qProfesor.data?.[0] ?? null,
       entrar,
       salir,
     }),
-    [guardada, qUsuario.isLoading, qUsuario.data, idRol, qPriv.isLoading, qPriv.data, qProfesor.data, entrar, salir],
+    [guardada, qUsuario.isLoading, qUsuario.data, idRol, qPriv.isLoading, qPriv.data, entrar, salir],
   );
   return <Ctx.Provider value={valor}>{children}</Ctx.Provider>;
+}
+
+/**
+ * Profesor vinculado al usuario de la sesión. Solo lo piden las pantallas del profesor
+ * (mi horario, mi disponibilidad y mis recibos), no la sesión de todas las pantallas.
+ */
+export function useMiProfesor(): { profesor: Profesor | null; cargando: boolean } {
+  const { usuario } = useSesion();
+  const idUsuario = usuario?.id_usuario;
+  const q = useConsulta(
+    ['profesor_suplencias', 'get_profesores', { id_usuario: idUsuario }],
+    () => profesorSuplencias.get_profesores({ id_usuario: idUsuario! }),
+    { enabled: idUsuario != null },
+  );
+  return { profesor: q.data?.[0] ?? null, cargando: idUsuario == null || q.isLoading };
 }
 
 export function useSesion(): Sesion {

@@ -46,12 +46,13 @@ function tipoRespuesta(op) {
 async function main() {
   const indice = [];
   for (const [svc, puerto] of SERVICIOS) {
-    const url = BASE_PROXY ? `${BASE_PROXY}/${svc}-json` : `http://localhost:${puerto}/docs-json`;
+    const prefijo = svc.replace(/_/g, '-');
+    const url = BASE_PROXY ? `${BASE_PROXY}/${prefijo}-json` : `http://localhost:${puerto}/docs-json`;
     const doc = await (await fetch(url)).json();
     const tipos = new Set();
     const funciones = [];
     for (const [ruta, metodos] of Object.entries(doc.paths)) {
-      if (!ruta.startsWith(`/${svc}/`)) continue;
+      if (!ruta.startsWith(`/${prefijo}/`)) continue;
       for (const [metodo, op] of Object.entries(metodos)) {
         const params = (op.parameters || []).filter((p) => p.in === 'path');
         const query = (op.parameters || []).filter((p) => p.in === 'query');

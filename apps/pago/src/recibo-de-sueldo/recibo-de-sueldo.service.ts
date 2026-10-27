@@ -18,7 +18,7 @@ export class ReciboDeSueldoService {
   /** PDF del recibo. Invoca: profesor_suplencias.get_profesor (nombre y documento). */
   async bajar_recibo_sueldo(id: number): Promise<StreamableFile> {
     const r = (await this.a.armarRecibos([await this.a.recibo(id)]))[0];
-    const prof = await this.a.profesores.buscar<C.Profesor>(`get_profesor/${r.id_profesor}`);
+    const prof = await this.a.profesores.buscar<C.Profesor>(`profesores/${r.id_profesor}`);
     const doc = new PDFDocument({ size: 'A4', margin: 50, info: { Title: `Recibo de sueldo ${r.periodo}` } });
     const partes: Buffer[] = [];
     doc.on('data', (b: Buffer) => partes.push(b));
@@ -72,7 +72,7 @@ export class ReciboDeSueldoService {
     if (r.firma_receptor_fecha) throw conflicto(`El recibo ya fue firmado el ${fecha(r.firma_receptor_fecha)}: la firma no se puede cambiar`);
     const pago = await this.a.pago(r.id_pago);
     if (!pago.validado) throw conflicto('El pago todavía no está validado: el recibo no se puede firmar');
-    const prof = await this.a.profesores.buscar<C.Profesor>(`get_profesor/${r.id_profesor}`);
+    const prof = await this.a.profesores.buscar<C.Profesor>(`profesores/${r.id_profesor}`);
     if (prof && prof.id_usuario != null && prof.id_usuario !== body.id_usuario) {
       throw conflicto('Solo el profesor del recibo lo puede firmar');
     }

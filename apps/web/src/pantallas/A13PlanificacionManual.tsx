@@ -1,21 +1,30 @@
 // A13 · Armado de la planificación. Prototipo: <template id="tpl-planificacionmanual"> y
 // DC.registrar("planificacionmanual") en prototipo/index.html.
-// URL: ?id_propuesta= (por defecto, la propuesta en Borrador del ciclo activo) y opcional &id_curso=.
+// Ruta: /planificaciones/:id y /planificaciones/:id/cursos/:idCurso. Sin curso en la ruta se abre
+// el primero del ciclo.
+// Carga por etapas: al entrar solo se traen la propuesta, los cursos del ciclo, las clases del curso
+// visible (con su materia y sus profesores anidados), los años y los estados. Recién con la primera
+// interacción para editar (una materia o una franja) se traen los profesores (habilitaciones y
+// disponibilidad) y todas las clases de la propuesta (choques con otros cursos). El área de cada
+// materia viene anidada en el curso.
+// "Generar automáticamente" no necesita esos datos: llama a generar_planilla (la API genera y
+// guarda todos los cursos) y con los `cambios` que devuelve se puede deshacer.
 // Cada clase (curso + materia) tiene los mismos docentes en todas sus franjas. Cada cambio en la
 // grilla se guarda en el momento en la API (crear_clase + asignar_clase_a_propuesta, editar_clase,
 // eliminar_clase); si la API lo rechaza (409), se muestra el mensaje y la grilla no cambia.
-import { useEffect, useMemo, useState } from 'react';
-import type { Clase, Curso, Profesor } from '@sahs/contratos';
-import { orientacion, planificacion, profesorSuplencias } from '../api';
+// Desde el encabezado se cambia el estado de la propuesta, se la duplica y se abre la generación.
+import { useEffect, useMemo, useRef, useState } from 'react';
+import type { CambioGeneracion, Clase, Curso, Profesor, ResultadoGeneracion } from '@sahs/contratos';
+import { planificacion, profesorSuplencias } from '../api';
 import { mensajeDeError } from '../api/http';
-import { useNavegar, useParamNumero } from '../app/navegar';
+import { useIr, useParamRuta } from '../app/navegar';
+import { rutas } from '../app/rutas';
 import { Cabecera } from '../componentes/Cabecera';
 import { Cargando, MensajeError } from '../componentes/Estados';
 import { useCiclo } from '../estado/ciclo';
-import { useAccion, useConsulta } from '../estado/consultas';
+import { useAccion, useConsulta, useInvalidar } from '../estado/consultas';
 import { css } from '../lib/css';
 import { DIAS } from '../lib/formato';
-import { generarTodo, type CursoGen } from './a13/generar';
 import { Grilla, type CeldaVista } from './a13/Grilla';
 import {
   ACCENT,
@@ -23,6 +32,7 @@ import {
   areaDe,
   armarGrilla,
   codigoClase,
+  codigoClaseCopia,
   combosDe,
   crearClaseEnPropuesta,
   dondeOcupa,
@@ -33,10 +43,12 @@ import {
   numeroAnio,
   ocupaciones,
   ordenarCursos,
+  siguienteCodigo,
   type Bloque,
 } from './a13/modelo';
-import { PanelDerecho, type CeldaInfo, type OtroCurso, type SelInfo } from './a13/PanelDerecho';
+import { PanelDerecho, type CeldaInfo } from './a13/PanelDerecho';
 import { PanelMaterias, type OpcionMateria } from './a13/PanelMaterias';
+import './a13/responsive.css';
 
 const ALTO = 62;
 
@@ -47,8 +59,8 @@ const COLOR_ESTADO: Record<string, { punto: string; chip: string; texto: string;
   CER: { punto: '#8b95a5', chip: '#f2f4f7', texto: '#5b6471', label: 'Cerrada' },
 };
 
-/** Transiciones que acepta la API (asignar_estado_a_propuesta). */
-const TRANSICIONES: Record<string, string[]> = { BOR: ['REV'], REV: ['VAL', 'BOR'], VAL: [], CER: [] };
+/** Transiciones que acepta la API (asignar_estado_a_propuesta; TRANSICIONES de apps/planificacion). */
+const TRANSICIONES: Record<string, string[]> = { BOR: ['REV'], REV: ['VAL', 'BOR'], VAL: ['CER'], CER: [] };
 
 interface Sel {
   mid: number;
@@ -58,74 +70,91 @@ interface Aviso {
   texto: string;
   tipo: 'auto' | 'info';
 }
-/** Lo necesario para deshacer una generación automática. */
-interface Previas {
-  creadas: number[];
-  editadas: { id: number; franjas: number[]; profes: number[] }[];
-}
 
 export default function A13PlanificacionManual() {
-  const ir = useNavegar();
+  const ir = useIr();
   const ciclo = useCiclo();
-  const idPropParam = useParamNumero('id_propuesta');
-  const idCursoParam = useParamNumero('id_curso');
+  const idPropParam = useParamRuta('id');
+  const idCursoParam = useParamRuta('idCurso');
 
   // ---- datos
-  const qPropuestas = useConsulta(
-    ['planificacion', 'get_propuestas', ciclo.activo?.id_ciclo_lectivo],
-    () => planificacion.get_propuestas({ id_ciclo_lectivo: ciclo.activo!.id_ciclo_lectivo }),
-    { enabled: !idPropParam && !!ciclo.activo },
-  );
   const qPropuesta = useConsulta(['planificacion', 'get_propuesta', idPropParam], () => planificacion.get_propuesta(idPropParam!), {
     enabled: !!idPropParam,
   });
-  const propuesta = idPropParam
-    ? qPropuesta.data
-    : (qPropuestas.data ?? []).find((p) => p.estado?.codigo === 'BOR') ?? (qPropuestas.data ?? [])[0];
+  const propuesta = idPropParam ? qPropuesta.data : undefined;
   const idCiclo = propuesta?.id_ciclo_lectivo;
   const idProp = propuesta?.id_propuesta;
 
   const qCursos = useConsulta(['planificacion', 'get_cursos', idCiclo], () => planificacion.get_cursos({ id_ciclo_lectivo: idCiclo! }), {
     enabled: !!idCiclo,
   });
-  const qClases = useConsulta(['planificacion', 'get_clases', { id_propuesta: idProp }], () => planificacion.get_clases({ id_propuesta: idProp! }), {
-    enabled: !!idProp,
-  });
   const qAnios = useConsulta(['planificacion', 'get_anios_academicos'], () => planificacion.get_anios_academicos());
   const qEstados = useConsulta(['planificacion', 'get_posibles_estados_de_propuestas'], () => planificacion.get_posibles_estados_de_propuestas());
-  const qProfes = useConsulta(['profesor_suplencias', 'get_profesores'], () => profesorSuplencias.get_profesores());
-  const qMaterias = useConsulta(['orientacion', 'get_materias'], () => orientacion.get_materias());
+  // Etapa 1: las clases del curso visible.
+  const qClasesCurso = useConsulta(
+    ['planificacion', 'get_clases', { id_propuesta: idProp, id_curso: idCursoParam }],
+    () => planificacion.get_clases({ id_propuesta: idProp!, id_curso: idCursoParam! }),
+    { enabled: !!idProp && !!idCursoParam },
+  );
+
+  // Etapa 2: se activa con la primera interacción para editar y queda activa.
+  const [edicionActiva, setEdicionActiva] = useState(false);
+  const qClasesTodas = useConsulta(['planificacion', 'get_clases', { id_propuesta: idProp }], () => planificacion.get_clases({ id_propuesta: idProp! }), {
+    enabled: !!idProp && edicionActiva,
+  });
+  const qProfes = useConsulta(['profesor_suplencias', 'get_profesores'], () => profesorSuplencias.get_profesores(), { enabled: edicionActiva });
+  /** Ya están los datos para editar (docentes habilitados, disponibilidad y choques). */
+  const listo = edicionActiva && !!qClasesTodas.data && !!qProfes.data;
 
   const acc = useAccion((fn: () => Promise<unknown>) => fn(), ['planificacion']);
+  const invalidar = useInvalidar();
 
   // ---- estado de la pantalla
   const [sel, setSel] = useState<Sel | null>(null);
   const [celda, setCelda] = useState<number | null>(null); // id de franja tocada
   const [vaciando, setVaciando] = useState(false);
+  const [cerrando, setCerrando] = useState(false);
   const [aviso, setAviso] = useState<Aviso | null>(null);
-  const [previas, setPrevias] = useState<Previas | null>(null);
+  /** Lo necesario para deshacer la última generación automática (los `cambios` de generar_planilla). */
+  const [previas, setPrevias] = useState<CambioGeneracion[] | null>(null);
+  const [generando, setGenerando] = useState(false);
+  const [duplicando, setDuplicando] = useState<string | null>(null);
+  /** Aviso para mostrar al llegar a otra propuesta (la duplicada). */
+  const avisoAlLlegar = useRef<Aviso | null>(null);
 
   const anios = qAnios.data ?? [];
   const cursos = useMemo(() => ordenarCursos(qCursos.data ?? [], anios), [qCursos.data, anios]);
-  const clases = qClases.data ?? [];
-  const profesores = qProfes.data ?? [];
-  const materias = qMaterias.data ?? [];
+  const clasesCurso = useMemo(() => qClasesCurso.data ?? [], [qClasesCurso.data]);
+  const clasesTodas = useMemo(() => qClasesTodas.data ?? [], [qClasesTodas.data]);
+  const profesores = useMemo(() => qProfes.data ?? [], [qProfes.data]);
 
-  const idCursoDefecto = (() => {
-    if (idCursoParam && cursos.some((c) => c.id_curso === idCursoParam)) return idCursoParam;
-    const conClases = cursos.find((c) => clases.some((x) => x.id_curso === c.id_curso));
-    return (conClases ?? cursos[0])?.id_curso ?? null;
-  })();
-  const curso = cursos.find((c) => c.id_curso === idCursoDefecto) ?? null;
+  const curso = (idCursoParam && cursos.find((c) => c.id_curso === idCursoParam)) || null;
+
+  // Sin curso en la ruta: se abre el primero del ciclo (reemplaza la URL, no suma un paso al historial).
+  const primerCurso = qAnios.data ? cursos[0]?.id_curso : undefined; // el orden necesita los años
+  useEffect(() => {
+    if (idProp && !idCursoParam && primerCurso) ir(rutas.armado(idProp, primerCurso), { replace: true });
+  }, [idProp, idCursoParam, primerCurso, ir]);
 
   useEffect(() => {
     setSel(null);
     setCelda(null);
     setVaciando(false);
-    setAviso(null);
-  }, [idCursoDefecto, idProp]);
+    setCerrando(false);
+    setAviso(avisoAlLlegar.current);
+    avisoAlLlegar.current = null;
+  }, [idCursoParam, idPropParam]);
 
-  const ocs = useMemo(() => ocupaciones(clases), [clases]);
+  // Una materia elegida antes de tener los docentes: al llegar, si hay un solo docente (o un solo
+  // grupo, en las EPA) queda elegido; si hay varios, se elige en la lista.
+  useEffect(() => {
+    if (!listo || !sel || sel.docs.length || !curso) return;
+    const m = (curso.materias ?? []).find((x) => x.id_materia === sel.mid);
+    const combos = m ? combosDe(m.id_materia, m.nombre_materia, profesores) : [];
+    setSel(combos.length === 1 ? { mid: sel.mid, docs: combos[0] } : null);
+  }, [listo, sel, curso, profesores]);
+
+  const ocs = useMemo(() => ocupaciones(clasesTodas), [clasesTodas]);
   const profPorId = useMemo(() => new Map(profesores.map((p) => [p.id_profesor, p])), [profesores]);
   const dispPorProf = useMemo(
     () => new Map(profesores.map((p) => [p.id_profesor, new Set((p.disponibilidad ?? []).map((f) => f.id_franja_horaria))])),
@@ -134,32 +163,21 @@ export default function A13PlanificacionManual() {
   const disponible = (pid: number, fid: number) => !!dispPorProf.get(pid)?.has(fid);
   const grillas = useMemo(() => new Map(cursos.map((c) => [c.id_curso, armarGrilla(c.franjas_horarias)])), [cursos]);
 
-  const cargando =
-    (idPropParam ? qPropuesta.isLoading : qPropuestas.isLoading || !ciclo.activo) ||
-    qCursos.isLoading ||
-    qClases.isLoading ||
-    qAnios.isLoading ||
-    qProfes.isLoading ||
-    qMaterias.isLoading;
+  const cargando = qPropuesta.isLoading || qCursos.isLoading || qAnios.isLoading;
 
-  const errorCarga = qPropuesta.error ?? qPropuestas.error ?? qCursos.error ?? qClases.error ?? qProfes.error ?? qMaterias.error;
+  const errorCarga = qPropuesta.error ?? qCursos.error;
+  const errorEdicion = qClasesTodas.error ?? qProfes.error;
 
-  if (!propuesta || !curso) {
+  if (!propuesta || cargando) {
     return (
-      <div style={css('width: 1560px; min-height: 1000px; display: flex; flex-direction: column; background: #f4f6f8;')}>
+      <div style={css('width: 100%; min-height: 100vh; display: flex; flex-direction: column; background: #f4f6f8;')}>
         <Cabecera />
         {cargando ? (
           <Cargando />
         ) : (
-          <div style={css('padding: 26px 28px;')}>
+          <div className="r-margen" style={css('padding: 26px 28px;')}>
             <MensajeError
-              mensaje={
-                errorCarga
-                  ? mensajeDeError(errorCarga)
-                  : !propuesta
-                    ? 'No hay ninguna planificación en el ciclo lectivo elegido. Creala desde Planificaciones.'
-                    : 'El ciclo lectivo de esta planificación no tiene cursos.'
-              }
+              mensaje={errorCarga ? mensajeDeError(errorCarga) : 'No se encontró la planificación.'}
             />
           </div>
         )}
@@ -169,21 +187,196 @@ export default function A13PlanificacionManual() {
 
   // ======== cálculo de la vista (como renderVals() del prototipo) ========
   const codigoEstado = propuesta.estado?.codigo ?? 'BOR';
-  const editable = codigoEstado === 'BOR';
-  const ocupado = acc.enCurso;
-  const grilla = grillas.get(curso.id_curso)!;
+  const estadoVista = COLOR_ESTADO[codigoEstado] ?? COLOR_ESTADO.BOR;
   const nombreDe = (c: Curso) => nombreCurso(c, anios);
+  const anioCiclo = ciclo.ciclos.find((c) => c.id_ciclo_lectivo === propuesta.id_ciclo_lectivo)?.anio_calendario;
+  const enBorrador = codigoEstado === 'BOR';
+
+  /** Crea una propuesta nueva en Borrador con una copia de cada clase de esta y la abre. */
+  const duplicar = async () => {
+    if (duplicando || acc.enCurso) return;
+    setAviso(null);
+    setVaciando(false);
+    setCerrando(false);
+    acc.limpiarError();
+    setDuplicando('Creando la copia de ' + propuesta.codigo + '…');
+    let nuevaId: number | null = null;
+    try {
+      const anio = anioCiclo ?? new Date().getFullYear();
+      const codigo = siguienteCodigo(anio, await planificacion.get_propuestas());
+      const p = await planificacion.crear_propuesta({
+        nombre: 'Planificación ' + anio + ' (a partir de ' + propuesta.codigo + ')',
+        descripcion_propuesta: 'Creada a partir de ' + propuesta.codigo,
+        codigo,
+        id_ciclo_lectivo: propuesta.id_ciclo_lectivo,
+      });
+      nuevaId = p.id_propuesta;
+      const origen = await planificacion.get_clases({ id_propuesta: propuesta.id_propuesta });
+      const fallas: string[] = [];
+      for (let i = 0; i < origen.length; i++) {
+        const c = origen[i];
+        setDuplicando('Copiando la clase ' + (i + 1) + ' de ' + origen.length + ' a ' + p.codigo + '…');
+        try {
+          await crearClaseEnPropuesta(p.id_propuesta, {
+            codigo: codigoClaseCopia(c.codigo, p.codigo),
+            descripcion: c.descripcion ?? '',
+            id_curso: c.id_curso,
+            id_materia: c.id_materia,
+            ids_franjas_horarias: c.ids_franjas_horarias ?? (c.franjas_horarias ?? []).map((f) => f.id_franja_horaria).filter((x): x is number => x != null),
+            ids_profesores: c.ids_profesores ?? (c.profesores ?? []).map((x) => x.id_profesor).filter((x): x is number => x != null),
+          });
+        } catch (e) {
+          fallas.push((c.descripcion || c.codigo) + ': ' + mensajeDeError(e));
+        }
+      }
+      let texto = p.codigo + ' se creó a partir de ' + propuesta.codigo + ', con ' + (origen.length - fallas.length) + ' de sus ' + origen.length + ' clases.';
+      if (fallas.length) texto += ' No se copiaron: ' + fallas.slice(0, 4).join(' · ') + (fallas.length > 4 ? ' · …' : '') + '.';
+      avisoAlLlegar.current = { texto, tipo: 'info' };
+    } catch (e) {
+      setAviso({ texto: 'No se pudo duplicar: ' + mensajeDeError(e), tipo: 'info' });
+    } finally {
+      setDuplicando(null);
+      await invalidar('planificacion');
+    }
+    if (nuevaId != null) ir(rutas.armado(nuevaId, curso?.id_curso));
+  };
+
+  // ---- cursos (pestañas)
+  const botonesCursos = cursos.map((c, i) => {
+    const activo = c.id_curso === curso?.id_curso;
+    return {
+      id: c.id_curso,
+      label: nombreDe(c),
+      estilo:
+        'display: flex; align-items: center; height: 34px; padding: 0 13px; font-size: 12.5px; font-weight: 500;' +
+        ' border: 1px solid ' + (activo ? '#14181f' : '#e2e6ec') + ';' +
+        ' background: ' + (activo ? '#14181f' : '#fff') + '; color: ' + (activo ? '#fff' : '#4a5462') + ';' +
+        ' border-radius: ' + (cursos.length === 1 ? '7px' : i === 0 ? '7px 0 0 7px' : i === cursos.length - 1 ? '0 7px 7px 0' : '0') + ';' +
+        (i > 0 ? ' margin-left: -1px;' : ''),
+      click: () => ir(rutas.armado(propuesta.id_propuesta, c.id_curso)),
+    };
+  });
+
+  const botonEncabezado =
+    'display: flex; align-items: center; gap: 7px; height: 32px; padding: 0 12px; border-radius: 7px; font-size: 12px; font-weight: 500;' +
+    ' border: 1px solid #dfe4ea; background: #fff; color: #4a5462; white-space: nowrap;';
+  const ocupadoEncabezado = acc.enCurso || !!duplicando;
+
+  const encabezado = (
+    <div className="r-margen r-envolver" style={css('display: flex; align-items: flex-end; gap: 24px; padding: 20px 28px 0; background: #fff; border-bottom: 1px solid #e2e6ec; flex-shrink: 0;')}>
+      <div style={css('display: flex; flex-direction: column; gap: 6px; padding-bottom: 14px;')}>
+        <div style={css('display: flex; align-items: center; gap: 8px; font-size: 12px; color: #6b7482;')}>
+          <span onClick={() => ir(rutas.planificaciones())} style={css('display: flex; align-items: center; gap: 6px; color: #2f5fd0; cursor: pointer;')}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M15 6l-6 6 6 6"></path>
+            </svg>
+            Planificaciones
+          </span>
+          <span style={css('color: #c3cad4;')}>/</span>
+          <span>Ciclo lectivo {anioCiclo ?? ''}</span>
+        </div>
+        <div className="r-envolver" style={css('display: flex; align-items: center; gap: 12px;')}>
+          <span className="mono" style={css('font-size: 24px; font-weight: 600; letter-spacing: -0.02em;')} title={propuesta.nombre}>
+            {propuesta.codigo}
+          </span>
+          <span
+            style={css(
+              'font-size: 11.5px; font-weight: 600; padding: 4px 11px; border-radius: 13px; background: ' + estadoVista.chip + '; color: ' + estadoVista.texto + ';',
+            )}
+          >
+            {estadoVista.label}
+          </span>
+          <button onClick={() => void duplicar()} disabled={ocupadoEncabezado} style={css(botonEncabezado + (ocupadoEncabezado ? ' opacity: 0.6;' : ''))}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={css('flex-shrink: 0;')}>
+              <path d="M9 9h11v11H9zM5 15H4V4h11v1"></path>
+            </svg>
+            {duplicando ? 'Duplicando…' : 'Duplicar'}
+          </button>
+          {enBorrador && (
+            <button
+              onClick={() => ir(rutas.generacion(propuesta.id_propuesta, curso?.id_curso))}
+              style={css('display: flex; align-items: center; height: 32px; padding: 0 13px; border-radius: 7px; font-size: 12px; font-weight: 600; white-space: nowrap; border: none; background: ' + ACCENT + '; color: #fff;')}
+            >
+              Generar planilla
+            </button>
+          )}
+        </div>
+      </div>
+      <div style={css('flex-grow: 1;')}></div>
+      <div className="a13-avance" style={css('display: flex; align-items: center; gap: 16px; padding-bottom: 14px;')}>
+        <div className="r-desplazar a13-pestanias" style={css('display: flex; gap: 2px;')}>
+          {botonesCursos.map((c) => (
+            <button key={c.id} onClick={c.click} style={css(c.estilo)}>
+              {c.label}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+
+  // Sin curso en la ruta se abre el primero (useEffect de arriba); mientras tanto, el encabezado.
+  if (!curso) {
+    return (
+      <div style={css('width: 100%; min-height: 100vh; display: flex; flex-direction: column; background: #f4f6f8;')}>
+        <Cabecera />
+        {encabezado}
+        {cursos.length === 0 && (
+          <div className="r-margen" style={css('padding: 26px 28px;')}>
+            <MensajeError mensaje="El ciclo lectivo de esta planificación no tiene cursos." />
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Al cambiar de curso, el encabezado queda y la planilla espera sus clases.
+  if (!qClasesCurso.data) {
+    return (
+      <div style={css('width: 100%; min-height: 100vh; display: flex; flex-direction: column; background: #f4f6f8;')}>
+        <Cabecera />
+        {encabezado}
+        {qClasesCurso.error ? (
+          <div className="r-margen" style={css('padding: 26px 28px;')}>
+            <MensajeError mensaje={mensajeDeError(qClasesCurso.error)} />
+          </div>
+        ) : (
+          <Cargando />
+        )}
+      </div>
+    );
+  }
+
+  const editable = enBorrador;
+  const ocupado = acc.enCurso || !!duplicando;
+  const grilla = grillas.get(curso.id_curso)!;
   const nombreCursoActual = nombreDe(curso);
   const anioCurso = numeroAnio(curso, anios);
   const plan = curso.materias ?? [];
+  // Nombres de materias y docentes: los anidados en las clases del curso; si ya llegaron, los catálogos.
+  const nombreMateriaClase = new Map<number, string>();
+  const nombreProfClase = new Map<number, string>();
+  for (const c of clasesCurso) {
+    if (c.materia?.nombre_materia) nombreMateriaClase.set(c.id_materia, c.materia.nombre_materia);
+    for (const x of c.profesores ?? []) if (x.id_profesor != null) nombreProfClase.set(x.id_profesor, nombreProfesor(x));
+  }
   const nombreMateria = (mid: number) =>
-    plan.find((m) => m.id_materia === mid)?.nombre_materia ?? materias.find((m) => m.id_materia === mid)?.nombre_materia ?? 'Materia';
+    plan.find((m) => m.id_materia === mid)?.nombre_materia ??
+    nombreMateriaClase.get(mid) ??
+    'Materia';
   const horasMateria = (mid: number) => plan.find((m) => m.id_materia === mid)?.horas_semanales ?? 0;
-  const color = (mid: number) => AREAS[areaDe(mid, materias)];
-  const nombresDocs = (ids: number[]) => ids.map((id) => nombreProfesor(profPorId.get(id)) || 'Profesor ' + id).join(' + ');
+  // El área viene anidada en la materia del curso (o de la clase).
+  const color = (mid: number) =>
+    AREAS[areaDe(plan.find((m) => m.id_materia === mid)?.nombre_area ?? clasesCurso.find((c) => c.id_materia === mid)?.materia?.nombre_area)];
+  const nombreDocente = (id: number) => nombreProfClase.get(id) || nombreProfesor(profPorId.get(id)) || 'Profesor ' + id;
+  const nombresDocs = (ids: number[]) => ids.map(nombreDocente).join(' + ');
   const cursoPorId = new Map(cursos.map((c) => [c.id_curso, c]));
 
-  const clasesCurso = clases.filter((c) => c.id_curso === curso.id_curso);
+  /** Primera interacción para editar: trae los datos de la etapa 2. */
+  const activarEdicion = () => {
+    if (!edicionActiva) setEdicionActiva(true);
+  };
+
   const clasePorMateria = new Map<number, Clase>();
   const clasePorFranja = new Map<number, Clase>();
   for (const c of clasesCurso) {
@@ -192,29 +385,15 @@ export default function A13PlanificacionManual() {
   }
   const horasPuestas = (mid: number) => (clasePorMateria.get(mid)?.ids_franjas_horarias ?? []).length;
 
-  // Totales por curso (la planificación se valida entera, con todos los cursos).
-  const avance = (c: Curso) => {
-    const puestas = clases.filter((x) => x.id_curso === c.id_curso).reduce((n, x) => n + (x.ids_franjas_horarias ?? []).length, 0);
-    const total = (c.materias ?? []).reduce((n, m) => n + m.horas_semanales, 0);
-    return { puestas, total, listo: puestas >= total };
-  };
-  let globalPuestas = 0;
-  let globalTotal = 0;
-  const faltantes: string[] = [];
-  for (const c of cursos) {
-    const a = avance(c);
-    globalPuestas += Math.min(a.puestas, a.total);
-    globalTotal += a.total;
-    if (!a.listo) faltantes.push(`${nombreDe(c)} (${a.total - a.puestas} h)`);
-  }
-  const planCompleta = globalPuestas >= globalTotal;
-  const { puestas: ubicadas, total: totalPlan } = avance(curso);
+  const ubicadas = clasesCurso.reduce((n, x) => n + (x.ids_franjas_horarias ?? []).length, 0);
+  const totalPlan = plan.reduce((n, m) => n + m.horas_semanales, 0);
   const completo = ubicadas >= totalPlan && totalPlan > 0;
 
   // ---- persistencia
   const ejecutar = async (fn: () => Promise<unknown>) => {
     setAviso(null);
     setVaciando(false);
+    setCerrando(false);
     return acc.ejecutar(fn);
   };
   const descripcion = (mid: number) => `${nombreMateria(mid)} · ${nombreCursoActual}`;
@@ -278,75 +457,32 @@ export default function A13PlanificacionManual() {
     }
   };
 
+  /** Ubica las horas que faltan en todos los cursos: la API genera y guarda (generar_planilla). */
   const generarAutomatico = async () => {
-    const escasezPorFranja = new Map<number, number>();
-    const escasez = (fid: number) => {
-      let n = escasezPorFranja.get(fid);
-      if (n === undefined) {
-        n = profesores.filter((p) => disponible(p.id_profesor, fid)).length;
-        escasezPorFranja.set(fid, n);
-      }
-      return n;
-    };
-    const cursosGen: CursoGen[] = cursos.map((c) => ({
-      id: c.id_curso,
-      nombre: nombreDe(c),
-      horas: grillas.get(c.id_curso)!.horas,
-      plan: (c.materias ?? []).map((m) => ({ mid: m.id_materia, nombre: m.nombre_materia, h: m.horas_semanales, combos: combosDe(m.id_materia, m.nombre_materia, profesores) })),
-    }));
-    const r = generarTodo({ cursos: cursosGen, clases, ocupaciones: ocs, disponible, escasez });
-    const hechas: Previas = { creadas: [], editadas: [] };
-    const errores: string[] = [];
-    let guardadas = 0;
-    const res = await acc.ejecutar(async () => {
-      for (const ch of r.cambios) {
-        const c = cursoPorId.get(ch.cid)!;
-        const existente = clases.find((x) => x.id_curso === ch.cid && x.id_materia === ch.mid);
-        const nom = c.materias?.find((m) => m.id_materia === ch.mid)?.nombre_materia ?? 'Materia';
-        try {
-          if (existente) {
-            await planificacion.editar_clase(existente.id_clase, {
-              ids_franjas_horarias: [...(existente.ids_franjas_horarias ?? []), ...ch.nuevas],
-              ids_profesores: existente.ids_profesores ?? [],
-            });
-            hechas.editadas.push({ id: existente.id_clase, franjas: existente.ids_franjas_horarias ?? [], profes: existente.ids_profesores ?? [] });
-          } else {
-            const nueva = await crearClaseEnPropuesta(propuesta.id_propuesta, {
-              codigo: codigoClase(propuesta.codigo, nombreDe(c), nom),
-              descripcion: `${nom} · ${nombreDe(c)}`,
-              id_curso: ch.cid,
-              id_materia: ch.mid,
-              ids_franjas_horarias: ch.nuevas,
-              ids_profesores: ch.profes,
-            });
-            hechas.creadas.push(nueva.id_clase);
-          }
-          guardadas += ch.nuevas.length;
-        } catch (e) {
-          errores.push(`${nom} en ${nombreDe(c)}: ${mensajeDeError(e)}`);
-        }
-      }
-      return true;
-    });
-    if (res === undefined) return;
+    setGenerando(true);
+    const r = (await ejecutar(() => planificacion.generar_planilla(propuesta.id_propuesta, {}))) as ResultadoGeneracion | undefined;
+    setGenerando(false);
+    if (r === undefined) return;
     let msg =
-      guardadas === 0 && r.ubicadas === 0
+      r.horas_ubicadas === 0 && !r.sin_ubicar.length && !r.errores.length
         ? 'No quedó ninguna hora por ubicar.'
-        : `Se ubicaron ${guardadas} horas en los ${cursos.length} cursos, respetando la disponibilidad de cada docente y sin superponerlos entre cursos.`;
-    if (r.sinUbicar.length) msg += ' No se pudo ubicar: ' + r.sinUbicar.join(', ') + '.';
-    if (errores.length) msg += ' La API rechazó: ' + errores.join('; ') + '.';
-    setPrevias(hechas.creadas.length || hechas.editadas.length ? hechas : null);
+        : `Se ubicaron ${r.horas_ubicadas} horas en los ${cursos.length} cursos, respetando la disponibilidad de cada docente y sin superponerlos entre cursos.`;
+    if (r.sin_ubicar.length) msg += ' No se pudo ubicar: ' + r.sin_ubicar.map((x) => `${x.materia} en ${x.curso} (${x.horas} h)`).join(', ') + '.';
+    if (r.errores.length) msg += ' La API rechazó: ' + r.errores.join('; ') + '.';
+    setPrevias(r.cambios.length ? r.cambios : null);
     setSel(null);
     setCelda(null);
-    setVaciando(false);
     setAviso({ texto: msg, tipo: 'auto' });
   };
 
+  /** Deshace la última generación: borra las clases creadas y restaura las editadas. */
   const deshacer = async () => {
     if (!previas) return;
     const ok = await ejecutar(async () => {
-      for (const id of previas.creadas) await planificacion.eliminar_clase(id);
-      for (const e of previas.editadas) await planificacion.editar_clase(e.id, { ids_franjas_horarias: e.franjas, ids_profesores: e.profes });
+      for (const c of previas) {
+        if (c.creada) await planificacion.eliminar_clase(c.id_clase);
+        else await planificacion.editar_clase(c.id_clase, { ids_franjas_horarias: c.ids_franjas_horarias_previas, ids_profesores: c.ids_profesores_previos });
+      }
       return true;
     });
     if (ok !== undefined) setPrevias(null);
@@ -369,35 +505,46 @@ export default function A13PlanificacionManual() {
     return { ok: true };
   };
 
-  // ---- cursos (pestañas)
-  const botonesCursos = cursos.map((c, i) => {
-    const activo = c.id_curso === curso.id_curso;
-    const a = avance(c);
-    return {
-      id: c.id_curso,
-      label: nombreDe(c),
-      badge: a.listo ? '✓' : a.puestas + '/' + a.total,
-      badgeEstilo:
-        'font-size: 10.5px; font-weight: 600; padding: 2px 7px; border-radius: 9px; margin-left: 8px;' +
-        (activo ? ' background: rgba(255,255,255,0.18); color: #fff;' : ' background: #f2f4f7; color: #7a8393;'),
-      estilo:
-        'display: flex; align-items: center; height: 34px; padding: 0 13px; font-size: 12.5px; font-weight: 500;' +
-        ' border: 1px solid ' + (activo ? '#14181f' : '#e2e6ec') + ';' +
-        ' background: ' + (activo ? '#14181f' : '#fff') + '; color: ' + (activo ? '#fff' : '#4a5462') + ';' +
-        ' border-radius: ' + (i === 0 ? '7px 0 0 7px' : i === cursos.length - 1 ? '0 7px 7px 0' : '0') + ';' +
-        (i > 0 ? ' margin-left: -1px;' : ''),
-      click: () => ir('A13', { id_propuesta: propuesta.id_propuesta, id_curso: c.id_curso }),
-    };
-  });
-
-  // ---- una fila por materia × docente habilitado
+  // ---- una fila por materia × docente habilitado (con los docentes de la etapa 2);
+  // antes, una fila por materia con los docentes de su clase.
   const opcionesLista: OpcionMateria[] = [];
   plan.forEach((m, mi) => {
     const mid = m.id_materia;
     const col = color(mid);
-    const combos = combosDe(mid, m.nombre_materia, profesores);
     const clase = clasePorMateria.get(mid);
     const docsClase = clase?.ids_profesores ?? [];
+    if (!listo) {
+      const puestas = horasPuestas(mid);
+      const completa = puestas >= m.horas_semanales;
+      const activa = !!sel && sel.mid === mid;
+      opcionesLista.push({
+        key: mid + '|',
+        clase: editable ? '' : 'fila-off',
+        nombre: m.nombre_materia,
+        docente: docsClase.length ? nombresDocs(docsClase) : 'Sin docente asignado',
+        marcaEstilo: 'width: 4px; height: 30px; border-radius: 3px; flex-shrink: 0; background: ' + (completa ? '#cdd4dd' : col.punto) + ';',
+        nombreEstilo: 'font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: ' + (completa ? '#8b95a5' : '#14181f') + ';',
+        docenteEstilo: 'font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #8b95a5;',
+        progreso: completa ? '✓ ' + m.horas_semanales + ' h' : puestas + '/' + m.horas_semanales + ' h',
+        progresoEstilo:
+          'font-size: 11.5px; font-weight: 600; padding: 3px 9px; border-radius: 11px; flex-shrink: 0;' +
+          (completa ? ' background: #e9f2ec; color: #2f6b45;' : activa ? ' background: #14181f; color: #fff;' : ' background: #f2f4f7; color: #7a8393;'),
+        filaEstilo:
+          'display: flex; align-items: center; gap: 11px; width: 100%; padding: 10px 16px; border: none; text-align: left;' +
+          (mi === 0 ? '' : ' border-top: 2px solid #eef1f5;') +
+          ' background: ' + (activa ? '#f3f6fc' : '#fff') + ';' +
+          (activa ? ' box-shadow: inset 3px 0 0 ' + ACCENT + ';' : '') +
+          (editable ? '' : ' opacity: 0.55;'),
+        click: () => {
+          if (!editable) return;
+          activarEdicion();
+          setSel(activa ? null : { mid, docs: docsClase });
+          setCelda(null);
+        },
+      });
+      return;
+    }
+    const combos = combosDe(mid, m.nombre_materia, profesores);
     let elegida: string | null = null;
     if (clase && docsClase.length) {
       const c = combos.find((x) => x[0] === docsClase[0] && x.every((t) => docsClase.includes(t)));
@@ -470,7 +617,6 @@ export default function A13PlanificacionManual() {
   });
 
   // ---- grilla
-  let opciones = 0;
   const base =
     'height: ' + ALTO + 'px; width: 100%; border-radius: 8px; display: flex; flex-direction: column; justify-content: center;' +
     ' align-items: flex-start; gap: 2px; padding: 0 10px; overflow: hidden; text-align: left;';
@@ -521,16 +667,16 @@ export default function A13PlanificacionManual() {
           subEstilo: 'font-size: 10.5px; color: rgba(255,255,255,0.88); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;',
           click: () => {
             if (!editable) return;
+            activarEdicion();
             setCelda(esSel ? null : b.id);
             setSel(null);
             setAviso(null);
           },
         };
       }
-      if (!sel || !editable) return vacia(key);
+      if (!sel || !editable || !listo) return vacia(key);
       const ev = evaluar(sel, b);
       if (ev.ok) {
-        opciones++;
         return {
           key,
           clase: 'slot slot-libre',
@@ -559,46 +705,6 @@ export default function A13PlanificacionManual() {
     }),
   }));
 
-  // ---- panel de la materia elegida
-  let selInfo: SelInfo | null = null;
-  if (sel) {
-    const docs = docsDeSel(sel);
-    const restantes = horasMateria(sel.mid) - horasPuestas(sel.mid);
-    let declaradas = 0;
-    let otros = 0;
-    for (const t of docs) {
-      const dec = grilla.horas.filter((b) => disponible(t, b.id)).length;
-      if (dec > declaradas || declaradas === 0) declaradas = dec;
-      otros += grilla.horas.filter((b) => {
-        const o = dondeOcupa(ocs, t, b);
-        return !!o && o.id_curso !== curso.id_curso;
-      }).length;
-    }
-    let texto = 'Las franjas con + son las que este docente declaró disponibles y tiene libres en todos los cursos.';
-    let colorAviso = '#6b7482';
-    let fondo = '#fafbfc';
-    if (opciones === 0) {
-      texto = 'No queda ninguna franja libre con este docente. Probá con el otro habilitado para esta materia, o liberá horas del curso.';
-      colorAviso = '#8a4b12';
-      fondo = '#fdf1e3';
-    } else if (opciones < restantes) {
-      texto = `Quedan ${opciones} franjas para ${restantes} horas: no alcanzan. Conviene ubicar esta materia antes que las demás.`;
-      colorAviso = '#8a4b12';
-      fondo = '#fdf1e3';
-    }
-    selInfo = {
-      nombre: nombreMateria(sel.mid),
-      docente: nombresDocs(docs),
-      color: color(sel.mid).solido,
-      opciones,
-      restantes,
-      declaradas: declaradas + ' / ' + grilla.horas.length,
-      otros: otros + ' h',
-      aviso: texto,
-      avisoEstilo: 'font-size: 11.5px; line-height: 1.55; padding: 11px 12px; border-radius: 8px; color: ' + colorAviso + '; background: ' + fondo + ';',
-    };
-  }
-
   // ---- panel de la clase tocada en la grilla: sus profesores son los de la CLASE (curso + materia)
   let celdaInfo: CeldaInfo | null = null;
   const claseCelda = celda != null && editable ? clasePorFranja.get(celda) : undefined;
@@ -614,17 +720,15 @@ export default function A13PlanificacionManual() {
     celdaInfo = {
       materia: nom + ' · ' + nombreCursoActual,
       franja: bloqueCelda.dia + ' ' + bloqueCelda.inicio + ' a ' + bloqueCelda.fin + ' · ' + nHoras + ' en la semana',
-      alcance:
-        'Los profesores son de la clase ' + nom + ' de ' + nombreCursoActual +
-        ': si sumás o quitás uno, el cambio vale para las ' + nHoras + ' de esta materia en el curso, no solo para esta.',
       color: color(mid).solido,
       enCurso: ocupado,
+      cargando: !listo,
       // Una materia que se dicta de a dos (EPA) no puede quedar con un solo profesor.
       docentes: cDocs.map((tid) => {
         const puede = cDocs.length > (deADos ? 2 : 1);
         return {
           id: tid,
-          nombre: nombreProfesor(profPorId.get(tid)) || 'Profesor ' + tid,
+          nombre: nombreDocente(tid),
           quitarEstilo:
             'height: 26px; padding: 0 10px; border-radius: 6px; font-size: 11px; font-weight: 500;' +
             (puede ? ' border: 1px solid #edc9c4; background: #fff; color: #b03a2e;' : ' border: 1px solid #e2e6ec; background: #f7f8fa; color: #c3cad4; cursor: default;'),
@@ -666,24 +770,7 @@ export default function A13PlanificacionManual() {
     };
   }
 
-  const otrosCursos: OtroCurso[] = cursos
-    .filter((c) => c.id_curso !== curso.id_curso)
-    .map((c) => {
-      const a = avance(c);
-      const nom = nombreDe(c);
-      return {
-        id: c.id_curso,
-        nombre: nom,
-        chapa: nom.replace(' ', ''),
-        detalle: a.listo ? 'Completo' : 'Faltan ' + (a.total - a.puestas) + ' h por ubicar',
-        estado: a.puestas + '/' + a.total,
-        estadoEstilo: 'font-size: 11px; font-weight: 500; flex-shrink: 0; color: ' + (a.listo ? '#4a5462' : '#8b95a5') + ';',
-        click: () => ir('A13', { id_propuesta: propuesta.id_propuesta, id_curso: c.id_curso }),
-      };
-    });
-
   // ---- encabezado, estados y banners
-  const estadoVista = COLOR_ESTADO[codigoEstado] ?? COLOR_ESTADO.BOR;
   const banners: Record<string, { titulo: string; color: string; fondo: string; borde: string; icono: string; texto: string }> = {
     REV: {
       titulo: 'Enviada a revisión',
@@ -691,7 +778,7 @@ export default function A13PlanificacionManual() {
       fondo: '#eef3fc',
       borde: '#cfdcf5',
       icono: 'M12 8v5M12 16.5v.5M12 21a9 9 0 100-18 9 9 0 000 18z',
-      texto: 'Todos los cursos quedan bloqueados hasta que Dirección apruebe o rechace la planificación.',
+      texto: '',
     },
     VAL: {
       titulo: 'Planificación validada',
@@ -699,7 +786,7 @@ export default function A13PlanificacionManual() {
       fondo: '#ecf5ef',
       borde: '#c2e0cd',
       icono: 'M20 6L9 17l-5-5',
-      texto: propuesta.codigo + ' pasó a ser la vigente del ciclo. Los cambios se hacen desde Suplencias.',
+      texto: propuesta.codigo + ' es la vigente del ciclo.',
     },
     CER: {
       titulo: 'Planificación cerrada',
@@ -707,16 +794,18 @@ export default function A13PlanificacionManual() {
       fondo: '#f5f6f8',
       borde: '#e2e6ec',
       icono: 'M5 11h14v10H5zM8 11V8a4 4 0 018 0v3',
-      texto: 'Fue reemplazada por otra planificación validada del ciclo. Solo se puede consultar.',
+      texto: 'Fue reemplazada por otra planificación validada del ciclo.',
     },
   };
   const banner = banners[codigoEstado];
 
-  const estadosBotones = ['BOR', 'REV', 'VAL'].map((id, i) => {
+  // Si la planificación está incompleta, la API rechaza el paso a revisión o a validada (409) con
+  // los cursos que faltan, y el mensaje se muestra en la pantalla (acc.error).
+  const ORDEN_ESTADOS = ['BOR', 'REV', 'VAL', 'CER'];
+  const estadosBotones = ORDEN_ESTADOS.map((id, i) => {
     const e = COLOR_ESTADO[id];
     const activo = codigoEstado === id;
-    // Solo se puede enviar a revisión o validar una planilla completa.
-    const permitido = id === 'BOR' || planCompleta;
+    const permitido = (TRANSICIONES[codigoEstado] ?? []).includes(id);
     return {
       id,
       label: e.label,
@@ -728,25 +817,27 @@ export default function A13PlanificacionManual() {
         ' border: 1px solid ' + (activo ? '#14181f' : '#e2e6ec') + ';' +
         ' background: ' + (activo ? '#14181f' : '#fff') + ';' +
         ' color: ' + (activo ? '#fff' : permitido ? '#4a5462' : '#b9c1cc') + ';' +
-        ' border-radius: ' + (i === 0 ? '7px 0 0 7px' : i === 2 ? '0 7px 7px 0' : '0') + ';' +
+        ' border-radius: ' + (i === 0 ? '7px 0 0 7px' : i === ORDEN_ESTADOS.length - 1 ? '0 7px 7px 0' : '0') + ';' +
         (i > 0 ? ' margin-left: -1px;' : '') +
         (permitido ? '' : ' cursor: default;'),
       click: () => {
         if (activo || ocupado) return;
         if (!permitido) {
           setVaciando(false);
-          setAviso({ texto: 'La planificación se envía entera: falta completar ' + faltantes.join(' y ') + '.', tipo: 'info' });
-          return;
-        }
-        if (!(TRANSICIONES[codigoEstado] ?? []).includes(id)) {
-          const desde = estadoVista.label;
+          setCerrando(false);
           setAviso({
             texto:
               codigoEstado === 'BOR' && id === 'VAL'
                 ? 'Primero hay que enviarla a revisión: Dirección la valida desde ahí.'
-                : `Una planificación ${desde.toLowerCase()} no puede pasar a ${e.label.toLowerCase()}.`,
+                : `Una planificación ${estadoVista.label.toLowerCase()} no puede pasar a ${e.label.toLowerCase()}.`,
             tipo: 'info',
           });
+          return;
+        }
+        if (id === 'CER') {
+          setAviso(null);
+          setVaciando(false);
+          setCerrando(true);
           return;
         }
         void cambiarEstado(id);
@@ -754,14 +845,17 @@ export default function A13PlanificacionManual() {
     };
   });
 
-  const generarHabilitado = editable && !planCompleta && !ocupado;
+  const generarHabilitado = editable && !ocupado;
   const vaciarHabilitado = editable && ubicadas > 0 && !ocupado;
   const hayDeshacer = !!previas && aviso?.tipo === 'auto';
-  const hayAccion = vaciando || !!aviso;
-  const accionColor = vaciando ? '#b03a2e' : aviso?.tipo === 'auto' ? '#2f6b45' : '#a56a10';
+  const confirmando = vaciando || cerrando;
+  const hayAccion = confirmando || !!duplicando || !!aviso;
+  const accionColor = confirmando ? '#b03a2e' : aviso?.tipo === 'auto' ? '#2f6b45' : '#a56a10';
   const accionTexto = vaciando
     ? 'Se van a quitar las ' + ubicadas + ' horas ya ubicadas en ' + nombreCursoActual + '. Los otros cursos no se tocan.'
-    : aviso?.texto ?? '';
+    : cerrando
+      ? 'Cerrar ' + propuesta.codigo + ' la deja como histórico y el ciclo se queda sin planificación vigente.'
+      : duplicando ?? aviso?.texto ?? '';
 
   const columnasHoras = grilla.columnas.filter((b) => !b.es_recreo);
   const tituloGrilla =
@@ -769,12 +863,6 @@ export default function A13PlanificacionManual() {
     (anioCurso >= 4 ? ' · ' + (curso.orientacion?.nombre_orientacion ?? '') : '') +
     ' · ' + (curso.turno?.nombre ?? '') +
     (columnasHoras.length ? ' (' + columnasHoras[0].inicio + ' a ' + columnasHoras[columnasHoras.length - 1].fin + ')' : '');
-  const ayuda = !editable
-    ? 'Solo lectura: la planificación no está en borrador'
-    : sel
-      ? 'Tocá un + para ubicar ' + nombreMateria(sel.mid) + ', o una clase para ver sus profesores'
-      : 'Elegí una materia y su docente para empezar';
-  const anioCiclo = ciclo.ciclos.find((c) => c.id_ciclo_lectivo === propuesta.id_ciclo_lectivo)?.anio_calendario;
 
   const guardarTexto = ocupado ? 'Guardando…' : 'Guardado';
   const guardarEstilo =
@@ -782,65 +870,13 @@ export default function A13PlanificacionManual() {
     (!editable ? ' border: 1px solid #eef1f5; background: #fff; color: #c3cad4; cursor: default;' : ' border: 1px solid #c2e0cd; background: #ecf5ef; color: #2f6b45; cursor: default;');
 
   return (
-    <div style={css('width: 1560px; min-height: 1000px; display: flex; flex-direction: column; background: #f4f6f8;')}>
+    <div style={css('width: 100%; min-height: 100vh; display: flex; flex-direction: column; background: #f4f6f8;')}>
       <Cabecera />
 
-      <div style={css('display: flex; align-items: flex-end; gap: 24px; padding: 20px 28px 0; background: #fff; border-bottom: 1px solid #e2e6ec; flex-shrink: 0;')}>
-        <div style={css('display: flex; flex-direction: column; gap: 6px; padding-bottom: 14px;')}>
-          <div style={css('display: flex; align-items: center; gap: 8px; font-size: 12px; color: #6b7482;')}>
-            <span onClick={() => ir('A12')} style={css('display: flex; align-items: center; gap: 6px; color: #2f5fd0; cursor: pointer;')}>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M15 6l-6 6 6 6"></path>
-              </svg>
-              Planificaciones
-            </span>
-            <span style={css('color: #c3cad4;')}>/</span>
-            <span>Ciclo lectivo {anioCiclo ?? ''}</span>
-          </div>
-          <div style={css('display: flex; align-items: center; gap: 12px;')}>
-            <span className="mono" style={css('font-size: 24px; font-weight: 600; letter-spacing: -0.02em;')} title={propuesta.nombre}>
-              {propuesta.codigo}
-            </span>
-            <span
-              style={css(
-                'font-size: 11.5px; font-weight: 600; padding: 4px 11px; border-radius: 13px; background: ' + estadoVista.chip + '; color: ' + estadoVista.texto + ';',
-              )}
-            >
-              {estadoVista.label}
-            </span>
-          </div>
-        </div>
-        <div style={css('flex-grow: 1;')}></div>
-        <div style={css('display: flex; align-items: center; gap: 16px; padding-bottom: 14px;')}>
-          <div style={css('display: flex; flex-direction: column; gap: 5px; align-items: flex-end;')}>
-            <div style={css('display: flex; align-items: baseline; gap: 6px;')}>
-              <span className="mono" style={css('font-size: 17px; font-weight: 600;')}>{globalPuestas}</span>
-              <span style={css('font-size: 12px; color: #6b7482;')}>
-                de {globalTotal} h en los {cursos.length} cursos
-              </span>
-            </div>
-            <div style={css('width: 200px; height: 5px; border-radius: 3px; background: #eef1f5; overflow: hidden;')}>
-              <div
-                style={css(
-                  'height: 5px; width: ' + (globalTotal ? Math.round((globalPuestas / globalTotal) * 100) : 0) + '%; background: ' + (planCompleta ? '#2f6b45' : ACCENT) + ';',
-                )}
-              ></div>
-            </div>
-          </div>
-          <div style={css('display: flex; gap: 2px;')}>
-            {botonesCursos.map((c) => (
-              <button key={c.id} onClick={c.click} style={css(c.estilo)}>
-                <span>{c.label}</span>
-                <span style={css(c.badgeEstilo)}>{c.badge}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
+      {encabezado}
 
-      <div style={css('display: flex; gap: 16px; padding: 18px 28px 26px; align-items: flex-start;')}>
+      <div className="r-margen r-apilar" style={css('display: flex; gap: 16px; padding: 18px 28px 26px; align-items: flex-start;')}>
         <PanelMaterias
-          ayuda={editable ? 'De ' + nombreCursoActual + ' · una fila por docente que puede dictarla' : 'La planificación está cerrada: no se edita ningún curso'}
           filtroAnio={anioCurso + '° año'}
           filtroOrientacion={'Orientación ' + (curso.orientacion?.nombre_orientacion ?? '')}
           opciones={opcionesLista}
@@ -848,22 +884,21 @@ export default function A13PlanificacionManual() {
           totalPlan={totalPlan}
           progresoAncho={(totalPlan ? Math.min(100, Math.round((ubicadas / totalPlan) * 100)) : 0) + '%'}
           progresoColor={completo ? '#2f6b45' : ACCENT}
+          cargando={edicionActiva && !listo}
         />
 
         {/* ===== grilla ===== */}
-        <div style={css('flex-grow: 1; min-width: 0; background: #fff; border: 1px solid #e2e6ec; border-radius: 10px; overflow: hidden;')}>
+        <div style={css('flex: 1; min-width: 0; background: #fff; border: 1px solid #e2e6ec; border-radius: 10px; overflow: hidden;')}>
           <div style={css('display: flex; align-items: center; flex-wrap: wrap; gap: 10px 12px; padding: 13px 18px; border-bottom: 1px solid #eef1f5;')}>
             <div style={css('display: flex; flex-direction: column; gap: 3px; min-width: 240px; flex-grow: 1;')}>
               <div style={css('font-size: 13px; font-weight: 600;')}>{tituloGrilla}</div>
-              <div style={css('font-size: 11.5px; color: ' + (sel && editable ? '#2f6b45' : '#8b95a5') + ';')}>{ayuda}</div>
             </div>
             <div style={css('flex-grow: 1;')}></div>
 
             <span style={css('display: flex; flex-direction: column; gap: 1px; align-items: flex-end;')}>
               <span style={css('font-size: 11.5px; color: #4a5462; font-weight: 600;')}>Estado de la planificación</span>
-              <span style={css('font-size: 10.5px; color: #a8b0bb;')}>Uno solo para todos los cursos</span>
             </span>
-            <div style={css('display: flex; gap: 2px;')}>
+            <div className="r-desplazar" style={css('display: flex; gap: 2px;')}>
               {estadosBotones.map((e) => (
                 <button key={e.id} onClick={e.click} style={css(e.estilo)}>
                   <span style={css(e.puntoEstilo)}></span>
@@ -872,7 +907,7 @@ export default function A13PlanificacionManual() {
               ))}
             </div>
 
-            <div style={css('width: 1px; height: 24px; background: #e2e6ec;')}></div>
+            <div className="r-ocultar-movil" style={css('width: 1px; height: 24px; background: #e2e6ec;')}></div>
 
             <button
               onClick={() => {
@@ -886,12 +921,13 @@ export default function A13PlanificacionManual() {
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" style={css('flex-shrink: 0;')}>
                 <path d="M5 3v4M3 5h4M6 17v4M4 19h4M13 3l2.5 6.5L22 12l-6.5 2.5L13 21l-2.5-6.5L4 12l6.5-2.5L13 3z"></path>
               </svg>
-              Generar automáticamente
+              {generando ? 'Generando…' : 'Generar automáticamente'}
             </button>
             <button
               onClick={() => {
                 if (!vaciarHabilitado) return;
                 setAviso(null);
+                setCerrando(false);
                 setVaciando(true);
               }}
               style={css(
@@ -906,7 +942,7 @@ export default function A13PlanificacionManual() {
               </svg>
               Vaciar
             </button>
-            <button style={css(guardarEstilo)} title="Cada cambio se guarda en el momento en la planificación">
+            <button style={css(guardarEstilo)}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={css('flex-shrink: 0;')}>
                 <path d={ocupado ? 'M5 4h11l3 3v13H5zM8 4v5h7V4M8 20v-6h8v6' : 'M20 6L9 17l-5-5'}></path>
               </svg>
@@ -914,17 +950,19 @@ export default function A13PlanificacionManual() {
             </button>
           </div>
 
-          {acc.error && (
-            <div style={css('padding: 12px 18px; border-bottom: 1px solid #eef1f5;')}>
+          {(acc.error || errorEdicion) && (
+            <div style={css('display: flex; flex-direction: column; gap: 8px; padding: 12px 18px; border-bottom: 1px solid #eef1f5;')}>
               <MensajeError mensaje={acc.error} alCerrar={acc.limpiarError} />
+              <MensajeError mensaje={errorEdicion ? mensajeDeError(errorEdicion) : null} />
             </div>
           )}
 
           {hayAccion && (
             <div
+              className="r-envolver"
               style={css(
                 'display: flex; align-items: center; gap: 11px; padding: 12px 18px; border-bottom: 1px solid #eef1f5; background: ' +
-                  (vaciando ? '#fbeceb' : aviso?.tipo === 'auto' ? '#ecf5ef' : '#fdf6ec') + ';',
+                  (confirmando ? '#fbeceb' : aviso?.tipo === 'auto' ? '#ecf5ef' : '#fdf6ec') + ';',
               )}
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={accionColor} strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" style={css('flex-shrink: 0;')}>
@@ -933,7 +971,7 @@ export default function A13PlanificacionManual() {
               </svg>
               <span style={css('font-size: 12.5px; color: ' + accionColor + '; line-height: 1.5;')}>{accionTexto}</span>
               <span style={css('flex-grow: 1;')}></span>
-              {hayDeshacer && !vaciando && (
+              {hayDeshacer && !confirmando && !duplicando && (
                 <button
                   onClick={() => void deshacer()}
                   disabled={ocupado}
@@ -959,23 +997,40 @@ export default function A13PlanificacionManual() {
                   </button>
                 </span>
               )}
+              {cerrando && (
+                <span style={css('display: flex; gap: 8px; flex-shrink: 0;')}>
+                  <button
+                    onClick={() => void cambiarEstado('CER')}
+                    disabled={ocupado}
+                    style={css('height: 30px; padding: 0 13px; border-radius: 7px; border: none; background: #b03a2e; color: #fff; font-size: 12px; font-weight: 600;')}
+                  >
+                    Sí, cerrar
+                  </button>
+                  <button
+                    onClick={() => setCerrando(false)}
+                    style={css('height: 30px; padding: 0 13px; border-radius: 7px; border: 1px solid #edc9c4; background: #fff; color: #b03a2e; font-size: 12px; font-weight: 500;')}
+                  >
+                    Cancelar
+                  </button>
+                </span>
+              )}
             </div>
           )}
 
           {banner && (
-            <div style={css('display: flex; align-items: center; gap: 12px; padding: 13px 18px; border-bottom: 1px solid #eef1f5; background: ' + banner.fondo + ';')}>
+            <div className="r-envolver" style={css('display: flex; align-items: center; gap: 12px; padding: 13px 18px; border-bottom: 1px solid #eef1f5; background: ' + banner.fondo + ';')}>
               <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={banner.color} strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" style={css('flex-shrink: 0;')}>
                 <path d={banner.icono}></path>
               </svg>
               <span style={css('display: flex; flex-direction: column; gap: 2px;')}>
                 <span style={css('font-size: 12.5px; font-weight: 600; color: ' + banner.color + ';')}>{banner.titulo}</span>
-                <span style={css('font-size: 11.5px; color: ' + banner.color + '; opacity: 0.85;')}>{banner.texto}</span>
+                {banner.texto && <span style={css('font-size: 11.5px; color: ' + banner.color + '; opacity: 0.85;')}>{banner.texto}</span>}
               </span>
               <span style={css('flex-grow: 1;')}></span>
               {codigoEstado === 'REV' && (
                 <span style={css('display: flex; gap: 8px; flex-shrink: 0;')}>
                   <button
-                    onClick={() => void cambiarEstado('BOR', 'Dirección rechazó la planificación y volvió a borrador. Ya se puede editar de nuevo.')}
+                    onClick={() => void cambiarEstado('BOR', 'Dirección rechazó la planificación y volvió a borrador.')}
                     disabled={ocupado}
                     style={css('height: 30px; padding: 0 13px; border-radius: 7px; border: 1px solid ' + banner.borde + '; background: #fff; color: ' + banner.color + '; font-size: 12px; font-weight: 500;')}
                   >
@@ -1004,16 +1059,8 @@ export default function A13PlanificacionManual() {
           />
         </div>
 
-        <PanelDerecho
-          celda={celdaInfo}
-          sel={selInfo}
-          vacioTexto={
-            editable
-              ? 'Elegí una materia con su docente y la planilla te marca con + las horas donde puede ir. Tocá una clase ya ubicada para ver los profesores de esa materia en el curso o sumar otro.'
-              : 'La planificación no está en borrador, así que ningún curso se edita. Volvé a ponerla en borrador para seguir.'
-          }
-          otros={otrosCursos}
-        />
+        {/* Solo con una clase tocada; si no, la planilla ocupa todo el ancho. */}
+        {celdaInfo && <PanelDerecho celda={celdaInfo} />}
       </div>
     </div>
   );

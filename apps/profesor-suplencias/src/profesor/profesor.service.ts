@@ -70,7 +70,7 @@ export class ProfesorService {
   /** Vincula un usuario existente. Invoca: usuario.get_usuario. */
   async asignar_usuario_profesor(id: number, body: AsignarUsuarioProfesorDto): Promise<Profesor> {
     await this.a.profesor(id);
-    await this.a.usuario.exigir<C.Usuario>(`get_usuario/${body.id_usuario}`, `No existe el usuario ${body.id_usuario}`);
+    await this.a.usuario.exigir<C.Usuario>(`usuarios/${body.id_usuario}`, `No existe el usuario ${body.id_usuario}`);
     const otro = await this.a.profesores.findOneBy({ id_usuario: body.id_usuario });
     if (otro && otro.id_profesor !== id) throw conflicto(`Ese usuario ya está vinculado a ${otro.apellido}, ${otro.nombre}`);
     await this.a.profesores.update(id, { id_usuario: body.id_usuario });
@@ -81,7 +81,7 @@ export class ProfesorService {
   async asignar_materias_habilitadas(id: number, body: AsignarMateriasHabilitadasDto): Promise<Profesor> {
     await this.a.profesor(id);
     const ids = [...new Set(body.ids_materias)];
-    for (const m of ids) await this.a.orientacion.exigir<C.Materia>(`get_materia/${m}`, `No existe la materia ${m}`);
+    for (const m of ids) await this.a.orientacion.exigir<C.Materia>(`materias/${m}`, `No existe la materia ${m}`);
     await this.a.materias.manager.transaction(async (tx) => {
       await tx.delete(this.a.materias.target, { id_profesor: id });
       if (ids.length) await tx.insert(this.a.materias.target, ids.map((id_materia) => ({ id_profesor: id, id_materia })));
@@ -94,7 +94,7 @@ export class ProfesorService {
     await this.a.profesor(id);
     const ids = [...new Set(body.ids_franjas_horarias)];
     for (const f of ids) {
-      const franja = await this.a.horarios.exigir<C.FranjaHoraria>(`get_franja_horaria/${f}`, `No existe la franja horaria ${f}`);
+      const franja = await this.a.horarios.exigir<C.FranjaHoraria>(`franjas-horarias/${f}`, `No existe la franja horaria ${f}`);
       if (franja.es_recreo) throw invalido(`La franja ${franja.hora_inicio}–${franja.hora_fin} es un recreo: no se puede declarar como disponible`);
     }
     await this.a.disponibilidad.manager.transaction(async (tx) => {

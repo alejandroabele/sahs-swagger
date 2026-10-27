@@ -4,7 +4,7 @@ import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsInt, IsNotEmpty, IsOptional, IsString, Matches } from 'class-validator';
 import type * as C from '@sahs/contratos';
-/** Body de POST /pago/crear_pago */
+/** Body de POST /pago/pagos */
 export class CrearPagoDto implements C.CrearPagoBody {
   @ApiProperty({"type":"integer","format":"int64","example":12,"required":true})
   @Type(() => Number)
@@ -17,7 +17,7 @@ export class CrearPagoDto implements C.CrearPagoBody {
   periodo!: string;
 }
 
-/** Body de POST /pago/validar_pago/{id} */
+/** Body de POST /pago/pagos/{id}/validacion */
 export class ValidarPagoDto implements C.ValidarPagoBody {
   @ApiProperty({"type":"integer","format":"int64","description":"Administrativo que valida","example":1,"required":true})
   @Type(() => Number)
@@ -25,7 +25,7 @@ export class ValidarPagoDto implements C.ValidarPagoBody {
   id_usuario!: number;
 }
 
-/** Query de GET /pago/calcular_monto_a_liquidar/{id} */
+/** Query de GET /pago/profesores/{id}/monto-a-liquidar */
 export class CalcularMontoALiquidarQuery implements C.CalcularMontoALiquidarQuery {
   @ApiProperty({"type":"string","description":"Período a liquidar (AAAA-MM)","example":"2026-03","required":true})
   @IsString()
@@ -34,7 +34,7 @@ export class CalcularMontoALiquidarQuery implements C.CalcularMontoALiquidarQuer
   periodo!: string;
 }
 
-/** Body de POST /pago/firmar_recibo_de_sueldo/{id} */
+/** Body de POST /pago/recibos-de-sueldo/{id}/firma */
 export class FirmarReciboDeSueldoDto implements C.FirmarReciboDeSueldoBody {
   @ApiProperty({"type":"integer","format":"int64","description":"Usuario del profesor que firma","example":10,"required":true})
   @Type(() => Number)
@@ -42,7 +42,7 @@ export class FirmarReciboDeSueldoDto implements C.FirmarReciboDeSueldoBody {
   id_usuario!: number;
 }
 
-/** Query de GET /pago/get_pagos */
+/** Query de GET /pago/pagos */
 export class GetPagosQuery implements C.GetPagosQuery {
   @ApiProperty({"type":"integer","format":"int64","description":"Profesor liquidado (filtro opcional)","example":12,"required":false})
   @IsOptional()
@@ -56,7 +56,7 @@ export class GetPagosQuery implements C.GetPagosQuery {
   periodo?: string;
 }
 
-/** Query de GET /pago/get_recibos_de_sueldo */
+/** Query de GET /pago/recibos-de-sueldo */
 export class GetRecibosDeSueldoQuery implements C.GetRecibosDeSueldoQuery {
   @ApiProperty({"type":"integer","format":"int64","description":"Profesor liquidado (filtro opcional)","example":12,"required":false})
   @IsOptional()

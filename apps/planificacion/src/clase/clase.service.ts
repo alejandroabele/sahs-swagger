@@ -36,7 +36,7 @@ export class ClaseService {
       return nueva;
     });
     // Orientación registra la clase en la materia (ids_clases).
-    await this.a.orientacion.enviar('POST', `asignar_clase_a_materia/${body.id_materia}`, { id_clase: c.id_clase });
+    await this.a.orientacion.enviar('POST', `materias/${body.id_materia}/clases`, { id_clase: c.id_clase });
     return this.get_clase(c.id_clase);
   }
 

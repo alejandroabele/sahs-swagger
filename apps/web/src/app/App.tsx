@@ -1,35 +1,37 @@
 import { Suspense, useEffect } from 'react';
-import { Navigate, Route, Routes, useParams } from 'react-router-dom';
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { Lienzo } from '../componentes/Lienzo';
 import { Cargando } from '../componentes/Estados';
 import { useSesion } from '../estado/sesion';
 import { PANTALLAS, puedeVer } from './pantallas';
+import { RUTAS, rutas } from './rutas';
 
 /**
- * Muestra la pantalla de la URL (/A5, /P2...). Sin sesión, cualquier ruta muestra el Login.
+ * Muestra la pantalla de una ruta. Sin sesión, cualquier ruta lleva al Login.
  * Con sesión, si el rol no tiene el privilegio de la pantalla, vuelve al inicio.
  */
-function Pantalla() {
-  const { codigo = 'A1' } = useParams();
+function Pantalla({ codigo }: { codigo: string }) {
   const sesion = useSesion();
   const def = PANTALLAS[codigo];
 
   useEffect(() => {
-    if (def) document.title = 'SAHS · ' + def.titulo;
+    document.title = 'SAHS · ' + def.titulo;
   }, [def]);
 
-  if (!sesion.iniciada) return codigo === 'L1' ? <Mostrar codigo="L1" /> : <Navigate to="/L1" replace />;
-  if (codigo === 'L1') return <Navigate to="/A1" replace />;
+  if (!sesion.iniciada) return codigo === 'L1' ? <Mostrar codigo="L1" /> : <Navigate to={rutas.login()} replace />;
+  if (codigo === 'L1') return <Navigate to={rutas.inicio()} replace />;
   if (sesion.cargando) return <Lienzo ancho={1440}><Cargando /></Lienzo>;
-  if (!def || !puedeVer(codigo, sesion.privilegios)) return <Navigate to="/A1" replace />;
+  if (!puedeVer(codigo, sesion.privilegios)) return <Navigate to={rutas.inicio()} replace />;
   return <Mostrar codigo={codigo} />;
 }
 
 function Mostrar({ codigo }: { codigo: string }) {
   const def = PANTALLAS[codigo];
   const C = def.componente;
+  // Al cambiar de URL (otra ficha, otro curso) la pantalla arranca de cero.
+  const { pathname } = useLocation();
   return (
-    <Lienzo ancho={def.ancho} key={codigo}>
+    <Lienzo ancho={def.ancho} key={pathname}>
       <Suspense fallback={<Cargando />}>
         <C />
       </Suspense>
@@ -40,10 +42,10 @@ function Mostrar({ codigo }: { codigo: string }) {
 export function App() {
   return (
     <Routes>
-      <Route path="/" element={<Navigate to="/A1" replace />} />
-      <Route path="/login" element={<Navigate to="/L1" replace />} />
-      <Route path="/:codigo" element={<Pantalla />} />
-      <Route path="*" element={<Navigate to="/A1" replace />} />
+      {Object.entries(RUTAS).flatMap(([codigo, patrones]) =>
+        patrones.map((path) => <Route key={path} path={path} element={<Pantalla codigo={codigo} />} />),
+      )}
+      <Route path="*" element={<Navigate to={rutas.inicio()} replace />} />
     </Routes>
   );
 }

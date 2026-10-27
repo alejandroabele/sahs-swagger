@@ -26,12 +26,12 @@ export interface Turno {
   readonly franjas_horarias?: FranjaHoraria[];
 }
 
-/** Body de POST /horarios/crear_dia_lectivo */
+/** Body de POST /horarios/dias-lectivos */
 export interface CrearDiaLectivoBody {
   nombre_dia_lectivo: string;
 }
 
-/** Body de POST /horarios/crear_franja_horaria */
+/** Body de POST /horarios/franjas-horarias */
 export interface CrearFranjaHorariaBody {
   hora_inicio: string;
   hora_fin: string;
@@ -40,13 +40,13 @@ export interface CrearFranjaHorariaBody {
   id_dia_lectivo: number;
 }
 
-/** Body de POST /horarios/crear_turno */
+/** Body de POST /horarios/turnos */
 export interface CrearTurnoBody {
   nombre: string;
   cantidad_franjas_total: number;
 }
 
-/** Body de POST /horarios/asignar_franja_a_turno/{id} */
+/** Body de POST /horarios/turnos/{id}/franjas-horarias */
 export interface AsignarFranjaATurnoBody {
   id_franja_horaria: number;
 }

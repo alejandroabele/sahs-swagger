@@ -1,15 +1,20 @@
 import { Injectable } from '@nestjs/common';
-import { conflicto, noEncontrado, referenciaInvalida } from '@sahs/comun';
-import type { EstadoPropuesta, Propuesta } from '../dto/modelos';
-import type { AsignarClaseAPropuestaDto, AsignarEstadoAPropuestaDto, CrearPropuestaDto, GetPropuestasQuery } from '../dto/entradas';
-import { aEstado, Armado } from '../armado';
+import { In } from 'typeorm';
+import { conflicto, contexto, ejecutarConContexto, ErrorSahs, noEncontrado, referenciaInvalida } from '@sahs/comun';
+import type * as C from '@sahs/contratos';
+import type { EstadoPropuesta, Propuesta, ResultadoGeneracion } from '../dto/modelos';
+import type { AsignarClaseAPropuestaDto, AsignarEstadoAPropuestaDto, CrearPropuestaDto, GenerarPlanillaDto, GetPropuestasQuery } from '../dto/entradas';
+import { aEstado, aFranjaResumen, Armado } from '../armado';
 import { NOMBRE_ESTADO, Reglas, TRANSICIONES } from '../reglas';
+import { ClaseService } from '../clase/clase.service';
+import { bloqueDeFranja, codigoClase, generar, horasDelTurno, type Bloque, type ClaseGen, type CursoGen } from './generacion';
 
 @Injectable()
 export class PropuestaService {
   constructor(
     private readonly a: Armado,
     private readonly reglas: Reglas,
+    private readonly clasesSrv: ClaseService,
   ) {}
 
   /** La propuesta nace en Borrador (BOR). */
@@ -52,6 +57,12 @@ export class PropuestaService {
     if (nuevo.codigo === 'REV' && !(await this.a.propuestaClases.countBy({ id_propuesta: id }))) {
       throw conflicto('La propuesta no tiene clases: no se puede enviar a revisión');
     }
+    if (nuevo.codigo === 'REV' || nuevo.codigo === 'VAL') {
+      const faltan = await this.cursosIncompletos(id, p.id_ciclo_lectivo);
+      if (faltan.length) {
+        throw conflicto(`La planificación no está completa: faltan horas en ${faltan.join(', ')}. Se envía a revisión y se valida con todos los cursos completos.`);
+      }
+    }
     await this.a.propuestas.manager.transaction(async (tx) => {
       if (nuevo.codigo === 'VAL') {
         const cer = await tx.findOneBy(this.a.estados.target, { codigo: 'CER' });
@@ -66,6 +77,34 @@ export class PropuestaService {
       await tx.update(this.a.propuestas.target, id, { id_estado: nuevo.id_estado, fecha_modificacion: new Date().toISOString() });
     });
     return this.get_propuesta(id);
+  }
+
+  /**
+   * Cursos del ciclo a los que les faltan horas en la propuesta: alguna materia del curso
+   * tiene menos franjas ubicadas que sus horas semanales.
+   */
+  private async cursosIncompletos(idPropuesta: number, idCiclo: number): Promise<string[]> {
+    const cursos = await this.a.cursos.findBy({ id_ciclo_lectivo: idCiclo });
+    if (!cursos.length) return [];
+    const ids = cursos.map((c) => c.id_curso);
+    const [materias, enPropuesta, anios] = await Promise.all([
+      this.a.materiasCurso.findBy({ id_curso: In(ids) }),
+      this.a.propuestaClases.findBy({ id_propuesta: idPropuesta }),
+      this.a.anios.find(),
+    ]);
+    const clases = enPropuesta.length
+      ? await this.a.clases.find({ where: { id_clase: In(enPropuesta.map((x) => x.id_clase)) }, relations: { franjas: true } })
+      : [];
+    const puestas = new Map<string, number>();
+    for (const c of clases) {
+      const k = c.id_curso + '|' + c.id_materia;
+      puestas.set(k, (puestas.get(k) ?? 0) + (c.franjas?.length ?? 0));
+    }
+    const anioDe = new Map(anios.map((a) => [a.id_anio_academico, a.anio_curricular]));
+    return cursos
+      .filter((c) => materias.some((m) => m.id_curso === c.id_curso && (puestas.get(c.id_curso + '|' + m.id_materia) ?? 0) < m.horas_semanales))
+      .map((c) => (c.id_anio_academico != null ? (anioDe.get(c.id_anio_academico) ?? '') + ' ' : '') + c.division)
+      .map((n) => n.replace(/ año/, '').trim());
   }
 
   /** Agrega una clase a la propuesta. Solo en Borrador y sin choques de curso ni de docentes. */
@@ -100,5 +139,114 @@ export class PropuestaService {
     const p = await this.a.propuestas.findOne({ where: { id_propuesta: id }, relations: { estado: true } });
     if (!p) throw noEncontrado(`No existe la propuesta ${id}`);
     return (await this.a.armarPropuestas([p]))[0];
+  }
+
+  /**
+   * Genera la planilla: completa las horas que faltan en los cursos del ciclo de la propuesta
+   * (o solo en `id_curso`) con las reglas de generacion.ts, y guarda cada cambio con
+   * crear_clase + asignar_clase_a_propuesta (clases nuevas) o editar_clase (franjas sumadas a
+   * una clase existente), así corren las validaciones de siempre. Si una regla rechaza un
+   * cambio, sigue con el resto y devuelve el mensaje en `errores`.
+   * Invoca: orientacion.get_materias, horarios.get_turnos, horarios.get_franjas_horarias,
+   * profesor_suplencias.get_profesores (y lo que invocan crear_clase y editar_clase).
+   */
+  async generar_planilla(id: number, body: GenerarPlanillaDto): Promise<ResultadoGeneracion> {
+    const p = await this.a.propuesta(id);
+    if (p.estado!.codigo !== 'BOR') {
+      throw conflicto(`La propuesta ${p.codigo} está ${p.estado!.nombre}: la planilla solo se genera en Borrador`);
+    }
+    const delCiclo = await this.a.cursos.findBy({ id_ciclo_lectivo: p.id_ciclo_lectivo });
+    const lista = body?.id_curso != null ? delCiclo.filter((c) => c.id_curso === body.id_curso) : delCiclo;
+    if (body?.id_curso != null && !lista.length) {
+      throw referenciaInvalida(`El curso ${body.id_curso} no es del ciclo lectivo ${p.id_ciclo_lectivo} de la propuesta`);
+    }
+    const resultado: ResultadoGeneracion = { horas_ubicadas: 0, sin_ubicar: [], cambios: [], errores: [] };
+    if (!lista.length) return resultado;
+
+    // Datos: cursos con sus materias y las franjas de su turno, clases de la propuesta con sus
+    // franjas y docentes, y profesores con habilitaciones y disponibilidad (ids, llamada plana).
+    const idsCursos = lista.map((c) => c.id_curso);
+    const idsClases = (await this.a.propuestaClases.findBy({ id_propuesta: id })).map((x) => x.id_clase);
+    const [materiasCurso, anios, materias, turnos, franjas, profesores, clases, claseFr, clasePr] = await Promise.all([
+      this.a.materiasCurso.findBy({ id_curso: In(idsCursos) }),
+      this.a.anios.find(),
+      this.a.materiasPorId(),
+      this.a.turnosPorId(),
+      this.a.franjasPorId(),
+      this.a.profesores.listar<C.Profesor>('profesores'),
+      idsClases.length ? this.a.clases.find({ where: { id_clase: In(idsClases) }, order: { id_clase: 'ASC' } }) : Promise.resolve([]),
+      idsClases.length ? this.a.claseFranjas.findBy({ id_clase: In(idsClases) }) : Promise.resolve([]),
+      idsClases.length ? this.a.claseProfesores.findBy({ id_clase: In(idsClases) }) : Promise.resolve([]),
+    ]);
+    const anioDe = new Map(anios.map((x) => [x.id_anio_academico, parseInt(x.anio_curricular, 10) || 0]));
+    const nombreCurso = new Map(lista.map((c) => [c.id_curso, `${c.id_anio_academico != null ? anioDe.get(c.id_anio_academico) ?? 0 : 0}° ${c.division}`]));
+    const nombreMateria = (mid: number) => materias.get(mid)?.nombre_materia ?? `Materia ${mid}`;
+
+    const cursosGen: CursoGen[] = lista.map((c) => ({
+      id: c.id_curso,
+      nombre: nombreCurso.get(c.id_curso)!,
+      horas: horasDelTurno((turnos.get(c.id_turno)?.franjas_horarias ?? []).map(aFranjaResumen)),
+      plan: materiasCurso
+        .filter((m) => m.id_curso === c.id_curso)
+        .map((m) => ({ mid: m.id_materia, nombre: nombreMateria(m.id_materia), h: m.horas_semanales })),
+    }));
+    const previas = new Map<number, { franjas: number[]; profes: number[] }>();
+    const clasesGen: ClaseGen[] = clases.map((c) => {
+      const fr = claseFr.filter((x) => x.id_clase === c.id_clase).map((x) => x.id_franja_horaria).sort((x, y) => x - y);
+      const pr = clasePr.filter((x) => x.id_clase === c.id_clase).map((x) => x.id_profesor);
+      previas.set(c.id_clase, { franjas: fr, profes: pr });
+      const bloques = fr
+        .map((f) => franjas.get(f))
+        .filter((f): f is C.FranjaHoraria => !!f)
+        .map((f) => bloqueDeFranja(aFranjaResumen(f)))
+        .filter((b): b is Bloque => !!b);
+      return { id_curso: c.id_curso, id_materia: c.id_materia, bloques, profes: pr };
+    });
+
+    const r = generar({ cursos: cursosGen, clases: clasesGen, profesores });
+    resultado.sin_ubicar = r.sinUbicar.map((x) => ({ id_curso: x.cid, id_materia: x.mid, curso: x.curso, materia: x.materia, horas: x.horas }));
+
+    // Guardado: llamadas planas internas (sin anidar suplencias en cada clase), con la misma
+    // caché del request para no volver a pedir franjas, turnos y profesores.
+    await ejecutarConContexto({ anidados: false, cache: contexto().cache }, async () => {
+      for (const ch of r.cambios) {
+        const curso = nombreCurso.get(ch.cid)!;
+        const materia = nombreMateria(ch.mid);
+        const existente = clases.find((c) => c.id_curso === ch.cid && c.id_materia === ch.mid);
+        try {
+          if (existente) {
+            const antes = previas.get(existente.id_clase)!;
+            await this.clasesSrv.editar_clase(existente.id_clase, { ids_franjas_horarias: [...antes.franjas, ...ch.nuevas], ids_profesores: antes.profes });
+            resultado.cambios.push({ id_clase: existente.id_clase, creada: false, ids_franjas_horarias_previas: antes.franjas, ids_profesores_previos: antes.profes });
+          } else {
+            const nueva = await this.clasesSrv.crear_clase({
+              codigo: codigoClase(p.codigo, curso, materia),
+              descripcion: `${materia} · ${curso}`,
+              id_curso: ch.cid,
+              id_materia: ch.mid,
+              ids_franjas_horarias: ch.nuevas,
+              ids_profesores: ch.profes,
+            });
+            try {
+              await this.asignar_clase_a_propuesta(id, { id_clase: nueva.id_clase });
+            } catch (e) {
+              await this.clasesSrv.eliminar_clase(nueva.id_clase).catch(() => undefined);
+              throw e;
+            }
+            resultado.cambios.push({ id_clase: nueva.id_clase, creada: true, ids_franjas_horarias_previas: [], ids_profesores_previos: [] });
+          }
+          resultado.horas_ubicadas += ch.nuevas.length;
+        } catch (e) {
+          if (!(e instanceof ErrorSahs) || e.getStatus() >= 500) throw e;
+          const cuerpo = e.getResponse() as { mensaje?: string };
+          resultado.errores.push(`${materia} en ${curso}: ${cuerpo.mensaje ?? e.message}`);
+          // Lo que no se guardó vuelve a quedar sin ubicar.
+          const pend = resultado.sin_ubicar.find((x) => x.id_curso === ch.cid && x.id_materia === ch.mid);
+          if (pend) pend.horas += ch.nuevas.length;
+          else resultado.sin_ubicar.push({ id_curso: ch.cid, id_materia: ch.mid, curso, materia, horas: ch.nuevas.length });
+        }
+      }
+    });
+    return resultado;
   }
 }
