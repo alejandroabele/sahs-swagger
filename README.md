@@ -15,7 +15,7 @@ Monorepo de SAHS: los 6 microservicios en NestJS, la base de datos SQLite creada
 
 ## Aplicación
 
-Todo se levanta con un solo compose (`docker-compose.yml`) y se publica en un solo puerto, el 8100:
+Todo se levanta con un solo compose (`docker-compose.yml`). En la máquina, la app responde en el puerto 8100; desde afuera se entra por HTTPS (ver "HTTPS"):
 
 ```bash
 docker compose up -d --build   # construye y levanta todo
@@ -52,11 +52,20 @@ Qué levanta el compose:
 |---|---|
 | `db-init` | Aplica las migraciones y carga los datos de ejemplo en las tablas vacías. Termina y recién entonces arrancan los servicios. |
 | `usuario`, `pago`, `horarios`, `planificacion`, `orientacion`, `profesor-suplencias` | Los microservicios, en el puerto 3000 de la red interna. No se publican en el host. |
-| `web` | nginx, el único contenedor con puerto publicado (8100). Sirve el build de React, redirige `/usuario/`, `/pago/`, etc. a cada servicio, publica el OpenAPI de cada uno en `/docs/<servicio>-json`, el Swagger UI con los 6 servicios en `/docs/` y el prototipo en `/prototipo/`. |
+| `web` | nginx, publicado solo en `127.0.0.1:8100`. Sirve el build de React, redirige `/usuario/`, `/pago/`, etc. a cada servicio, publica el OpenAPI de cada uno en `/docs/<servicio>-json`, el Swagger UI con los 6 servicios en `/docs/` y el prototipo en `/prototipo/`. |
+| `caddy` | HTTPS delante de `web`, en los puertos 80 y 443: saca y renueva el certificado y redirige `http://` a `https://`. |
 
 La base es un solo archivo, `/data/sahs.sqlite`, en el volumen **`sahs-data`**. Cada tabla tiene un servicio dueño (el prefijo de la tabla: `usuario_`, `pago_`, ...), que es el único que escribe en ella. Las referencias a datos de otro servicio se guardan como ids sin clave foránea, y esos datos se piden por HTTP.
 
 Antes había dos compose (`docker-compose.app.yml` para la app y `docker-compose.yml` para el prototipo en `:8090`) y un Swagger UI propio en `:8180`. Si quedaron contenedores de antes, se borran una vez con `docker rm -f sahs-app-swagger sahs-prototipo`. El resto de los contenedores y el volumen `sahs-data` se reutilizan con el compose nuevo.
+
+### HTTPS
+
+El contenedor `caddy` sirve la app por HTTPS en el dominio de la variable `SAHS_DOMINIO`. Saca y renueva solo el certificado (Let's Encrypt y, si falla, ZeroSSL) y lo guarda en el volumen `sahs-caddy-data`, así no pide uno nuevo en cada deploy. El puerto 8100 queda solo para la propia máquina (`127.0.0.1`): desde afuera no se entra por HTTP plano.
+
+- **En el servidor:** `SAHS_DOMINIO` va en el `.env` junto al compose (hay un ejemplo en `.env.example`). En la VPS es `vps-6558769-x.dattaweb.com`, y la app queda en https://vps-6558769-x.dattaweb.com. Los puertos 80 y 443 tienen que estar abiertos (Let's Encrypt valida por el 80) y el dominio tiene que apuntar a la IP del servidor.
+- **En local:** sin `SAHS_DOMINIO`, Caddy usa `localhost` con su CA interna: https://localhost (el navegador puede pedir aceptar el certificado; con curl, `-k`).
+- **Si no sale el certificado:** `docker compose logs caddy` muestra el error de validación (puertos cerrados en el firewall del proveedor, DNS, o el límite de emisión de Let's Encrypt).
 
 ### Desarrollo local
 
