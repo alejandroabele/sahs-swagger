@@ -1,0 +1,8 @@
+# Caddy de SAHS: HTTPS delante de la web (nginx).
+# El dominio sale de SAHS_DOMINIO (en el .env). Con "localhost" usa la CA interna de Caddy.
+# Saca y renueva el certificado solo, y redirige http:// a https://.
+
+{$SAHS_DOMINIO} {
+	encode zstd gzip
+	reverse_proxy web:80
+}

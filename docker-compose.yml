@@ -1,12 +1,15 @@
-# SAHS · toda la aplicación, en un solo compose y con un solo puerto (8100).
+# SAHS · toda la aplicación, en un solo compose.
 #
 #   docker compose up -d --build    # construye y levanta todo
-#   docker compose down             # baja todo (los datos quedan en el volumen)
+#   docker compose down             # baja todo (los datos y los certificados quedan en sus volúmenes)
 #   docker compose down -v          # baja todo y borra la base
 #
 #   Web:          http://localhost:8100             (usuario secretaria, contraseña sahs2026)
 #   Swagger UI:   http://localhost:8100/docs/       (los 6 servicios)
 #   Prototipo:    http://localhost:8100/prototipo/  (referencia visual; se edita en caliente)
+#
+#   HTTPS:        https://$SAHS_DOMINIO (caddy, puertos 80 y 443). En el servidor, SAHS_DOMINIO va en
+#                 el .env; sin definir es localhost, con la CA interna de Caddy. El 8100 solo es local.
 
 name: sahs-app
 
@@ -109,7 +112,7 @@ services:
     container_name: sahs-app-profesor-suplencias
 
   # nginx: build de React, proxy por prefijo hacia los servicios, Swagger UI (/docs/)
-  # y prototipo (/prototipo/). Es el único contenedor con puerto publicado.
+  # y prototipo (/prototipo/). Publicado solo en 127.0.0.1: desde afuera se entra por caddy.
   web:
     build:
       context: .
@@ -118,7 +121,7 @@ services:
     container_name: sahs-app-web
     restart: unless-stopped
     ports:
-      - "8100:80"
+      - "127.0.0.1:8100:80"
     volumes:
       # Tapa la copia de la imagen, para ver los cambios del prototipo sin reconstruir.
       - ./prototipo:/usr/share/nginx/html/prototipo:ro
@@ -137,9 +140,32 @@ services:
       profesor-suplencias:
         condition: service_healthy
 
+  # HTTPS delante de la web: certificado automático (Let's Encrypt o ZeroSSL) y redirección de http.
+  caddy:
+    image: caddy:2.10.0-alpine
+    container_name: sahs-app-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      SAHS_DOMINIO: ${SAHS_DOMINIO:-localhost}
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data        # certificados y cuenta ACME: sin este volumen, cada deploy pediría uno nuevo
+      - caddy-config:/config
+    networks: [interna]
+    depends_on:
+      - web
+
 volumes:
   sahs-data:
     name: sahs-data
+  caddy-data:
+    name: sahs-caddy-data
+  caddy-config:
+    name: sahs-caddy-config
 
 networks:
   interna:
