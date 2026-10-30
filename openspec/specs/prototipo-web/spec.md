@@ -4,15 +4,15 @@
 Servir el prototipo HTML de SAHS (una sola aplicación con login, en `prototipo/index.html`) desde el mismo `docker compose` que Swagger UI.
 ## Requirements
 ### Requirement: Prototipo servido con Docker
-El `docker-compose.yml` SHALL incluir un servicio `prototipo` basado en nginx, con una versión de imagen fija, que sirva el contenido de `prototipo/` en `http://localhost:8090`. Debe montar la carpeta en modo solo lectura. Se levanta y se baja junto con Swagger UI.
+El nginx de `web` SHALL servir el contenido de `prototipo/` en `http://localhost:8100/prototipo/`. La imagen de `web` MUST incluir una copia de `prototipo/`, y el compose MUST montar además la carpeta `prototipo/` en modo solo lectura sobre esa copia, para que los cambios se vean sin reconstruir. `/prototipo` (sin barra) MUST redirigir a `/prototipo/`. El prototipo MUST NOT tener contenedor ni puerto propios.
 
-#### Scenario: Levantar todo con un comando
-- **WHEN** se ejecuta `docker compose up -d` en `swagger/`
-- **THEN** `http://localhost:8080` muestra Swagger UI y `http://localhost:8090` muestra el Login del prototipo
+#### Scenario: Levantar el prototipo
+- **WHEN** se ejecuta `docker compose up -d --build` en `swagger/`
+- **THEN** `http://localhost:8100/prototipo/` muestra el Login del prototipo
 
-#### Scenario: Bajar todo
-- **WHEN** se ejecuta `docker compose down` en `swagger/`
-- **THEN** se detienen tanto el contenedor de Swagger UI como el del prototipo
+#### Scenario: Navegar dentro del prototipo
+- **WHEN** en `http://localhost:8100/prototipo/` se entra con `secretaria` y se abre una pantalla del menú
+- **THEN** la pantalla se ve igual que antes en `:8090`, sin recursos que respondan 404
 
 #### Scenario: Cambios sin reconstruir
 - **WHEN** se modifica un archivo dentro de `prototipo/` con el entorno levantado
@@ -34,9 +34,9 @@ La carpeta `prototipo/` SHALL contener un único archivo ejecutable, `index.html
 - **THEN** `prototipo/index.html` refleja el cambio, y el artifact de diseño publicado tiene el mismo contenido
 
 ### Requirement: Instrucciones del prototipo
-El `README.md` SHALL incluir una sección "Prototipo" que indique la URL `http://localhost:8090`, cómo entrar (cualquier usuario de ejemplo con una contraseña no vacía) y cómo cambiar de rol (cerrar sesión y entrar con otro usuario). También debe aclarar que las fuentes de diseño (`*.dc.html`, la planilla y los diagramas) no forman parte del repo.
+El `README.md` SHALL incluir una sección "Prototipo" que indique la URL `http://localhost:8100/prototipo/`, cómo entrar (cualquier usuario de ejemplo con una contraseña no vacía) y cómo cambiar de rol (cerrar sesión y entrar con otro usuario). También debe aclarar que las fuentes de diseño (`*.dc.html`, la planilla y los diagramas) no forman parte del repo.
 
 #### Scenario: Lectura del README
 - **WHEN** alguien del grupo abre `README.md`
-- **THEN** encuentra la sección "Prototipo" con la URL, cómo entrar, cómo cambiar de rol y la aclaración sobre las fuentes de diseño
+- **THEN** encuentra la sección "Prototipo" con la URL bajo `:8100`, cómo entrar, cómo cambiar de rol y la aclaración sobre las fuentes de diseño
 

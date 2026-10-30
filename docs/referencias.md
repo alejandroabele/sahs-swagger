@@ -16,13 +16,14 @@ Datos útiles:
 ## Cómo se baja cada cambio
 
 ```
- Diseño (artifact) ──► prototipo/*.html (referencia) ──► apps/web (React) ──────────────► http://localhost:8100
+ Diseño (artifact) ──► prototipo/index.html (referencia) ───────────────────────────────► http://localhost:8100/prototipo/
+                         └─► apps/web (React) ─────────────────────────────────────────► http://localhost:8100
  Documento ──────────┐
-                     ├─► apps/<servicio> (NestJS) ──► swagger de cada servicio ──────────► http://localhost:8180
+                     ├─► apps/<servicio> (NestJS) ──► swagger de cada servicio ──────────► http://localhost:8100/docs/
  Diagrama de clases ─┘   libs/entidades + migración ──► base sahs.sqlite (volumen sahs-data)
 ```
 
-- **Diseño:** se actualizan los `*.dc.html` de `sahs-prototipo/` con el contenido del artifact (o al revés, si el cambio se hizo localmente y después se republica el artifact). Luego se corre `python3 tools/exportar_prototipo.py ..` y se recarga el prototipo (http://localhost:8090, `docker compose up -d`). Después se lleva el cambio a la pantalla React correspondiente de `apps/web/src/pantallas`.
+- **Diseño:** se actualizan los `*.dc.html` de `sahs-prototipo/` con el contenido del artifact (o al revés, si el cambio se hizo localmente y después se republica el artifact). Luego se corre `python3 tools/exportar_prototipo.py ..` y se recarga el prototipo (http://localhost:8100/prototipo/, con la app levantada con `docker compose up -d --build`). Después se lleva el cambio a la pantalla React correspondiente de `apps/web/src/pantallas`.
 - **Documento:** se cambia el controller y los DTOs del servicio (y su interfaz en `libs/contratos`). El swagger del servicio se actualiza solo. Si la API se aparta del documento, se anota en "Cambios respecto del documento" del README.
 - **Diagrama de clases:** se cambian las entidades de `libs/entidades` y se genera una migración (ver "Mantenimiento" en el README).
 - `specs/*.json` y `tools/generar_specs.py` quedaron congelados: son el contrato del corte inicial, contra el que compara `npm run verificar-contratos`.

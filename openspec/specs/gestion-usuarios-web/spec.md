@@ -41,11 +41,11 @@ La aplicación SHALL ofrecer una sola pantalla "Cambiar mi contraseña" (A18) pa
 - **THEN** la pantalla muestra un error y no confirma el cambio
 
 ### Requirement: Menú armado con privilegios para todos los roles
-El inicio (A1) SHALL ser el mismo para todos los roles y mostrar una tarjeta por cada privilegio del rol del usuario que entró, en una lista plana y sin títulos de grupo. El título de cada tarjeta MUST ser la `descripcion_privilegio`. Las tarjetas se obtienen con `login` → `usuario.rol.id_rol` → `get_rol_privilegios`. Cada tarjeta MUST llevar a su pantalla según el `id_privilegio`. Las que no tienen pantalla MUST mostrarse como "Pendiente" y no navegar. MUST NOT existir un menú aparte para el profesor.
+El inicio (`/`) SHALL ser el mismo para todos los roles y mostrar una tarjeta por cada privilegio con pantalla del rol del usuario que entró, en una lista plana y sin títulos de grupo. El título de cada tarjeta MUST ser la `descripcion_privilegio`. Las tarjetas se obtienen con `login` → `usuario.rol.id_rol` → `get_rol_privilegios`. Cada tarjeta MUST llevar a la ruta de su pantalla según el `id_privilegio`. Los privilegios que no tienen pantalla MUST NOT mostrarse. MUST NOT existir un menú aparte para el profesor.
 
 #### Scenario: Menú del administrativo
 - **WHEN** se entra como `secretaria`
-- **THEN** el inicio muestra las 12 tarjetas del rol Administrativo, incluida "Disponibilidad de profesores"
+- **THEN** el inicio muestra las 10 tarjetas con pantalla del rol Administrativo, incluida "Disponibilidad de profesores"
 
 #### Scenario: Menú del profesor
 - **WHEN** se entra como `jramirez`
@@ -53,14 +53,14 @@ El inicio (A1) SHALL ser el mismo para todos los roles y mostrar una tarjeta por
 
 #### Scenario: Tarjeta lleva a su pantalla
 - **WHEN** se toca la tarjeta "Cambio de clase"
-- **THEN** se abre la pantalla Suplencias del período (A4)
+- **THEN** se abre `/suplencias`
 
-#### Scenario: Tarjeta sin pantalla
-- **WHEN** se toca la tarjeta "Áreas"
-- **THEN** la tarjeta figura como "Pendiente" y no cambia de pantalla
+#### Scenario: Privilegio sin pantalla
+- **WHEN** el rol tiene el privilegio "Áreas", que no tiene pantalla
+- **THEN** el inicio no muestra una tarjeta "Áreas" ni ninguna tarjeta "Pendiente"
 
 #### Scenario: Quitar un privilegio cambia el menú
-- **WHEN** en Usuarios → Roles se le quita al rol Administrativo el privilegio "Cursos" y se vuelve al inicio
+- **WHEN** en `/roles` se le quita al rol Administrativo el privilegio "Cursos" y se vuelve al inicio
 - **THEN** la tarjeta "Cursos" ya no aparece
 
 ### Requirement: Privilegio Disponibilidad de profesores

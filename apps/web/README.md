@@ -3,7 +3,7 @@
 La app de SAHS: las pantallas del prototipo (`prototipo/index.html`) con datos reales de la API.
 
 - **Desarrollo:** `npm run dev -w apps/web` → http://localhost:5173. Vite hace de proxy hacia los servicios (puertos 8081 a 8086), así la web llama siempre por el mismo origen (`/usuario/...`, `/pago/...`).
-- **Producción:** `apps/web/Dockerfile` hace el build y lo sirve con nginx (`nginx.conf`), que redirige cada prefijo a su servicio. En el compose: http://localhost:8100.
+- **Producción:** `apps/web/Dockerfile` hace el build y lo sirve con nginx (`nginx.conf`), que redirige cada prefijo a su servicio. En el compose: http://localhost:8100. El mismo nginx sirve el Swagger UI unificado en `/docs/` (`swagger-ui-dist`, configurado en `swagger/swagger-initializer.js`) y el prototipo en `/prototipo/`.
 
 ## Estructura
 

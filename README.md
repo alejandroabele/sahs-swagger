@@ -15,14 +15,17 @@ Monorepo de SAHS: los 6 microservicios en NestJS, la base de datos SQLite creada
 
 ## Aplicación
 
+Todo se levanta con un solo compose (`docker-compose.yml`) y se publica en un solo puerto, el 8100:
+
 ```bash
-docker compose -f docker-compose.app.yml up -d --build   # construye y levanta todo
-docker compose -f docker-compose.app.yml down            # baja todo; los datos quedan en el volumen
-docker compose -f docker-compose.app.yml down -v         # baja todo y borra la base (al volver a levantar se crea de cero)
+docker compose up -d --build   # construye y levanta todo
+docker compose down            # baja todo; los datos quedan en el volumen
+docker compose down -v         # baja todo y borra la base (al volver a levantar se crea de cero)
 ```
 
 - **Web:** http://localhost:8100
-- **Swagger UI:** http://localhost:8180 (elegir el servicio en "Select a definition"; "Try it out" responde de verdad)
+- **Swagger UI:** http://localhost:8100/docs/ (elegir el servicio en "Select a definition"; "Try it out" responde de verdad)
+- **Prototipo:** http://localhost:8100/prototipo/ (referencia visual, ver "Prototipo")
 - **Usuarios de ejemplo:** `secretaria` (Administrativo), `jramirez` (Profesor) y `sferreyra` (Coordinador de área), entre otros. La contraseña de todos es **`sahs2026`**.
 
 Rutas de la web (las mismas que usa el prototipo, en el hash):
@@ -49,12 +52,11 @@ Qué levanta el compose:
 |---|---|
 | `db-init` | Aplica las migraciones y carga los datos de ejemplo en las tablas vacías. Termina y recién entonces arrancan los servicios. |
 | `usuario`, `pago`, `horarios`, `planificacion`, `orientacion`, `profesor-suplencias` | Los microservicios, en el puerto 3000 de la red interna. No se publican en el host. |
-| `web` | nginx con el build de React. Redirige `/usuario/`, `/pago/`, etc. a cada servicio, y publica el swagger de cada uno en `/docs/<servicio>-json`. |
-| `swagger` | Swagger UI con los 6 servicios. |
+| `web` | nginx, el único contenedor con puerto publicado (8100). Sirve el build de React, redirige `/usuario/`, `/pago/`, etc. a cada servicio, publica el OpenAPI de cada uno en `/docs/<servicio>-json`, el Swagger UI con los 6 servicios en `/docs/` y el prototipo en `/prototipo/`. |
 
 La base es un solo archivo, `/data/sahs.sqlite`, en el volumen **`sahs-data`**. Cada tabla tiene un servicio dueño (el prefijo de la tabla: `usuario_`, `pago_`, ...), que es el único que escribe en ella. Las referencias a datos de otro servicio se guardan como ids sin clave foránea, y esos datos se piden por HTTP.
 
-Los dos compose pueden estar levantados a la vez: el original (`docker-compose.yml`) solo levanta el prototipo, en el puerto 8090.
+Antes había dos compose (`docker-compose.app.yml` para la app y `docker-compose.yml` para el prototipo en `:8090`) y un Swagger UI propio en `:8180`. Si quedaron contenedores de antes, se borran una vez con `docker rm -f sahs-app-swagger sahs-prototipo`. El resto de los contenedores y el volumen `sahs-data` se reutilizan con el compose nuevo.
 
 ### Desarrollo local
 
@@ -92,7 +94,7 @@ Cada servicio tiene un controller y un service por tag del swagger, `dto/modelos
 
 ## Swagger y fuente de verdad
 
-**El swagger que publica cada servicio NestJS es la fuente de verdad de la API.** Cada servicio lo expone en `/docs` (UI) y `/docs-json`; en Docker se ven todos juntos en http://localhost:8180.
+**El swagger que publica cada servicio NestJS es la fuente de verdad de la API.** Cada servicio publica siempre su OpenAPI en `/docs-json`. En Docker se ven todos juntos en un único Swagger UI, http://localhost:8100/docs/, que lo sirve el nginx de la web en el mismo origen que la API. La UI propia de cada servicio (`/docs`) solo está en desarrollo (`npm run dev:<servicio>`, por ejemplo http://localhost:8082/docs); en producción (`NODE_ENV=production`) está apagada.
 
 Los contratos originales (`specs/*.json`) y su generador (`tools/generar_specs.py`) quedan congelados como historial del corte inicial: el código de los servicios se generó una vez a partir de ellos (`tools/generar_scaffold.mjs`) y `npm run verificar-contratos` confirma que el swagger de los servicios no se apartó de ellos, salvo los agregados documentados abajo. Un cambio en la API se hace en el código del servicio, no en `specs/`.
 
@@ -116,14 +118,9 @@ Todas las respuestas de error tienen el cuerpo `Error { codigo, mensaje }`, con 
 
 ## Prototipo
 
-El prototipo HTML quedó como **referencia visual** de la app web (`apps/web` reproduce sus pantallas con datos reales). Se levanta con el compose original:
+El prototipo HTML quedó como **referencia visual** de la app web (`apps/web` reproduce sus pantallas con datos reales). Se levanta con el resto de la aplicación (`docker compose up -d --build`).
 
-```bash
-docker compose up -d      # el prototipo (:8090)
-docker compose down
-```
-
-La carpeta `prototipo/` tiene el prototipo navegable de SAHS, servido con nginx en **http://localhost:8090**. Es una sola aplicación, en un solo archivo (`index.html`) y con una sola URL. No hay backend: los datos son de ejemplo y no se guardan.
+La carpeta `prototipo/` tiene el prototipo navegable de SAHS, servido por el nginx de la web en **http://localhost:8100/prototipo/**. La imagen de `web` lleva una copia, y el compose monta la carpeta encima, así que los cambios se ven al recargar. Es una sola aplicación, en un solo archivo (`index.html`) y con una sola URL. No hay backend: los datos son de ejemplo y no se guardan.
 
 - **Entrar:** la URL abre el Login. Sirve cualquier usuario de los datos del prototipo (por nombre o por email) con cualquier contraseña que no esté vacía: `secretaria` es Administrativo, `jramirez` es Profesor y `sferreyra` es Coordinador de área.
 - **Cambiar de rol:** se toca "Cerrar sesión" en la cabecera y se entra con otro usuario, en la misma URL. La sesión es de cada pestaña y se mantiene al recargar, así que se pueden tener dos roles abiertos en dos pestañas.
@@ -146,10 +143,10 @@ El script reemplaza tres partes del HTML: los estilos, un `<template>` por panta
 - el runtime que reemplaza a `support.js`;
 - `CONFIG`, que define las pantallas, el privilegio y las rutas de cada una, qué pantalla abre cada tarjeta y los atajos entre pantallas.
 
-Para sumar una pantalla, se agrega a `CONFIG.pantallas` con el id del `.dc.html` en minúsculas, su privilegio y sus rutas. Como la carpeta está montada, alcanza con recargar la página: no hace falta reiniciar el contenedor.
+Para sumar una pantalla, se agrega a `CONFIG.pantallas` con el id del `.dc.html` en minúsculas, su privilegio y sus rutas. Como la carpeta está montada, alcanza con recargar la página: no hace falta reconstruir ni reiniciar el contenedor.
 
 - Las fuentes de diseño (`*.dc.html`, `planilla-horarios-sahs.html`, `canvas.json` y los diagramas) **no** forman parte de este repo. Los `*.dc.html` sueltos no funcionan solos, porque dependen de un runtime (`support.js`) que no viaja con ellos.
-- Si el puerto 8090 está ocupado, se cambia en `docker-compose.yml` (`"8090:80"`).
+- Si el puerto 8100 está ocupado, se cambia en `docker-compose.yml` (`"8100:80"` del servicio `web`).
 
 ## Convenciones
 
@@ -375,7 +372,7 @@ Desde el corte, **la API se cambia en el código de cada servicio** (controllers
   ```
 
   `db-init` aplica las migraciones pendientes en el siguiente `up`. Los datos de ejemplo están en `apps/db/src/seeds/`.
-- **Cliente de la web:** `apps/web/src/api/*.ts` se genera a partir del swagger de los servicios (levantados en sus puertos de desarrollo): `node tools/generar_cliente_web.mjs`.
+- **Cliente de la web:** `apps/web/src/api/*.ts` se genera a partir del swagger de los servicios (levantados en sus puertos de desarrollo): `node tools/generar_cliente_web.mjs`. Con la app de Docker levantada: `node tools/generar_cliente_web.mjs --url http://localhost:8100/docs`.
 - **Pruebas:** `npm test` (e2e de los servicios) y `npm run verificar-contratos` (diferencias con los contratos originales, por `operationId`; las operaciones agregadas y las diferencias de forma aceptadas están en `AGREGADOS` y `EXCEPCIONES` del script).
 - **Historial:** `tools/generar_specs.py` generó los contratos originales de `specs/` y `tools/generar_scaffold.mjs` generó el código inicial de los servicios a partir de ellos. Los dos quedan congelados; el segundo no corre si las apps ya existen, para no pisar el código.
 
