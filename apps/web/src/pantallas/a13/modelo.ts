@@ -119,17 +119,20 @@ export function dondeOcupa(ocs: Ocupacion[], idProfesor: number, b: Bloque, excl
 
 // ---- nombres
 
-/** Número del año del curso ("1° año" → 1). */
-export function numeroAnio(c: Curso, anios: AnioAcademico[]): number {
-  const a = anios.find((x) => x.id_anio_academico === c.id_anio_academico);
+/**
+ * Número del año del curso ("1° año" → 1). Lo toma del año anidado en el curso; la lista
+ * `anios` queda para las pantallas que todavía la piden aparte.
+ */
+export function numeroAnio(c: Curso, anios: AnioAcademico[] = []): number {
+  const a = c.anio_academico ?? anios.find((x) => x.id_anio_academico === c.id_anio_academico);
   return a ? parseInt(a.anio_curricular, 10) || 0 : 0;
 }
 
 /** "1° B" */
-export const nombreCurso = (c: Curso, anios: AnioAcademico[]) => `${numeroAnio(c, anios)}° ${c.division}`;
+export const nombreCurso = (c: Curso, anios: AnioAcademico[] = []) => `${numeroAnio(c, anios)}° ${c.division}`;
 
 /** Cursos ordenados por año y división. */
-export const ordenarCursos = (cursos: Curso[], anios: AnioAcademico[]) =>
+export const ordenarCursos = (cursos: Curso[], anios: AnioAcademico[] = []) =>
   [...cursos].sort((a, b) => numeroAnio(a, anios) - numeroAnio(b, anios) || a.division.localeCompare(b.division));
 
 export const nombreProfesor = (p: { nombre?: string; apellido?: string } | undefined) => (p ? `${p.nombre ?? ''} ${p.apellido ?? ''}`.trim() : '');

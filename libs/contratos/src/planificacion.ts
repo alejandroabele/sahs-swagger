@@ -71,6 +71,8 @@ export interface Curso {
   readonly id_curso: number;
   division: string;
   id_anio_academico?: number;
+  /** Año académico anidado (agregado: no está en el documento). */
+  readonly anio_academico?: AnioAcademico;
   id_ciclo_lectivo: number;
   id_turno: number;
   readonly turno?: TurnoResumen;
@@ -240,4 +242,12 @@ export interface ResultadoGeneracion {
   cambios: CambioGeneracion[];
   /** Mensajes de las reglas que rechazaron un cambio (409); el resto se guardó igual. */
   errores: string[];
+}
+
+/** Resultado de get_armado_propuesta (fachada de la pantalla de armado). */
+export interface ArmadoPropuesta {
+  propuesta: Propuesta;
+  estados: EstadoPropuesta[];
+  /** Cursos del ciclo de la propuesta, sin clases. */
+  cursos: Curso[];
 }

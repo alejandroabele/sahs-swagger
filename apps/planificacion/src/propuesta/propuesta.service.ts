@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { In } from 'typeorm';
 import { conflicto, contexto, ejecutarConContexto, ErrorSahs, noEncontrado, referenciaInvalida } from '@sahs/comun';
 import type * as C from '@sahs/contratos';
-import type { EstadoPropuesta, Propuesta, ResultadoGeneracion } from '../dto/modelos';
+import type { ArmadoPropuesta, EstadoPropuesta, Propuesta, ResultadoGeneracion } from '../dto/modelos';
 import type { AsignarClaseAPropuestaDto, AsignarEstadoAPropuestaDto, CrearPropuestaDto, GenerarPlanillaDto, GetPropuestasQuery } from '../dto/entradas';
 import { aEstado, aFranjaResumen, Armado } from '../armado';
 import { NOMBRE_ESTADO, Reglas, TRANSICIONES } from '../reglas';
@@ -133,6 +133,24 @@ export class PropuestaService {
     if (query.id_estado != null) where.id_estado = query.id_estado;
     const l = await this.a.propuestas.find({ where, relations: { estado: true }, order: { codigo: 'DESC' } });
     return this.a.armarPropuestas(l);
+  }
+
+  /**
+   * Fachada de la pantalla de armado (A13): en una respuesta, lo que antes eran
+   * get_propuesta + get_posibles_estados_de_propuestas + get_cursos + get_anios_academicos.
+   * Las tablas propias se leen en paralelo y los datos de otros servicios se piden una sola
+   * vez por request (armarCursos). No trae clases: el cliente las pide por curso.
+   * Invoca: orientacion.get_materias, orientacion.get_orientaciones, horarios.get_turnos.
+   */
+  async get_armado_propuesta(id: number): Promise<ArmadoPropuesta> {
+    const p = await this.a.propuesta(id);
+    const [propuestas, estados, cursos] = await Promise.all([
+      this.a.armarPropuestas([p]),
+      this.a.estados.find({ order: { id_estado: 'ASC' } }),
+      this.a.cursos.find({ where: { id_ciclo_lectivo: p.id_ciclo_lectivo } }),
+    ]);
+    cursos.sort((x, y) => (x.id_anio_academico ?? 99) - (y.id_anio_academico ?? 99) || x.division.localeCompare(y.division));
+    return { propuesta: propuestas[0], estados: estados.map(aEstado), cursos: await this.a.armarCursos(cursos) };
   }
 
   async get_propuesta(id: number): Promise<Propuesta> {

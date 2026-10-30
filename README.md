@@ -203,6 +203,8 @@ Para sumar una pantalla, se agrega a `CONFIG.pantallas` con el id del `.dc.html`
   - ORIENTACIÓN suma `get_plan_de_estudios` (`GET /orientacion/plan-de-estudios`, filtros `id_orientacion` e `id_anio_academico`): el plan armado en tres niveles, año académico → orientación → materias (con su área). Así el cliente no cruza `get_materias` con `get_anios_academicos` para agrupar. El nombre del año lo pide el servicio a Planificación. El verificador la tiene en `AGREGADOS`.
   - La materia anidada en el curso (`Curso.materias[]`) y en la clase (`Clase.materia`) suma `id_area` y `nombre_area`, para mostrar el área sin pedir el catálogo de materias. El verificador la tiene en `PROPIEDADES_AGREGADAS`.
   - PLANIFICACIÓN suma `generar_planilla` (`POST /planificacion/propuestas/{id}/generacion`, body opcional `{ id_curso }`): genera la planilla en el servidor y la guarda. Completa las horas que faltan en todos los cursos del ciclo de la propuesta (o solo en `id_curso`) respetando lo ya ubicado, la disponibilidad declarada, que un docente no esté en dos clases a la vez y el tope de 2 horas diarias por materia. Guarda con `crear_clase` + `asignar_clase_a_propuesta` o `editar_clase` (corren las mismas reglas) y responde `ResultadoGeneracion { horas_ubicadas, sin_ubicar[], cambios[], errores[] }`, donde `cambios` trae lo que tenía cada clase antes, para deshacer. Solo en Borrador (`409`). Antes la generación corría en el navegador y obligaba a bajar todos los profesores y todas las clases. El verificador la tiene en `AGREGADOS`.
+  - PLANIFICACIÓN suma la fachada `get_armado_propuesta` (`GET /planificacion/propuestas/{id}/armado`): devuelve `ArmadoPropuesta { propuesta, estados[], cursos[] }`, todo lo que necesita la pantalla de armado (A13) para abrir, en lugar de `get_propuesta` + `get_posibles_estados_de_propuestas` + `get_cursos` + `get_anios_academicos`. Por detrás lee sus tablas y hace 3 llamadas HTTP, una por catálogo y sin importar cuántos cursos haya: `orientacion.get_materias`, `orientacion.get_orientaciones` y `horarios.get_turnos`. No trae clases: la pantalla las pide al elegir un curso (`get_clases?id_propuesta&id_curso`). El detalle paso a paso está en la descripción de la operación en el swagger. El verificador la tiene en `AGREGADOS`.
+  - El curso suma `anio_academico` anidado (`{ id_anio_academico, anio_curricular, codigo }`), para armar el nombre "1° A" sin pedir `get_anios_academicos`. El verificador lo tiene en `PROPIEDADES_AGREGADAS`.
   - `crear_suplencia`: la suplencia es del profesor que la cubre, así que el suplente pasa del body a la ruta (`POST /profesor-suplencias/profesores/{id}/suplencias`, con `404` si el profesor no existe).
 
   `npm run verificar-contratos` compara contra `specs/*.json` por `operationId`, con esas diferencias como excepciones.
@@ -279,6 +281,7 @@ Para sumar una pantalla, se agrega a `CONFIG.pantallas` con el id del `.dc.html`
 | asignar_estado_a_propuesta / get_estado_actual_de_propuesta | `PUT` / `GET /planificacion/propuestas/{id}/estado` |
 | asignar_clase_a_propuesta | `POST /planificacion/propuestas/{id}/clases` |
 | generar_planilla (agregada) | `POST /planificacion/propuestas/{id}/generacion` |
+| get_armado_propuesta (agregada, fachada) | `GET /planificacion/propuestas/{id}/armado` |
 
 **pago**
 | operationId | Ruta nueva |

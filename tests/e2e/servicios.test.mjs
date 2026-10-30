@@ -175,6 +175,22 @@ describe('Planificación', () => {
     assert.ok(r.datos.profesores[0].apellido);
   });
 
+  test('fachada get_armado_propuesta: propuesta, estados y cursos del ciclo con su año, sin clases', async () => {
+    const prop = (await get('planificacion', 'propuestas')).datos.find((p) => p.codigo === 'PLAN-2026-01');
+    const r = await get('planificacion', `propuestas/${prop.id_propuesta}/armado`);
+    assert.equal(r.status, 200);
+    assert.equal(r.datos.propuesta.id_propuesta, prop.id_propuesta);
+    assert.ok(r.datos.propuesta.estado.codigo);
+    assert.deepEqual(r.datos.estados, (await get('planificacion', 'estados-propuesta')).datos);
+    const cursos = (await get('planificacion', `cursos?id_ciclo_lectivo=${prop.id_ciclo_lectivo}`)).datos;
+    assert.deepEqual(r.datos.cursos.map((c) => c.id_curso).sort(), cursos.map((c) => c.id_curso).sort());
+    const c = r.datos.cursos[0];
+    assert.equal(c.anio_academico.id_anio_academico, c.id_anio_academico);
+    assert.ok(c.turno.nombre && c.orientacion.nombre_orientacion && c.materias.length && c.franjas_horarias.length);
+    assert.equal(c.clases, undefined);
+    assert.equal((await get('planificacion', 'propuestas/99999/armado')).status, 404);
+  });
+
   test('transición inválida de la propuesta → 409', async () => {
     const borr = (await get('planificacion', 'propuestas')).datos.find((p) => p.estado.codigo === 'BOR');
     const val = (await get('planificacion', 'estados-propuesta')).datos.find((e) => e.codigo === 'VAL');
