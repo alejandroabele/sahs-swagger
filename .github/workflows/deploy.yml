@@ -1,0 +1,95 @@
+# Deploy de SAHS en la VPS.
+#
+# Corre con cada push a main (es decir, al mergear un PR) y también a mano
+# (Actions → Deploy → Run workflow). Primero corre las pruebas; si pasan, entra
+# a la VPS por SSH, actualiza el clon del repo y reconstruye con docker compose.
+#
+# Secrets del repo (Settings → Secrets and variables → Actions):
+#   VPS_HOST         IP o dominio de la VPS
+#   VPS_USER         usuario SSH (tiene que poder correr docker)
+#   VPS_SSH_KEY      clave privada SSH de ese usuario (la pública va en ~/.ssh/authorized_keys de la VPS)
+#   VPS_KNOWN_HOSTS  huella de la VPS: salida de `ssh-keyscan -p <puerto> <host>`
+#   VPS_PATH         ruta del clon del repo en la VPS (por ejemplo /opt/sahs)
+#   VPS_PORT         puerto SSH (opcional, 22 por defecto)
+
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Un deploy por vez; si llegan dos merges seguidos, el segundo espera al primero.
+concurrency:
+  group: deploy-vps
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  pruebas:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run build
+      - run: npm test
+      - run: npm run verificar-contratos
+
+  deploy:
+    needs: pruebas
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: produccion
+    steps:
+      - name: Configurar SSH
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          printf '%s\n' "$VPS_KNOWN_HOSTS" > ~/.ssh/known_hosts
+
+      - name: Actualizar y levantar en la VPS
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PORT: ${{ secrets.VPS_PORT || '22' }}
+          VPS_PATH: ${{ secrets.VPS_PATH }}
+        run: |
+          ssh -i ~/.ssh/id_deploy -p "$VPS_PORT" -o StrictHostKeyChecking=yes -o BatchMode=yes \
+            "$VPS_USER@$VPS_HOST" bash -s -- "$VPS_PATH" "$GITHUB_SHA" <<'REMOTO'
+          set -euo pipefail
+          cd "$1"
+
+          # Solo avanza (fast-forward): si en la VPS hay commits o cambios propios, falla en vez de pisarlos.
+          git fetch --quiet origin main
+          git checkout --quiet main
+          git merge --ff-only origin/main
+          echo "Deploy de $(git log -1 --format='%h %s') (pedido: ${2:0:7})"
+
+          # --remove-orphans borra contenedores del proyecto que ya no están en el compose (por ejemplo, sahs-app-swagger).
+          docker compose up -d --build --remove-orphans
+
+          # Espera a que la web y los servicios respondan.
+          for i in $(seq 1 30); do
+            if curl -fsS -o /dev/null http://localhost:8100/ && curl -fsS -o /dev/null http://localhost:8100/docs/usuario-json; then
+              echo "SAHS responde en :8100"
+              docker image prune -f > /dev/null
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "SAHS no respondió en :8100 después de 150 s" >&2
+          docker compose ps >&2
+          docker compose logs --tail 50 >&2
+          exit 1
+          REMOTO
