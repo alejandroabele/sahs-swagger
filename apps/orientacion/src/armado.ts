@@ -125,9 +125,11 @@ export class Armado {
   }
 
   /** Profesores habilitados en alguna de las materias (Profesor y Suplencias, llamada plana). */
+  /** Solo activos: un profesor dado de baja no está disponible para ninguna materia. */
   async profesoresHabilitados(idsMaterias: number[]): Promise<ProfesorResumen[]> {
     const todos = await this.profesores.listar<C.Profesor>('profesores');
     return todos
+      .filter((p) => p.activo !== false)
       .filter((p) => (p.lista_materias_habilitadas ?? []).some((mh) => mh.id_materia != null && idsMaterias.includes(mh.id_materia)))
       .sort((a, b) => a.apellido.localeCompare(b.apellido) || a.nombre.localeCompare(b.nombre))
       .map(aProfesorResumen);

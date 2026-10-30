@@ -78,7 +78,7 @@ export class AreaController {
   }
 
   @Get("areas/:id/profesores")
-  @ApiOperation({"operationId":"get_profesores_area","summary":"Profesores del área","description":"Invoca: profesor_suplencias.get_profesor"})
+  @ApiOperation({"operationId":"get_profesores_area","summary":"Profesores del área","description":"Solo profesores activos: los dados de baja no se devuelven.\n\nInvoca: profesor_suplencias.get_profesor"})
   @ApiParam({"name":"id","description":"Id del área","type":"integer","format":"int64"})
   @ApiResponse({ status: 200, description: "OK", type: [ProfesorResumen] })
   @ApiResponse({ status: 404, description: 'No existe el recurso', type: ErrorApi })

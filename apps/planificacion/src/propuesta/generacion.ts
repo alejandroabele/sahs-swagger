@@ -9,8 +9,8 @@
 // - Cada docente solo en franjas que declaró disponibles (por id de franja).
 // - Un docente no puede estar en dos clases a la vez: se compara el horario real (día, inicio
 //   y fin), aunque las franjas sean de turnos distintos, contra todas las clases de la propuesta.
-// - Como mucho 2 horas diarias de la misma materia en el curso.
-// - Si la clase ya tiene docentes, usa esos; si no, el habilitado con más franjas posibles.
+// - Ninguna materia pasa sus horas semanales en el curso. No hay tope de horas diarias.
+// - Si la clase ya tiene docentes, usa esos; si no, el habilitado activo con más franjas posibles.
 //   Las materias EPA (nombre que empieza con "EPA") se dictan de a dos: van con todos sus
 //   habilitados juntos.
 // - Resuelve primero lo más apretado (menos franjas posibles por hora pendiente) y, dentro de
@@ -152,7 +152,8 @@ export function generar(entrada: { cursos: CursoGen[]; clases: ClaseGen[]; profe
   for (const c of cursos) for (const b of c.horas) bloques.set(b.id, b);
   for (const c of clases) for (const b of c.bloques) if (!bloques.has(b.id)) bloques.set(b.id, b);
 
-  // Horas de cada materia por curso y día, y en total (se actualizan al ubicar).
+  // Horas de cada materia por curso y día, y en total (se actualizan al ubicar). Por día solo
+  // sirve para repartir: se prueba primero el día con menos horas de la materia, sin tope.
   const porDia = new Map<string, number>();
   const porMateria = new Map<string, number>();
   const sumar = (cid: number, mid: number, f: number) => {
@@ -165,7 +166,6 @@ export function generar(entrada: { cursos: CursoGen[]; clases: ClaseGen[]; profe
   const puestasDe = (cid: number, mid: number) => porMateria.get(clave(cid, mid)) ?? 0;
   const puede = (cid: number, combo: number[], mid: number, b: Bloque) => {
     if (g.get(cid)!.has(b.id)) return false;
-    if (enDia(cid, b.d, mid) >= 2) return false;
     if (combo.some((t) => !disponible(t, b.id))) return false;
     if (combo.some((t) => estaOcupado(t, b))) return false;
     return true;

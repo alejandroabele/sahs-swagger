@@ -10,16 +10,16 @@ export const planificacion = {
   /** GET /planificacion/propuestas — Listar propuestas */
   get_propuestas: (query?: GetPropuestasQuery) =>
     pedir<Propuesta[]>(`/planificacion/propuestas`, { metodo: 'GET', query }),
-  /** PUT /planificacion/propuestas/{id}/estado — Asignar estado a la propuesta */
+  /** PUT /planificacion/propuestas/{id}/estado — Asignar estado a la propuesta. Transiciones: Borrador → En revisión; En revisión → Vigente o Borrador. Una propuesta Vigente no cambia de estado por pedido: pasa sola a Fue vigente cuando otra de su ciclo lectivo pasa a Vigente, así hay una sola Vigente por ciclo. */
   asignar_estado_a_propuesta: (id: number, body: AsignarEstadoAPropuestaBody) =>
     pedir<Propuesta>(`/planificacion/propuestas/${id}/estado`, { metodo: 'PUT', body }),
   /** GET /planificacion/propuestas/{id}/estado — Estado actual de la propuesta */
   get_estado_actual_de_propuesta: (id: number) =>
     pedir<EstadoPropuesta>(`/planificacion/propuestas/${id}/estado`, { metodo: 'GET' }),
-  /** POST /planificacion/propuestas/{id}/clases — Agregar una clase a la propuesta */
+  /** POST /planificacion/propuestas/{id}/clases — Agregar una clase a la propuesta. Solo en Borrador. Responde `409` si el curso ya tiene otra clase en alguna de sus franjas, si un docente ya tiene otra clase a la vez, o si con la clase la materia supera sus horas semanales en el curso. */
   asignar_clase_a_propuesta: (id: number, body: AsignarClaseAPropuestaBody) =>
     pedir<Propuesta>(`/planificacion/propuestas/${id}/clases`, { metodo: 'POST', body }),
-  /** POST /planificacion/propuestas/{id}/generacion — Generar la planilla automáticamente. Completa las horas que faltan en los cursos del ciclo de la propuesta (o solo en `id_curso`) y guarda el resultado. Respeta lo ya ubicado, la disponibilidad declarada por cada docente, que un docente no esté en dos clases a la vez (por horario real, aunque sean turnos distintos) y el tope de 2 horas diarias por materia. Si la clase ya tiene docentes usa esos; si no, el habilitado con más margen (las materias EPA van con todos sus habilitados juntos). Cada cambio se guarda como crear_clase + asignar_clase_a_propuesta o editar_clase; si una regla lo rechaza, sigue con el resto y lo informa en `errores`. `cambios` trae lo que tenía cada clase antes, para deshacer. Solo en Borrador. (Agregado: no está en el documento.) */
+  /** POST /planificacion/propuestas/{id}/generacion — Generar la planilla automáticamente. Completa las horas que faltan en los cursos del ciclo de la propuesta (o solo en `id_curso`) y guarda el resultado. Respeta lo ya ubicado, la disponibilidad declarada por cada docente, que un docente no esté en dos clases a la vez (por horario real, aunque sean turnos distintos) y que ninguna materia supere sus horas semanales en el curso. Si la clase ya tiene docentes usa esos; si no, el habilitado activo con más margen (las materias EPA van con todos sus habilitados juntos). Cada cambio se guarda como crear_clase + asignar_clase_a_propuesta o editar_clase; si una regla lo rechaza, sigue con el resto y lo informa en `errores`. `cambios` trae lo que tenía cada clase antes, para deshacer. Solo en Borrador. (Agregado: no está en el documento.) */
   generar_planilla: (id: number, body: GenerarPlanillaBody) =>
     pedir<ResultadoGeneracion>(`/planificacion/propuestas/${id}/generacion`, { metodo: 'POST', body }),
   /** GET /planificacion/propuestas/{id}/armado — Fachada: datos para abrir el armado de la propuesta (pantalla A13). **Fachada** (agregado: no está en el documento). Junta en una sola respuesta lo que la pantalla de armado pedía en cuatro llamadas, y no guarda nada. */

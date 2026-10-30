@@ -100,7 +100,7 @@ export class Armado {
 
   /**
    * Horas semanales del profesor en la propuesta vigente del ciclo del período,
-   * agrupadas por materia. La vigente es la Validada; si no hay, la última Cerrada.
+   * agrupadas por materia. Hay una sola Vigente por ciclo.
    * Invoca: planificacion.get_ciclos_lectivos, get_propuestas, get_clases, get_cursos, get_anios_academicos.
    */
   async horasDelProfesor(idProfesor: number, periodo: string): Promise<HorasMateria[]> {
@@ -108,9 +108,7 @@ export class Armado {
     const ciclo = (await this.planificacion.listar<C.CicloLectivo>('ciclos-lectivos')).find((c) => c.anio_calendario === anio);
     if (!ciclo) return [];
     const props = await this.planificacion.listar<C.Propuesta>('propuestas', { query: { id_ciclo_lectivo: ciclo.id_ciclo_lectivo } });
-    const vigente =
-      props.find((p) => p.estado?.codigo === 'VAL') ??
-      props.filter((p) => p.estado?.codigo === 'CER').sort((a, b) => (b.fecha_modificacion ?? '').localeCompare(a.fecha_modificacion ?? ''))[0];
+    const vigente = props.find((p) => p.estado?.codigo === 'VIG');
     if (!vigente) return [];
     const [clases, cursos, anios] = await Promise.all([
       this.planificacion.listar<C.Clase>('clases', { completo: true, query: { id_profesor: idProfesor, id_propuesta: vigente.id_propuesta } }),

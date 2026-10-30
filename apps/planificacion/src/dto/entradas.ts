@@ -26,11 +26,11 @@ export class CrearPropuestaDto implements C.CrearPropuestaBody {
 
 /** Body de POST /planificacion/estados-propuesta */
 export class CrearEstadoPropuestaDto implements C.CrearEstadoPropuestaBody {
-  @ApiProperty({"type":"string","example":"Validada","required":true})
+  @ApiProperty({"type":"string","example":"Vigente","required":true})
   @IsString()
   @IsNotEmpty()
   nombre!: string;
-  @ApiProperty({"type":"string","example":"VAL","required":true})
+  @ApiProperty({"type":"string","example":"VIG","required":true})
   @IsString()
   @IsNotEmpty()
   codigo!: string;

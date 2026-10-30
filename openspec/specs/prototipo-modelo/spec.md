@@ -33,7 +33,7 @@ Las grillas del prototipo (A2, A3, A13, P2, P3) SHALL dibujarse con las franjas 
 - **THEN** marca franjas de los turnos en los que puede dar clase, y no puede marcar recreos
 
 ### Requirement: Validación de la planificación completa
-El estado (Borrador, En revisión, Validada, Cerrada) SHALL ser de toda la planificación. A3 y A10 MUST NOT mostrar estados por curso: pueden mostrar el avance de cada curso, pero no un estado de validación propio.
+El estado (Borrador, En revisión, Vigente, Fue vigente) SHALL ser de toda la planificación. En cada ciclo lectivo hay una sola planificación Vigente, y no hay acción para pasarla a mano a Fue vigente. A3 y A10 MUST NOT mostrar estados por curso: pueden mostrar el avance de cada curso, pero no un estado de validación propio.
 
 #### Scenario: Listado de cursos
 - **WHEN** se abre A10
@@ -42,6 +42,10 @@ El estado (Borrador, En revisión, Validada, Cerrada) SHALL ser de toda la plani
 #### Scenario: Enviar a validación
 - **WHEN** se envía a validación desde A13
 - **THEN** cambia el estado de toda la planificación
+
+#### Scenario: Planificación incompleta
+- **WHEN** desde A13 se pide pasar a Vigente una planificación a la que le faltan horas
+- **THEN** se muestra el error con el curso, la materia y las horas que faltan, y la planificación no cambia de estado
 
 ### Requirement: Firma de recibo definitiva
 En "Mis recibos" (P4), firmar un recibo SHALL ser definitivo. MUST NOT existir la acción "Deshacer".

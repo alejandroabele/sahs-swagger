@@ -1,5 +1,5 @@
 // A12 · Planificaciones. Prototipo: <template id="tpl-planificaciones"> y DC.registrar("planificaciones") en prototipo/index.html.
-// Propuestas del ciclo activo (get_propuestas) con su estado y la vigente (la Validada). Desde acá se
+// Propuestas del ciclo activo (get_propuestas) con su estado y la vigente (una por ciclo). Desde acá se
 // crea una nueva vacía (crear_propuesta) y se abre cada una en el armado, donde se decide todo lo demás
 // (cambio de estado, duplicar, generar la planilla).
 import { useState } from 'react';
@@ -22,8 +22,8 @@ const ACCENT = '#2f5fd0';
 const ESTADOS: Record<string, { nombre: string; fondo: string; texto: string }> = {
   BOR: { nombre: 'Borrador', fondo: '#fdf6ec', texto: '#a56a10' },
   REV: { nombre: 'En revisión', fondo: '#eef3fc', texto: '#1e4099' },
-  VAL: { nombre: 'Validada', fondo: '#e9f2ec', texto: '#2f6b45' },
-  CER: { nombre: 'Cerrada', fondo: '#f2f4f7', texto: '#7a8393' },
+  VIG: { nombre: 'Vigente', fondo: '#e9f2ec', texto: '#2f6b45' },
+  FVG: { nombre: 'Fue vigente', fondo: '#f2f4f7', texto: '#7a8393' },
 };
 
 const COLS = 'display: grid; grid-template-columns: 1fr 120px 150px 120px; gap: 12px;';
@@ -201,7 +201,7 @@ export default function A12Planificaciones() {
 function FilaPropuesta(props: { p: Propuesta; primera: boolean; alAbrir: () => void }) {
   const { p } = props;
   const codigo = p.estado?.codigo ?? 'BOR';
-  const e = ESTADOS[codigo] ?? ESTADOS.CER;
+  const e = ESTADOS[codigo] ?? ESTADOS.FVG;
   const origen = p.descripcion_propuesta ? p.nombre + ' · ' + p.descripcion_propuesta : p.nombre;
 
   return (
@@ -211,7 +211,7 @@ function FilaPropuesta(props: { p: Propuesta; primera: boolean; alAbrir: () => v
           <span className="mono" style={css('font-size: 13.5px; font-weight: 600;')}>
             {p.codigo}
           </span>
-          {codigo === 'VAL' && (
+          {codigo === 'VIG' && (
             <span style={css('font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 9px; background: #14181f; color: #fff; letter-spacing: 0.03em;')}>VIGENTE</span>
           )}
         </div>

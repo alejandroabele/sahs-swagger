@@ -39,17 +39,19 @@ const SERVICIOS = [
  * Diferencias aceptadas a propósito (documentadas en el README, "Cambios respecto del documento"):
  * operaciones agregadas (por operationId) y los códigos 409 y 503, que el contrato original no tenía.
  */
-const AGREGADOS = new Set(['editar_clase', 'eliminar_clase', 'get_plan_de_estudios', 'generar_planilla', 'get_armado_propuesta']);
+const AGREGADOS = new Set(['editar_clase', 'eliminar_clase', 'get_plan_de_estudios', 'generar_planilla', 'get_armado_propuesta', 'asignar_activo_profesor']);
 const CODIGOS_AGREGADOS = ['409', '503'];
 /**
  * Propiedades agregadas a propósito a un schema (por nombre del schema), también documentadas:
  * el área de la materia anidada en el curso y en la clase, para no pedir el catálogo de materias,
- * y el año académico anidado en el curso, para no pedir get_anios_academicos.
+ * el año académico anidado en el curso, para no pedir get_anios_academicos, y `activo` del
+ * profesor (baja lógica, ya en el diagrama de clases).
  */
 const PROPIEDADES_AGREGADAS = {
   Curso: ['anio_academico'],
   MateriaCurso: ['id_area', 'nombre_area'],
   MateriaResumen: ['id_area', 'nombre_area'],
+  Profesor: ['activo'],
 };
 
 /**
@@ -59,6 +61,13 @@ const PROPIEDADES_AGREGADAS = {
  * sigue verificando.
  */
 const EXCEPCIONES = {
+  get_profesores: {
+    motivo: 'filtro opcional activo, para listar solo los profesores activos o solo los dados de baja',
+    ruta: 'GET /profesor-suplencias/profesores',
+    ajustar(op) {
+      return { ...op, parameters: [...(op.parameters || []), { name: 'activo', in: 'query', required: false, schema: { type: 'boolean' } }] };
+    },
+  },
   cambiar_horas_materia_curso: {
     motivo: 'id_materia pasa del body a la ruta: PATCH /planificacion/cursos/{id}/materias/{id_materia} con body { horas_semanales }',
     ruta: 'PATCH /planificacion/cursos/{id}/materias/{id_materia}',
@@ -132,7 +141,7 @@ function firma(doc, s, nivel = 0, vistos = new Set()) {
     const props = {};
     const agregadas = PROPIEDADES_AGREGADAS[nombre] || [];
     for (const [k, v] of Object.entries(s.properties || {})) if (!agregadas.includes(k)) props[k] = firma(doc, v, nivel + 1, vistos);
-    return { props, required: [...(s.required || [])].sort() };
+    return { props, required: (s.required || []).filter((r) => !agregadas.includes(r)).sort() };
   }
   const t = s.type === 'number' || s.type === 'integer' ? 'numero' : s.type;
   return { tipo: t || 'cualquiera' };

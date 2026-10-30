@@ -108,6 +108,7 @@ export class Armado {
         telefono: p.telefono ?? undefined,
         direccion: p.direccion ?? undefined,
         id_usuario: p.id_usuario,
+        activo: p.activo,
         lista_materias_habilitadas,
         disponibilidad,
       };

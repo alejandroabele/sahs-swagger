@@ -184,8 +184,8 @@ export const ANIOS_ACADEMICOS = [
 export const ESTADOS_PROPUESTA = [
   { nombre: 'Borrador', codigo: 'BOR' },
   { nombre: 'En revisión', codigo: 'REV' },
-  { nombre: 'Validada', codigo: 'VAL' },
-  { nombre: 'Cerrada', codigo: 'CER' },
+  { nombre: 'Vigente', codigo: 'VIG' },
+  { nombre: 'Fue vigente', codigo: 'FVG' },
 ];
 
 export const CICLOS = [2025, 2026];
@@ -237,9 +237,9 @@ export const DOCENTES_GRILLA: Record<string, string[]> = {
 
 /** Propuestas (A12) y qué grillas tiene cada una: [curso, grilla]. */
 export const PROPUESTAS: { codigo: string; nombre: string; ciclo: number; estado: string; creada: string; desc: string; grillas: [string, string][] }[] = [
-  { codigo: 'PLAN-2025-01', nombre: 'Planificación 2025 (primera versión)', ciclo: 2025, estado: 'CER', creada: '2025-03-20T10:00:00.000Z', desc: 'Reemplazada por PLAN-2025-02', grillas: [['1B-2025', '1B']] },
-  { codigo: 'PLAN-2025-02', nombre: 'Planificación 2025', ciclo: 2025, estado: 'CER', creada: '2025-12-15T10:00:00.000Z', desc: 'Ciclo 2025 terminado', grillas: [['1B-2025', '1B'], ['1A-2025', '1A']] },
-  { codigo: 'PLAN-2026-01', nombre: 'Planificación 2026', ciclo: 2026, estado: 'VAL', creada: '2026-03-02T10:00:00.000Z', desc: 'Aprobada por Dirección, es la vigente', grillas: [['1B-2026', '1B'], ['1A-2026', '1A']] },
+  { codigo: 'PLAN-2025-01', nombre: 'Planificación 2025 (primera versión)', ciclo: 2025, estado: 'FVG', creada: '2025-03-20T10:00:00.000Z', desc: 'Reemplazada por PLAN-2025-02', grillas: [['1B-2025', '1B']] },
+  { codigo: 'PLAN-2025-02', nombre: 'Planificación 2025', ciclo: 2025, estado: 'VIG', creada: '2025-12-15T10:00:00.000Z', desc: 'La vigente del ciclo 2025', grillas: [['1B-2025', '1B'], ['1A-2025', '1A']] },
+  { codigo: 'PLAN-2026-01', nombre: 'Planificación 2026', ciclo: 2026, estado: 'VIG', creada: '2026-03-02T10:00:00.000Z', desc: 'Aprobada por Dirección, es la vigente', grillas: [['1B-2026', '1B'], ['1A-2026', '1A']] },
   { codigo: 'PLAN-2026-02', nombre: 'Planificación 2026 (ajustes)', ciclo: 2026, estado: 'BOR', creada: '2026-02-18T10:00:00.000Z', desc: 'Copia de PLAN-2026-01 para hacer ajustes', grillas: [['1B-2026', '1B']] },
 ];
 

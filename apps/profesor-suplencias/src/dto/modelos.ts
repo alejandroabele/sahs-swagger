@@ -76,6 +76,8 @@ export class Profesor implements C.Profesor {
   direccion?: string;
   @ApiProperty({"type":"integer","format":"int64","nullable":true,"description":"Usuario para ingresar al sistema. Se asigna con asignar_usuario_profesor","example":10,"required":false})
   id_usuario?: number | null;
+  @ApiProperty({"type":"boolean","description":"false = dado de baja en la institución. Se cambia con asignar_activo_profesor","example":true,"readOnly":true,"required":true})
+  activo!: boolean;
   @ApiProperty({ type: () => [MateriaResumen],"readOnly":true,"required":false})
   lista_materias_habilitadas?: MateriaResumen[];
   @ApiProperty({ type: () => [FranjaHorariaResumen],"readOnly":true,"required":false})

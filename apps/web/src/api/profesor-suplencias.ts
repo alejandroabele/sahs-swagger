@@ -1,10 +1,10 @@
 // Generado por tools/generar_cliente_web.mjs a partir del /docs-json del servicio. No editar a mano.
-import type { AsignarDisponibilidadBody, AsignarMateriasHabilitadasBody, AsignarUsuarioProfesorBody, CrearProfesorBody, CrearSuplenciaBody, EditarProfesorBody, FranjaHorariaResumen, GetProfesoresQuery, GetSuplenciasQuery, Profesor, Suplencia } from '@sahs/contratos';
+import type { AsignarActivoProfesorBody, AsignarDisponibilidadBody, AsignarMateriasHabilitadasBody, AsignarUsuarioProfesorBody, CrearProfesorBody, CrearSuplenciaBody, EditarProfesorBody, FranjaHorariaResumen, GetProfesoresQuery, GetSuplenciasQuery, Profesor, Suplencia } from '@sahs/contratos';
 import { pedir } from './http';
 
 /** Servicio Profesor y Suplencias Service. */
 export const profesorSuplencias = {
-  /** POST /profesor-suplencias/profesores/{id}/suplencias — Crear suplencia del profesor (las clases que cubre). La suplencia es del profesor que la cubre (el suplente, `{id}`) y se crea completa, con las clases que cubre en el período. */
+  /** POST /profesor-suplencias/profesores/{id}/suplencias — Crear suplencia del profesor (las clases que cubre). La suplencia es del profesor que la cubre (el suplente, `{id}`) y se crea completa, con las clases que cubre en el período. El suplente tiene que estar activo, tener habilitada la materia de cada clase y haber declarado como disponibles todas sus franjas; no puede ser docente de la clase, y una clase no puede tener dos suplencias con fechas superpuestas (`409`). */
   crear_suplencia: (id: number, body: CrearSuplenciaBody) =>
     pedir<Suplencia>(`/profesor-suplencias/profesores/${id}/suplencias`, { metodo: 'POST', body }),
   /** GET /profesor-suplencias/suplencias — Listar suplencias. Con `fecha_desde` y `fecha_hasta` devuelve las suplencias cuyo período se superpone con el rango. */
@@ -13,7 +13,7 @@ export const profesorSuplencias = {
   /** POST /profesor-suplencias/profesores — Crear profesor. No crea el usuario: se asigna después con `asignar_usuario_profesor`. */
   crear_profesor: (body: CrearProfesorBody) =>
     pedir<Profesor>(`/profesor-suplencias/profesores`, { metodo: 'POST', body }),
-  /** GET /profesor-suplencias/profesores — Listar profesores. Con `id_usuario` se obtiene el profesor del usuario que inició sesión. */
+  /** GET /profesor-suplencias/profesores — Listar profesores. Con `id_usuario` se obtiene el profesor del usuario que inició sesión. Sin `activo` devuelve también los profesores dados de baja. */
   get_profesores: (query?: GetProfesoresQuery) =>
     pedir<Profesor[]>(`/profesor-suplencias/profesores`, { metodo: 'GET', query }),
   /** PUT /profesor-suplencias/profesores/{id} — Editar los datos del profesor. Reemplaza todos los datos editables del profesor. `null` en `legajo` o `cargo_asociado` lo deja sin legajo o sin cargo. */
@@ -34,4 +34,7 @@ export const profesorSuplencias = {
   /** GET /profesor-suplencias/profesores/{id}/disponibilidad — Disponibilidad horaria del profesor. Invoca: horarios.get_franja_horaria */
   get_disponibilidad_profesor: (id: number) =>
     pedir<FranjaHorariaResumen[]>(`/profesor-suplencias/profesores/${id}/disponibilidad`, { metodo: 'GET' }),
+  /** PUT /profesor-suplencias/profesores/{id}/activo — Dar de baja o reactivar al profesor. Con `activo: false` da de baja al profesor (baja lógica: se conservan sus datos, suplencias y recibos) y deja de aparecer como habilitado para sus materias. Responde `409` si es docente de alguna clase de una planificación Vigente. Con `activo: true` lo reactiva. (Agregado: el documento nombra `eliminarProfesor()`.) */
+  asignar_activo_profesor: (id: number, body: AsignarActivoProfesorBody) =>
+    pedir<Profesor>(`/profesor-suplencias/profesores/${id}/activo`, { metodo: 'PUT', body }),
 };

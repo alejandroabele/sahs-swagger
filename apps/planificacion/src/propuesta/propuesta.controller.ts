@@ -22,7 +22,7 @@ export class PropuestaController {
   }
 
   @Put("propuestas/:id/estado")
-  @ApiOperation({"operationId":"asignar_estado_a_propuesta","summary":"Asignar estado a la propuesta"})
+  @ApiOperation({"operationId":"asignar_estado_a_propuesta","summary":"Asignar estado a la propuesta","description":"Transiciones: Borrador → En revisión; En revisión → Vigente o Borrador. Una propuesta Vigente no cambia de estado por pedido: pasa sola a Fue vigente cuando otra de su ciclo lectivo pasa a Vigente, así hay una sola Vigente por ciclo.\n\nPara pasar a En revisión la propuesta necesita al menos una clase, y para pasar a En revisión o a Vigente cada materia de cada curso del ciclo tiene que tener exactamente sus horas semanales. Si no, responde `409` con cada diferencia (`1A: Matemática 3 de 5 h`).\n\nInvoca: orientacion.get_materia"})
   @ApiParam({"name":"id","description":"Id de la propuesta","type":"integer","format":"int64"})
   @ApiResponse({ status: 200, description: "OK", type: Propuesta })
   @ApiResponse({ status: 400, description: 'Datos inválidos', type: ErrorApi })
@@ -33,7 +33,7 @@ export class PropuestaController {
 
   @Post("propuestas/:id/clases")
   @HttpCode(200)
-  @ApiOperation({"operationId":"asignar_clase_a_propuesta","summary":"Agregar una clase a la propuesta"})
+  @ApiOperation({"operationId":"asignar_clase_a_propuesta","summary":"Agregar una clase a la propuesta","description":"Solo en Borrador. Responde `409` si el curso ya tiene otra clase en alguna de sus franjas, si un docente ya tiene otra clase a la vez, o si con la clase la materia supera sus horas semanales en el curso."})
   @ApiParam({"name":"id","description":"Id de la propuesta","type":"integer","format":"int64"})
   @ApiResponse({ status: 200, description: "OK", type: Propuesta })
   @ApiResponse({ status: 400, description: 'Datos inválidos', type: ErrorApi })
@@ -50,8 +50,8 @@ export class PropuestaController {
     description:
       "Completa las horas que faltan en los cursos del ciclo de la propuesta (o solo en `id_curso`) y guarda el resultado. " +
       "Respeta lo ya ubicado, la disponibilidad declarada por cada docente, que un docente no esté en dos clases a la vez " +
-      "(por horario real, aunque sean turnos distintos) y el tope de 2 horas diarias por materia. Si la clase ya tiene docentes " +
-      "usa esos; si no, el habilitado con más margen (las materias EPA van con todos sus habilitados juntos). " +
+      "(por horario real, aunque sean turnos distintos) y que ninguna materia supere sus horas semanales en el curso. Si la clase ya tiene docentes " +
+      "usa esos; si no, el habilitado activo con más margen (las materias EPA van con todos sus habilitados juntos). " +
       "Cada cambio se guarda como crear_clase + asignar_clase_a_propuesta o editar_clase; si una regla lo rechaza, sigue con " +
       "el resto y lo informa en `errores`. `cambios` trae lo que tenía cada clase antes, para deshacer. Solo en Borrador. " +
       "(Agregado: no está en el documento.)\n\n" +

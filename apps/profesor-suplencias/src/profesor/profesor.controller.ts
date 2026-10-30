@@ -3,7 +3,7 @@ import { Body, Controller, Get, Param, ParseIntPipe, Post, Put, Query } from '@n
 import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { ErrorApi } from '@sahs/comun';
 import { FranjaHorariaResumen, Profesor } from '../dto/modelos';
-import { AsignarDisponibilidadDto, AsignarMateriasHabilitadasDto, AsignarUsuarioProfesorDto, CrearProfesorDto, EditarProfesorDto, GetProfesoresQuery } from '../dto/entradas';
+import { AsignarActivoProfesorDto, AsignarDisponibilidadDto, AsignarMateriasHabilitadasDto, AsignarUsuarioProfesorDto, CrearProfesorDto, EditarProfesorDto, GetProfesoresQuery } from '../dto/entradas';
 import { ProfesorService } from './profesor.service';
 
 @ApiTags("Profesor")
@@ -61,6 +61,16 @@ export class ProfesorController {
     return this.servicio.asignar_disponibilidad(id, body);
   }
 
+  @Put("profesores/:id/activo")
+  @ApiOperation({"operationId":"asignar_activo_profesor","summary":"Dar de baja o reactivar al profesor","description":"Con `activo: false` da de baja al profesor (baja lógica: se conservan sus datos, suplencias y recibos) y deja de aparecer como habilitado para sus materias. Responde `409` si es docente de alguna clase de una planificación Vigente. Con `activo: true` lo reactiva. (Agregado: el documento nombra `eliminarProfesor()`.)\n\nInvoca: planificacion.get_posibles_estados_de_propuestas, planificacion.get_propuestas, planificacion.get_clases"})
+  @ApiParam({"name":"id","description":"Id del profesor","type":"integer","format":"int64"})
+  @ApiResponse({ status: 200, description: "OK", type: Profesor })
+  @ApiResponse({ status: 400, description: 'Datos inválidos', type: ErrorApi })
+  @ApiResponse({ status: 404, description: 'No existe el recurso', type: ErrorApi })
+  asignar_activo_profesor(@Param("id", ParseIntPipe) id: number, @Body() body: AsignarActivoProfesorDto): Promise<Profesor> {
+    return this.servicio.asignar_activo_profesor(id, body);
+  }
+
   @Get("profesores/:id")
   @ApiOperation({"operationId":"get_profesor","summary":"Obtener profesor","description":"Invoca: orientacion.get_materia"})
   @ApiParam({"name":"id","description":"Id del profesor","type":"integer","format":"int64"})
@@ -71,7 +81,7 @@ export class ProfesorController {
   }
 
   @Get("profesores")
-  @ApiOperation({"operationId":"get_profesores","summary":"Listar profesores","description":"Con `id_usuario` se obtiene el profesor del usuario que inició sesión."})
+  @ApiOperation({"operationId":"get_profesores","summary":"Listar profesores","description":"Con `id_usuario` se obtiene el profesor del usuario que inició sesión. Sin `activo` devuelve también los profesores dados de baja."})
   @ApiResponse({ status: 200, description: "OK", type: [Profesor] })
   @ApiResponse({ status: 400, description: 'Datos inválidos', type: ErrorApi })
   get_profesores(@Query() query: GetProfesoresQuery): Promise<Profesor[]> {
