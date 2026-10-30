@@ -155,6 +155,8 @@ export class Curso implements C.Curso {
   division!: string;
   @ApiProperty({"type":"integer","format":"int64","example":1,"required":false})
   id_anio_academico?: number;
+  @ApiProperty({ type: () => AnioAcademico, description: "Año académico del curso (agregado: no está en el documento)", "readOnly":true,"required":false})
+  anio_academico?: AnioAcademico;
   @ApiProperty({"type":"integer","format":"int64","example":2026,"required":true})
   id_ciclo_lectivo!: number;
   @ApiProperty({"type":"integer","format":"int64","example":1,"required":true})
@@ -236,4 +238,15 @@ export class ResultadoGeneracion implements C.ResultadoGeneracion {
   cambios!: CambioGeneracion[];
   @ApiProperty({"type":"string","isArray":true,"description":"Mensajes de las reglas que rechazaron un cambio (409); el resto se guardó igual","required":true})
   errores!: string[];
+}
+
+/** Respuesta de get_armado_propuesta: lo que necesita la pantalla de armado (A13) para abrir. */
+@ApiSchema({ name: "ArmadoPropuesta" })
+export class ArmadoPropuesta implements C.ArmadoPropuesta {
+  @ApiProperty({ type: () => Propuesta, description: "La propuesta con su estado actual", "required":true})
+  propuesta!: Propuesta;
+  @ApiProperty({ type: () => [EstadoPropuesta], description: "Estados posibles (botones del encabezado)", "required":true})
+  estados!: EstadoPropuesta[];
+  @ApiProperty({ type: () => [Curso], description: "Cursos del ciclo de la propuesta, ordenados por año y división, con año académico, turno, orientación, materias y franjas anidados. Sin clases: esas se piden por curso con get_clases?id_propuesta&id_curso", "required":true})
+  cursos!: Curso[];
 }

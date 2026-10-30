@@ -1,5 +1,5 @@
 // Generado por tools/generar_cliente_web.mjs a partir del /docs-json del servicio. No editar a mano.
-import type { AnioAcademico, AsignarClaseAPropuestaBody, AsignarCursoAAnioAcademicoBody, AsignarCursoAClaseBody, AsignarEstadoAPropuestaBody, AsignarMateriaACursoBody, CambiarHorasMateriaCursoBody, CicloLectivo, Clase, CrearAnioAcademicoBody, CrearCicloLectivoBody, CrearClaseBody, CrearCursoBody, CrearEstadoPropuestaBody, CrearPropuestaBody, Curso, EditarClaseBody, EstadoPropuesta, GenerarPlanillaBody, GetClasesQuery, GetCursosQuery, GetPropuestasQuery, Propuesta, ResultadoGeneracion } from '@sahs/contratos';
+import type { AnioAcademico, ArmadoPropuesta, AsignarClaseAPropuestaBody, AsignarCursoAAnioAcademicoBody, AsignarCursoAClaseBody, AsignarEstadoAPropuestaBody, AsignarMateriaACursoBody, CambiarHorasMateriaCursoBody, CicloLectivo, Clase, CrearAnioAcademicoBody, CrearCicloLectivoBody, CrearClaseBody, CrearCursoBody, CrearEstadoPropuestaBody, CrearPropuestaBody, Curso, EditarClaseBody, EstadoPropuesta, GenerarPlanillaBody, GetClasesQuery, GetCursosQuery, GetPropuestasQuery, Propuesta, ResultadoGeneracion } from '@sahs/contratos';
 import { pedir } from './http';
 
 /** Servicio Planificación Service. */
@@ -22,6 +22,9 @@ export const planificacion = {
   /** POST /planificacion/propuestas/{id}/generacion — Generar la planilla automáticamente. Completa las horas que faltan en los cursos del ciclo de la propuesta (o solo en `id_curso`) y guarda el resultado. Respeta lo ya ubicado, la disponibilidad declarada por cada docente, que un docente no esté en dos clases a la vez (por horario real, aunque sean turnos distintos) y el tope de 2 horas diarias por materia. Si la clase ya tiene docentes usa esos; si no, el habilitado con más margen (las materias EPA van con todos sus habilitados juntos). Cada cambio se guarda como crear_clase + asignar_clase_a_propuesta o editar_clase; si una regla lo rechaza, sigue con el resto y lo informa en `errores`. `cambios` trae lo que tenía cada clase antes, para deshacer. Solo en Borrador. (Agregado: no está en el documento.) */
   generar_planilla: (id: number, body: GenerarPlanillaBody) =>
     pedir<ResultadoGeneracion>(`/planificacion/propuestas/${id}/generacion`, { metodo: 'POST', body }),
+  /** GET /planificacion/propuestas/{id}/armado — Fachada: datos para abrir el armado de la propuesta (pantalla A13). **Fachada** (agregado: no está en el documento). Junta en una sola respuesta lo que la pantalla de armado pedía en cuatro llamadas, y no guarda nada. */
+  get_armado_propuesta: (id: number) =>
+    pedir<ArmadoPropuesta>(`/planificacion/propuestas/${id}/armado`, { metodo: 'GET' }),
   /** GET /planificacion/propuestas/{id} — Obtener propuesta */
   get_propuesta: (id: number) =>
     pedir<Propuesta>(`/planificacion/propuestas/${id}`, { metodo: 'GET' }),

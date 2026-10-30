@@ -2,7 +2,7 @@
 import { Body, Controller, Get, HttpCode, Param, ParseIntPipe, Post, Put, Query } from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { ErrorApi } from '@sahs/comun';
-import { EstadoPropuesta, Propuesta, ResultadoGeneracion } from '../dto/modelos';
+import { ArmadoPropuesta, EstadoPropuesta, Propuesta, ResultadoGeneracion } from '../dto/modelos';
 import { AsignarClaseAPropuestaDto, AsignarEstadoAPropuestaDto, CrearPropuestaDto, GenerarPlanillaDto, GetPropuestasQuery } from '../dto/entradas';
 import { PropuestaService } from './propuesta.service';
 
@@ -65,6 +65,34 @@ export class PropuestaController {
   @ApiResponse({ status: 409, description: 'La propuesta no está en Borrador', type: ErrorApi })
   generar_planilla(@Param("id", ParseIntPipe) id: number, @Body() body: GenerarPlanillaDto): Promise<ResultadoGeneracion> {
     return this.servicio.generar_planilla(id, body ?? {});
+  }
+
+  @Get("propuestas/:id/armado")
+  @ApiOperation({
+    operationId: "get_armado_propuesta",
+    summary: "Fachada: datos para abrir el armado de la propuesta (pantalla A13)",
+    description:
+      "**Fachada** (agregado: no está en el documento). Junta en una sola respuesta lo que la pantalla de armado " +
+      "pedía en cuatro llamadas, y no guarda nada.\n\n" +
+      "**Qué hace por detrás:**\n\n" +
+      "| Paso | Origen | Equivale a |\n" +
+      "|---|---|---|\n" +
+      "| 1. Busca la propuesta con su estado (404 si no existe) | Planificación, tablas `planificacion_propuesta` y `planificacion_estado_propuesta` | `get_propuesta` |\n" +
+      "| 2. Lista los estados posibles | Planificación, tabla `planificacion_estado_propuesta` | `get_posibles_estados_de_propuestas` |\n" +
+      "| 3. Lista los cursos del ciclo de la propuesta, ordenados por año y división, con sus materias y su año académico | Planificación, tablas `planificacion_curso`, `planificacion_materia_curso` y `planificacion_anio_academico` | `get_cursos?id_ciclo_lectivo` + `get_anios_academicos` |\n" +
+      "| 4. Nombre y área de cada materia del curso | HTTP a **Orientación**: `GET /orientacion/materias` (una vez) | `orientacion.get_materias` |\n" +
+      "| 5. Orientación de cada curso | HTTP a **Orientación**: `GET /orientacion/orientaciones` (una vez) | `orientacion.get_orientaciones` |\n" +
+      "| 6. Turno y franjas horarias de cada curso | HTTP a **Horarios**: `GET /horarios/turnos` (una vez) | `horarios.get_turnos` |\n\n" +
+      "Los pasos 1 a 3 corren en paralelo y los 4 a 6 también, así que hay 3 llamadas HTTP por request sin importar cuántos cursos haya. " +
+      "Si Orientación u Horarios no responden, devuelve 503.\n\n" +
+      "**Qué no trae:** las clases. La pantalla las pide recién al elegir un curso, con `get_clases?id_propuesta={id}&id_curso={id_curso}`.\n\n" +
+      "Invoca: orientacion.get_materias, orientacion.get_orientaciones, horarios.get_turnos.",
+  })
+  @ApiParam({"name":"id","description":"Id de la propuesta","type":"integer","format":"int64"})
+  @ApiResponse({ status: 200, description: "OK", type: ArmadoPropuesta })
+  @ApiResponse({ status: 404, description: 'No existe la propuesta', type: ErrorApi })
+  get_armado_propuesta(@Param("id", ParseIntPipe) id: number): Promise<ArmadoPropuesta> {
+    return this.servicio.get_armado_propuesta(id);
   }
 
   @Get("propuestas/:id/estado")

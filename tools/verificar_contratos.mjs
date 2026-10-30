@@ -39,13 +39,15 @@ const SERVICIOS = [
  * Diferencias aceptadas a propósito (documentadas en el README, "Cambios respecto del documento"):
  * operaciones agregadas (por operationId) y los códigos 409 y 503, que el contrato original no tenía.
  */
-const AGREGADOS = new Set(['editar_clase', 'eliminar_clase', 'get_plan_de_estudios', 'generar_planilla']);
+const AGREGADOS = new Set(['editar_clase', 'eliminar_clase', 'get_plan_de_estudios', 'generar_planilla', 'get_armado_propuesta']);
 const CODIGOS_AGREGADOS = ['409', '503'];
 /**
  * Propiedades agregadas a propósito a un schema (por nombre del schema), también documentadas:
- * el área de la materia anidada en el curso y en la clase, para no pedir el catálogo de materias.
+ * el área de la materia anidada en el curso y en la clase, para no pedir el catálogo de materias,
+ * y el año académico anidado en el curso, para no pedir get_anios_academicos.
  */
 const PROPIEDADES_AGREGADAS = {
+  Curso: ['anio_academico'],
   MateriaCurso: ['id_area', 'nombre_area'],
   MateriaResumen: ['id_area', 'nombre_area'],
 };

@@ -2,8 +2,10 @@
 // DC.registrar("planificacionmanual") en prototipo/index.html.
 // Ruta: /planificaciones/:id y /planificaciones/:id/cursos/:idCurso. Sin curso en la ruta se abre
 // el primero del ciclo.
-// Carga por etapas: al entrar solo se traen la propuesta, los cursos del ciclo, las clases del curso
-// visible (con su materia y sus profesores anidados), los años y los estados. Recién con la primera
+// Carga por etapas: al entrar se pide la fachada get_armado_propuesta (propuesta, estados y cursos del
+// ciclo con su año anidado, en una sola llamada) y las clases del curso visible (con su materia y sus
+// profesores anidados). Al elegir otro curso se piden solo sus clases. Nada queda en caché: cada
+// entrada y cada curso se piden de nuevo (SIN_CACHE). Recién con la primera
 // interacción para editar (una materia o una franja) se traen los profesores (habilitaciones y
 // disponibilidad) y todas las clases de la propuesta (choques con otros cursos). El área de cada
 // materia viene anidada en el curso.
@@ -71,6 +73,9 @@ interface Aviso {
   tipo: 'auto' | 'info';
 }
 
+/** Esta pantalla no guarda nada en caché: siempre muestra lo último de la API. */
+const SIN_CACHE = { staleTime: 0, gcTime: 0, refetchOnWindowFocus: false } as const;
+
 export default function A13PlanificacionManual() {
   const ir = useIr();
   const ciclo = useCiclo();
@@ -78,31 +83,29 @@ export default function A13PlanificacionManual() {
   const idCursoParam = useParamRuta('idCurso');
 
   // ---- datos
-  const qPropuesta = useConsulta(['planificacion', 'get_propuesta', idPropParam], () => planificacion.get_propuesta(idPropParam!), {
-    enabled: !!idPropParam,
-  });
-  const propuesta = idPropParam ? qPropuesta.data : undefined;
-  const idCiclo = propuesta?.id_ciclo_lectivo;
+  // Fachada: propuesta + estados + cursos del ciclo (con año, turno, orientación, materias y franjas).
+  const qArmado = useConsulta(
+    ['planificacion', 'get_armado_propuesta', idPropParam],
+    () => planificacion.get_armado_propuesta(idPropParam!),
+    { enabled: !!idPropParam, ...SIN_CACHE },
+  );
+  const propuesta = idPropParam ? qArmado.data?.propuesta : undefined;
   const idProp = propuesta?.id_propuesta;
 
-  const qCursos = useConsulta(['planificacion', 'get_cursos', idCiclo], () => planificacion.get_cursos({ id_ciclo_lectivo: idCiclo! }), {
-    enabled: !!idCiclo,
-  });
-  const qAnios = useConsulta(['planificacion', 'get_anios_academicos'], () => planificacion.get_anios_academicos());
-  const qEstados = useConsulta(['planificacion', 'get_posibles_estados_de_propuestas'], () => planificacion.get_posibles_estados_de_propuestas());
   // Etapa 1: las clases del curso visible.
   const qClasesCurso = useConsulta(
     ['planificacion', 'get_clases', { id_propuesta: idProp, id_curso: idCursoParam }],
     () => planificacion.get_clases({ id_propuesta: idProp!, id_curso: idCursoParam! }),
-    { enabled: !!idProp && !!idCursoParam },
+    { enabled: !!idProp && !!idCursoParam, ...SIN_CACHE },
   );
 
   // Etapa 2: se activa con la primera interacción para editar y queda activa.
   const [edicionActiva, setEdicionActiva] = useState(false);
   const qClasesTodas = useConsulta(['planificacion', 'get_clases', { id_propuesta: idProp }], () => planificacion.get_clases({ id_propuesta: idProp! }), {
     enabled: !!idProp && edicionActiva,
+    ...SIN_CACHE,
   });
-  const qProfes = useConsulta(['profesor_suplencias', 'get_profesores'], () => profesorSuplencias.get_profesores(), { enabled: edicionActiva });
+  const qProfes = useConsulta(['profesor_suplencias', 'get_profesores'], () => profesorSuplencias.get_profesores(), { enabled: edicionActiva, ...SIN_CACHE });
   /** Ya están los datos para editar (docentes habilitados, disponibilidad y choques). */
   const listo = edicionActiva && !!qClasesTodas.data && !!qProfes.data;
 
@@ -122,8 +125,7 @@ export default function A13PlanificacionManual() {
   /** Aviso para mostrar al llegar a otra propuesta (la duplicada). */
   const avisoAlLlegar = useRef<Aviso | null>(null);
 
-  const anios = qAnios.data ?? [];
-  const cursos = useMemo(() => ordenarCursos(qCursos.data ?? [], anios), [qCursos.data, anios]);
+  const cursos = useMemo(() => ordenarCursos(qArmado.data?.cursos ?? []), [qArmado.data]);
   const clasesCurso = useMemo(() => qClasesCurso.data ?? [], [qClasesCurso.data]);
   const clasesTodas = useMemo(() => qClasesTodas.data ?? [], [qClasesTodas.data]);
   const profesores = useMemo(() => qProfes.data ?? [], [qProfes.data]);
@@ -131,7 +133,7 @@ export default function A13PlanificacionManual() {
   const curso = (idCursoParam && cursos.find((c) => c.id_curso === idCursoParam)) || null;
 
   // Sin curso en la ruta: se abre el primero del ciclo (reemplaza la URL, no suma un paso al historial).
-  const primerCurso = qAnios.data ? cursos[0]?.id_curso : undefined; // el orden necesita los años
+  const primerCurso = cursos[0]?.id_curso;
   useEffect(() => {
     if (idProp && !idCursoParam && primerCurso) ir(rutas.armado(idProp, primerCurso), { replace: true });
   }, [idProp, idCursoParam, primerCurso, ir]);
@@ -163,9 +165,9 @@ export default function A13PlanificacionManual() {
   const disponible = (pid: number, fid: number) => !!dispPorProf.get(pid)?.has(fid);
   const grillas = useMemo(() => new Map(cursos.map((c) => [c.id_curso, armarGrilla(c.franjas_horarias)])), [cursos]);
 
-  const cargando = qPropuesta.isLoading || qCursos.isLoading || qAnios.isLoading;
+  const cargando = qArmado.isLoading;
 
-  const errorCarga = qPropuesta.error ?? qCursos.error;
+  const errorCarga = qArmado.error;
   const errorEdicion = qClasesTodas.error ?? qProfes.error;
 
   if (!propuesta || cargando) {
@@ -188,7 +190,7 @@ export default function A13PlanificacionManual() {
   // ======== cálculo de la vista (como renderVals() del prototipo) ========
   const codigoEstado = propuesta.estado?.codigo ?? 'BOR';
   const estadoVista = COLOR_ESTADO[codigoEstado] ?? COLOR_ESTADO.BOR;
-  const nombreDe = (c: Curso) => nombreCurso(c, anios);
+  const nombreDe = (c: Curso) => nombreCurso(c);
   const anioCiclo = ciclo.ciclos.find((c) => c.id_ciclo_lectivo === propuesta.id_ciclo_lectivo)?.anio_calendario;
   const enBorrador = codigoEstado === 'BOR';
 
@@ -351,7 +353,7 @@ export default function A13PlanificacionManual() {
   const ocupado = acc.enCurso || !!duplicando;
   const grilla = grillas.get(curso.id_curso)!;
   const nombreCursoActual = nombreDe(curso);
-  const anioCurso = numeroAnio(curso, anios);
+  const anioCurso = numeroAnio(curso);
   const plan = curso.materias ?? [];
   // Nombres de materias y docentes: los anidados en las clases del curso; si ya llegaron, los catálogos.
   const nombreMateriaClase = new Map<number, string>();
@@ -447,7 +449,7 @@ export default function A13PlanificacionManual() {
   };
 
   const cambiarEstado = async (codigo: string, mensaje?: string) => {
-    const e = (qEstados.data ?? []).find((x) => x.codigo === codigo);
+    const e = (qArmado.data?.estados ?? []).find((x) => x.codigo === codigo);
     if (!e) return;
     const ok = await ejecutar(() => planificacion.asignar_estado_a_propuesta(propuesta.id_propuesta, { id_estado: e.id_estado }));
     if (ok !== undefined) {

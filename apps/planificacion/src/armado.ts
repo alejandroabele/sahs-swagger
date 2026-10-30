@@ -156,7 +156,12 @@ export class Armado {
 
   async armarCursos(lista: CursoEntidad[]): Promise<Curso[]> {
     if (!lista.length) return [];
-    const mc = await this.materiasCurso.find({ where: { id_curso: In(lista.map((c) => c.id_curso)) } });
+    const idsAnio = [...new Set(lista.map((c) => c.id_anio_academico).filter((x): x is number => x != null))];
+    const [mc, anios] = await Promise.all([
+      this.materiasCurso.find({ where: { id_curso: In(lista.map((c) => c.id_curso)) } }),
+      idsAnio.length ? this.anios.findBy({ id_anio_academico: In(idsAnio) }) : Promise.resolve([] as AnioAcademicoEntidad[]),
+    ]);
+    const anioPorId = new Map(anios.map((a) => [a.id_anio_academico, aAnio(a)]));
     const anidar = conAnidados();
     const [materias, turnos, orients] = anidar
       ? await Promise.all([this.materiasPorId(), this.turnosPorId(), this.orientacionPorCurso()])
@@ -168,6 +173,8 @@ export class Armado {
         id_curso: c.id_curso,
         division: c.division,
         id_anio_academico: c.id_anio_academico ?? undefined,
+        // El año es de este servicio: va siempre, así el cliente arma "1° A" sin pedir get_anios_academicos.
+        anio_academico: c.id_anio_academico != null ? anioPorId.get(c.id_anio_academico) : undefined,
         id_ciclo_lectivo: c.id_ciclo_lectivo,
         id_turno: c.id_turno,
         id_orientacion: o?.id_orientacion as number,
