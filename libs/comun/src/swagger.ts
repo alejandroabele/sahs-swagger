@@ -15,8 +15,11 @@ export interface InfoSwagger {
   dependencias: Dependencia[];
 }
 
+/** La UI de cada servicio se publica solo fuera de producción; en Docker está la de la web (/docs/). */
+export const uiSwaggerActiva = () => process.env.NODE_ENV !== 'production';
+
 /**
- * Publica el OpenAPI del servicio en /docs (UI) y /docs-json.
+ * Publica el OpenAPI del servicio en /docs-json, siempre, y la UI en /docs, solo fuera de producción.
  * Este documento es la fuente de verdad de la API.
  */
 export function configurarSwagger(app: INestApplication, info: InfoSwagger) {
@@ -35,6 +38,7 @@ export function configurarSwagger(app: INestApplication, info: InfoSwagger) {
   });
   (doc.info as any)['x-dependencias'] = info.dependencias;
   SwaggerModule.setup('docs', app, doc, {
+    ui: uiSwaggerActiva(),
     jsonDocumentUrl: 'docs-json',
     customSiteTitle: info.titulo,
     swaggerOptions: { docExpansion: 'list', defaultModelsExpandDepth: 1 },

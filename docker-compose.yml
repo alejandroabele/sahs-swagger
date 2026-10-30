@@ -1,9 +1,146 @@
+# SAHS · toda la aplicación, en un solo compose y con un solo puerto (8100).
+#
+#   docker compose up -d --build    # construye y levanta todo
+#   docker compose down             # baja todo (los datos quedan en el volumen)
+#   docker compose down -v          # baja todo y borra la base
+#
+#   Web:          http://localhost:8100             (usuario secretaria, contraseña sahs2026)
+#   Swagger UI:   http://localhost:8100/docs/       (los 6 servicios)
+#   Prototipo:    http://localhost:8100/prototipo/  (referencia visual; se edita en caliente)
+
+name: sahs-app
+
+x-entorno-servicios: &entorno
+  NODE_ENV: production
+  PORT: "3000"
+  DB_PATH: /data/sahs.sqlite
+  JWT_SECRET: ${JWT_SECRET:-cambiar-este-secreto}
+  URL_USUARIO: http://usuario:3000
+  URL_PAGO: http://pago:3000
+  URL_HORARIOS: http://horarios:3000
+  URL_PLANIFICACION: http://planificacion:3000
+  URL_ORIENTACION: http://orientacion:3000
+  URL_PROFESOR_SUPLENCIAS: http://profesor-suplencias:3000
+
+x-servicio: &servicio
+  restart: unless-stopped
+  environment: *entorno
+  volumes:
+    - sahs-data:/data
+  networks: [interna]
+  depends_on:
+    db-init:
+      condition: service_completed_successfully
+  healthcheck:
+    test: ["CMD", "node", "-e", "fetch('http://localhost:3000/actuator/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+    interval: 10s
+    timeout: 5s
+    retries: 6
+    start_period: 10s
+
 services:
-  prototipo:
-    image: nginx:1.27.5-alpine
-    container_name: sahs-prototipo
-    ports:
-      - "8090:80"
+  # Crea o actualiza la base (migraciones) y carga los datos iniciales; después termina.
+  db-init:
+    build:
+      context: .
+      dockerfile: apps/Dockerfile.servicio
+      args: { APP: db, ENTRADA: db-init.js }
+    image: sahs-app/db-init:1.0.0
+    container_name: sahs-app-db-init
+    environment:
+      DB_PATH: /data/sahs.sqlite
     volumes:
-      - ./prototipo:/usr/share/nginx/html:ro
+      - sahs-data:/data
+    networks: [interna]
+    restart: "no"
+
+  usuario:
+    <<: *servicio
+    build:
+      context: .
+      dockerfile: apps/Dockerfile.servicio
+      args: { APP: usuario }
+    image: sahs-app/usuario:1.0.0
+    container_name: sahs-app-usuario
+
+  pago:
+    <<: *servicio
+    build:
+      context: .
+      dockerfile: apps/Dockerfile.servicio
+      args: { APP: pago }
+    image: sahs-app/pago:1.0.0
+    container_name: sahs-app-pago
+
+  horarios:
+    <<: *servicio
+    build:
+      context: .
+      dockerfile: apps/Dockerfile.servicio
+      args: { APP: horarios }
+    image: sahs-app/horarios:1.0.0
+    container_name: sahs-app-horarios
+
+  planificacion:
+    <<: *servicio
+    build:
+      context: .
+      dockerfile: apps/Dockerfile.servicio
+      args: { APP: planificacion }
+    image: sahs-app/planificacion:1.0.0
+    container_name: sahs-app-planificacion
+
+  orientacion:
+    <<: *servicio
+    build:
+      context: .
+      dockerfile: apps/Dockerfile.servicio
+      args: { APP: orientacion }
+    image: sahs-app/orientacion:1.0.0
+    container_name: sahs-app-orientacion
+
+  profesor-suplencias:
+    <<: *servicio
+    build:
+      context: .
+      dockerfile: apps/Dockerfile.servicio
+      args: { APP: profesor-suplencias }
+    image: sahs-app/profesor-suplencias:1.0.0
+    container_name: sahs-app-profesor-suplencias
+
+  # nginx: build de React, proxy por prefijo hacia los servicios, Swagger UI (/docs/)
+  # y prototipo (/prototipo/). Es el único contenedor con puerto publicado.
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    image: sahs-app/web:1.0.0
+    container_name: sahs-app-web
     restart: unless-stopped
+    ports:
+      - "8100:80"
+    volumes:
+      # Tapa la copia de la imagen, para ver los cambios del prototipo sin reconstruir.
+      - ./prototipo:/usr/share/nginx/html/prototipo:ro
+    networks: [interna]
+    depends_on:
+      usuario:
+        condition: service_healthy
+      pago:
+        condition: service_healthy
+      horarios:
+        condition: service_healthy
+      planificacion:
+        condition: service_healthy
+      orientacion:
+        condition: service_healthy
+      profesor-suplencias:
+        condition: service_healthy
+
+volumes:
+  sahs-data:
+    name: sahs-data
+
+networks:
+  interna:
+    name: sahs-app-interna
