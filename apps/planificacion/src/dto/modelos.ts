@@ -95,7 +95,7 @@ export class MateriaCurso implements C.MateriaCurso {
   nombre_area?: string | null;
 }
 
-/** Catálogo gestionado con crear_estado_propuesta. Carga inicial: Borrador (BOR), En revisión (REV), Validada (VAL) y Cerrada (CER). El estado es de toda la propuesta, no de cada curso. */
+/** Catálogo gestionado con crear_estado_propuesta. Carga inicial: Borrador (BOR), En revisión (REV), Vigente (VIG) y Fue vigente (FVG). El estado es de toda la propuesta, no de cada curso. Hay una sola Vigente por ciclo lectivo; las que lo fueron quedan en Fue vigente. */
 @ApiSchema({ name: "EstadoPropuesta" })
 export class EstadoPropuesta implements C.EstadoPropuesta {
   @ApiProperty({"type":"integer","format":"int64","example":1,"readOnly":true,"required":true})

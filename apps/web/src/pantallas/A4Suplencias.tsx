@@ -1,7 +1,7 @@
 // A4 · Suplencias del período. Prototipo: <template id="tpl-suplencias"> y DC.registrar("suplencias") en prototipo/index.html.
-// Se elige el docente ausente, el período y el motivo; se listan sus clases en la propuesta vigente (VAL)
+// Se elige el docente ausente, el período y el motivo; se listan sus clases en la propuesta vigente (VIG)
 // del ciclo (planificacion.get_clases), con la grilla del curso; para cada clase se elige un suplente
-// entre los habilitados en la materia, disponibles en todas sus franjas y sin otra clase en esas horas.
+// entre los activos habilitados en la materia, disponibles en todas sus franjas y sin otra clase en esas horas.
 // Registrar = profesor_suplencias.crear_suplencia (POST /profesores/{suplente}/suplencias), una por suplente. Cada clase se cubre entera.
 import { useMemo, useState } from 'react';
 import type { Clase, Curso, FranjaHorariaResumen, Profesor, Suplencia } from '@sahs/contratos';
@@ -120,7 +120,7 @@ export default function A4Suplencias() {
   const qProp = useConsulta(['planificacion', 'get_propuestas', { id_ciclo_lectivo: idCiclo }], () => planificacion.get_propuestas({ id_ciclo_lectivo: idCiclo }), {
     enabled: idCiclo != null,
   });
-  const vigente = (qProp.data ?? []).find((p) => p.estado?.codigo === 'VAL') ?? null;
+  const vigente = (qProp.data ?? []).find((p) => p.estado?.codigo === 'VIG') ?? null;
   const idProp = vigente?.id_propuesta;
   const qProfes = useConsulta(['profesor_suplencias', 'get_profesores'], () => profesorSuplencias.get_profesores());
   const qCursos = useConsulta(['planificacion', 'get_cursos', { id_ciclo_lectivo: idCiclo }], () => planificacion.get_cursos({ id_ciclo_lectivo: idCiclo }), {
@@ -287,7 +287,7 @@ export default function A4Suplencias() {
     notaCompartida = notaDe(k);
     if (!selX.reg && !st.asign[k.id_clase]) {
       const posibles = profes.filter(
-        (p) => p.id_profesor !== st.ausente && !k.ids_profesores?.includes(p.id_profesor) && (p.lista_materias_habilitadas ?? []).some((m) => m.id_materia === k.id_materia),
+        (p) => p.activo !== false && p.id_profesor !== st.ausente && !k.ids_profesores?.includes(p.id_profesor) && (p.lista_materias_habilitadas ?? []).some((m) => m.id_materia === k.id_materia),
       );
       for (const p of posibles) {
         const imp = impedimento(p.id_profesor, k, st.asign);
@@ -438,7 +438,7 @@ export default function A4Suplencias() {
   const avisoPlanilla = !activo
     ? 'No hay un ciclo lectivo elegido.'
     : !qProp.isLoading && !vigente
-      ? `El ciclo lectivo ${activo.anio_calendario} no tiene una planificación validada: no hay clases para cubrir.`
+      ? `El ciclo lectivo ${activo.anio_calendario} no tiene una planificación vigente: no hay clases para cubrir.`
       : null;
 
   const cursoNombreVista = cursoVista != null ? nombreCurso(cursoVista) : '—';
@@ -455,7 +455,7 @@ export default function A4Suplencias() {
             <span style={css('color: #c3cad4;')}>/</span>
             <span style={css('color: #14181f; font-weight: 500;')}>Novedades del personal</span>
             <span style={css('color: #c3cad4;')}>/</span>
-            <span>{vigente ? `Planilla validada el ${fecha(vigente.fecha_modificacion)}` : 'Sin planilla validada'}</span>
+            <span>{vigente ? `Planilla vigente desde el ${fecha(vigente.fecha_modificacion)}` : 'Sin planilla vigente'}</span>
           </div>
           <div className="r-titulo" style={css('font-size: 24px; font-weight: 600; letter-spacing: -0.02em;')}>Suplencias del período</div>
         </div>

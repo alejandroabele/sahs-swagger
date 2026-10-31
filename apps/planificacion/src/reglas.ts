@@ -7,12 +7,13 @@ import { Armado, nombreFranja } from './armado';
 /** Transiciones de estado permitidas entre los estados de catálogo. */
 export const TRANSICIONES: Record<string, string[]> = {
   BOR: ['REV'],
-  REV: ['VAL', 'BOR'],
-  VAL: ['CER'],
-  CER: [],
+  REV: ['VIG', 'BOR'],
+  // Una Vigente pasa sola a Fue vigente cuando otra del ciclo pasa a Vigente.
+  VIG: [],
+  FVG: [],
 };
 
-export const NOMBRE_ESTADO: Record<string, string> = { BOR: 'Borrador', REV: 'En revisión', VAL: 'Validada', CER: 'Cerrada' };
+export const NOMBRE_ESTADO: Record<string, string> = { BOR: 'Borrador', REV: 'En revisión', VIG: 'Vigente', FVG: 'Fue vigente' };
 
 /** Reglas de negocio de las clases: franjas del turno, docentes habilitados y disponibles, choques. */
 @Injectable()
@@ -47,6 +48,7 @@ export class Reglas {
       const p = profes.get(idp);
       if (!p) throw referenciaInvalida(`No existe el profesor ${idp}`);
       const nombre = `${p.nombre} ${p.apellido}`;
+      if (p.activo === false) throw conflicto(`${nombre} está dado de baja: no se le pueden asignar clases`);
       if (!(p.lista_materias_habilitadas ?? []).some((m) => m.id_materia === idMateria)) {
         throw conflicto(`${nombre} no tiene habilitada la materia ${materia.nombre_materia}`);
       }
@@ -83,6 +85,29 @@ export class Reglas {
         const p = profes.get(comunes[0].id_profesor);
         throw conflicto(`${p ? p.nombre + ' ' + p.apellido : 'El docente'} ya tiene la clase ${otra.codigo} el ${cuando}`);
       }
+    }
+  }
+
+  /**
+   * Dentro de la propuesta, las franjas de las clases de una materia en un curso no superan
+   * sus horas semanales en el curso. `franjas` es la cantidad de franjas de la clase `idClase`.
+   */
+  async validarHorasMateria(idPropuesta: number, idClase: number, idCurso: number, idMateria: number, franjas: number) {
+    const dicta = await this.a.materiasCurso.findOneBy({ id_curso: idCurso, id_materia: idMateria });
+    if (!dicta) return;
+    const otras = (await this.a.propuestaClases.findBy({ id_propuesta: idPropuesta })).map((x) => x.id_clase).filter((x) => x !== idClase);
+    const mismas = otras.length
+      ? await this.a.clases.find({ where: { id_clase: In(otras), id_curso: idCurso, id_materia: idMateria }, relations: { franjas: true } })
+      : [];
+    const puestas = mismas.reduce((n, c) => n + (c.franjas?.length ?? 0), 0);
+    if (puestas + franjas > dicta.horas_semanales) {
+      const curso = await this.a.curso(idCurso);
+      const anio = curso.id_anio_academico != null ? (await this.a.anios.findOneBy({ id_anio_academico: curso.id_anio_academico }))?.anio_curricular : null;
+      const nombreCurso = ((anio ? anio + ' ' : '') + curso.division).replace(/ año/, '').trim();
+      const materia = await this.a.orientacion.exigir<C.Materia>(`materias/${idMateria}`, `No existe la materia ${idMateria}`);
+      throw conflicto(
+        `${materia.nombre_materia} en ${nombreCurso} ya tiene ${puestas} de ${dicta.horas_semanales} h: la clase suma ${franjas} más`,
+      );
     }
   }
 

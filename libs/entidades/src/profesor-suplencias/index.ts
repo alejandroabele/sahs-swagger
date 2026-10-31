@@ -35,6 +35,10 @@ export class ProfesorEntidad {
   @Column({ type: 'integer', nullable: true })
   id_usuario!: number | null;
 
+  /** false = dado de baja en la institución (baja lógica). */
+  @Column({ type: 'boolean', default: true })
+  activo!: boolean;
+
   @OneToMany(() => ProfesorMateriaEntidad, (m) => m.profesor)
   materias?: ProfesorMateriaEntidad[];
 

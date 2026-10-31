@@ -1,8 +1,8 @@
 // Bodies y queries de entrada, con validación (class-validator) y swagger.
 // Generado una vez por tools/generar_scaffold.mjs; desde entonces se mantiene a mano.
 import { ApiProperty } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
-import { IsArray, IsDateString, IsEmail, IsInt, IsNotEmpty, IsOptional, IsString, ValidateIf } from 'class-validator';
+import { Transform, Type } from 'class-transformer';
+import { IsArray, IsBoolean, IsDateString, IsEmail, IsInt, IsNotEmpty, IsOptional, IsString, ValidateIf } from 'class-validator';
 import type * as C from '@sahs/contratos';
 /** Body de POST /profesor-suplencias/suplencias */
 export class CrearSuplenciaDto implements C.CrearSuplenciaBody {
@@ -96,6 +96,13 @@ export class AsignarUsuarioProfesorDto implements C.AsignarUsuarioProfesorBody {
   id_usuario!: number;
 }
 
+/** Body de PUT /profesor-suplencias/profesores/{id}/activo */
+export class AsignarActivoProfesorDto implements C.AsignarActivoProfesorBody {
+  @ApiProperty({"type":"boolean","description":"false da de baja al profesor (baja lógica); true lo reactiva","example":false,"required":true})
+  @IsBoolean()
+  activo!: boolean;
+}
+
 /** Body de PUT /profesor-suplencias/profesores/{id}/materias-habilitadas */
 export class AsignarMateriasHabilitadasDto implements C.AsignarMateriasHabilitadasBody {
   @ApiProperty({"type":"integer","format":"int64","isArray":true,"required":true})
@@ -119,6 +126,11 @@ export class GetProfesoresQuery implements C.GetProfesoresQuery {
   @Type(() => Number)
   @IsInt()
   id_usuario?: number;
+  @ApiProperty({"type":"boolean","description":"Solo activos (true) o solo dados de baja (false) (filtro opcional)","example":true,"required":false})
+  @IsOptional()
+  @Transform(({ value }) => (value === 'true' ? true : value === 'false' ? false : value))
+  @IsBoolean()
+  activo?: boolean;
 }
 
 /** Query de GET /profesor-suplencias/suplencias */

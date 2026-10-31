@@ -117,7 +117,8 @@ export default function A6MateriaDetalle() {
   // Docentes
   const habilitados = qHabilitados.data ?? [];
   const idsHabilitados = new Set(habilitados.map((p) => p.id_profesor));
-  const candidatos = (qProfesores.data ?? []).filter((p) => !idsHabilitados.has(p.id_profesor));
+  // Los dados de baja no se ofrecen: no están disponibles para ninguna materia.
+  const candidatos = (qProfesores.data ?? []).filter((p) => p.activo && !idsHabilitados.has(p.id_profesor));
   const nombreProf = (p: { nombre?: string; apellido?: string }) => (p.nombre ?? '') + ' ' + (p.apellido ?? '');
   const totalClases = (m.ids_clases ?? []).length;
 

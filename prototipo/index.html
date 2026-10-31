@@ -557,7 +557,7 @@ button { font-family: inherit; cursor: pointer; }
         <span style="color: #c3cad4;">/</span>
         <span style="color: #14181f; font-weight: 500;">Novedades del personal</span>
         <span style="color: #c3cad4;">/</span>
-        <span>Planilla validada el 02/03/2026</span>
+        <span>Planilla vigente desde el 02/03/2026</span>
       </div>
       <div style="font-size: 24px; font-weight: 600; letter-spacing: -0.02em;">Suplencias del período</div>
     </div>
@@ -1233,7 +1233,7 @@ button { font-family: inherit; cursor: pointer; }
             <span style="display: flex; align-items: center; gap: 11px; min-width: 0; padding-right: 12px;">
               <span style="{{p.avatarEstilo}}">{{p.iniciales}}</span>
               <span style="display: flex; flex-direction: column; gap: 2px; min-width: 0; text-align: left;">
-                <span style="font-size: 13.5px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{p.nombre}}</span>
+                <span style="font-size: 13.5px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; {{p.nombreColor}}">{{p.nombre}}<sc-if value="{{p.deBaja}}" hint-placeholder-val="{{false}}"><span style="margin-left: 8px; font-size: 10.5px; font-weight: 600; padding: 2px 8px; border-radius: 9px; background: #fbeef0; color: #a63244;">Dado de baja</span></sc-if></span>
                 <span style="font-size: 11.5px; color: #8b95a5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{p.correo}}</span>
               </span>
             </span>
@@ -1459,9 +1459,29 @@ button { font-family: inherit; cursor: pointer; }
         <div style="font-size: 28px; font-weight: 600; letter-spacing: -0.025em;">{{nombreCompleto}}</div>
         <div style="display: flex; align-items: center; gap: 8px;">
           <span class="mono" style="font-size: 11.5px; font-weight: 600; padding: 4px 11px; border-radius: 13px; background: #f2f4f7; color: #4a5462;">{{legajoPill}}</span>
+          <sc-if value="{{dadoDeBaja}}" hint-placeholder-val="{{false}}">
+            <span style="font-size: 11.5px; font-weight: 600; padding: 4px 11px; border-radius: 13px; background: #fbeef0; color: #a63244;">Dado de baja</span>
+          </sc-if>
         </div>
       </div>
+      <div style="flex-grow: 1;"></div>
+      <sc-if value="{{puedeDarDeBaja}}" hint-placeholder-val="{{true}}">
+        <button onClick="{{pedirBaja}}" style="height: 36px; padding: 0 15px; border-radius: 8px; border: 1px solid #edc9c4; background: #fff; color: #a63244; font-size: 12.5px; font-weight: 500;">Dar de baja</button>
+      </sc-if>
+      <sc-if value="{{confirmandoBaja}}" hint-placeholder-val="{{false}}">
+        <span style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 12px; color: #a63244; max-width: 300px; line-height: 1.4;">Deja de aparecer como habilitado para sus materias. Se conservan sus datos y recibos.</span>
+          <button onClick="{{confirmarBaja}}" style="height: 32px; padding: 0 13px; border-radius: 7px; border: none; background: #b03a2e; color: #fff; font-size: 12px; font-weight: 600;">Sí, dar de baja</button>
+          <button onClick="{{cancelarBaja}}" style="height: 32px; padding: 0 13px; border-radius: 7px; border: 1px solid #edc9c4; background: #fff; color: #b03a2e; font-size: 12px; font-weight: 500;">Cancelar</button>
+        </span>
+      </sc-if>
+      <sc-if value="{{dadoDeBaja}}" hint-placeholder-val="{{false}}">
+        <button onClick="{{reactivar}}" style="height: 36px; padding: 0 15px; border-radius: 8px; border: none; background: {{accent}}; color: #fff; font-size: 12.5px; font-weight: 600;">Reactivar</button>
+      </sc-if>
     </div>
+    <sc-if value="{{hayErrorBaja}}" hint-placeholder-val="{{false}}">
+      <div style="margin-top: 14px; font-size: 12.5px; color: #a63244; background: #fbeef0; border: 1px solid #f0d2d8; border-radius: 8px; padding: 10px 12px; line-height: 1.45;">{{errorBaja}}</div>
+    </sc-if>
   </div>
 
   <div style="display: flex; gap: 18px; padding: 20px 28px 28px; align-items: flex-start;">
@@ -2268,7 +2288,7 @@ button { font-family: inherit; cursor: pointer; }
           <sc-if value="{{puedeRetirar}}" hint-placeholder-val="{{false}}">
             <span style="display: flex; gap: 8px; flex-shrink: 0;">
               <button onClick="{{rechazar}}" style="height: 30px; padding: 0 13px; border-radius: 7px; border: 1px solid {{bannerBorde}}; background: #fff; color: {{bannerColor}}; font-size: 12px; font-weight: 500;">Rechazar</button>
-              <button onClick="{{aprobar}}" style="height: 30px; padding: 0 13px; border-radius: 7px; border: none; background: #2f6b45; color: #fff; font-size: 12px; font-weight: 600;">Aprobar como Dirección</button>
+              <button onClick="{{aprobar}}" style="height: 30px; padding: 0 13px; border-radius: 7px; border: none; background: #2f6b45; color: #fff; font-size: 12px; font-weight: 600;">Aprobar como vigente</button>
             </span>
           </sc-if>
         </div>
@@ -3310,7 +3330,7 @@ button { font-family: inherit; cursor: pointer; }
       <div style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: #6b7482;">
         <span>Ciclo lectivo 2026</span>
         <span style="color: #c3cad4;">/</span>
-        <span>Grilla validada el 02/03/2026</span>
+        <span>Grilla vigente desde el 02/03/2026</span>
       </div>
       <div style="font-size: 24px; font-weight: 600; letter-spacing: -0.02em;">Mi grilla horaria</div>
     </div>
@@ -5550,8 +5570,8 @@ class Component extends DCLogic {
   }
 
   // Ubica cada materia respetando: una sola clase por franja del curso, docente sin
-  // doble asignación, máximo 2 horas diarias de la misma materia y —si el usuario lo
-  // pide— la disponibilidad declarada. Las materias con menos margen van primero y,
+  // doble asignación y —si el usuario lo pide— la disponibilidad declarada. No hay tope de
+  // horas diarias por materia: solo se reparte empezando por los días con menos horas. Las materias con menos margen van primero y,
   // dentro del día, se ocupan antes las franjas que pocos docentes declararon: si no,
   // los últimos en entrar se quedan sin lugar. Al final, un pase de reparación intenta
   // permutar clases ya ubicadas para acomodar lo que quedó afuera.
@@ -5618,7 +5638,6 @@ class Component extends DCLogic {
         var puesto = false;
         for (var di = 0; di < dias.length && !puesto; di++) {
           var d = dias[di];
-          if (enDia(d, s.id) >= 2) continue;
           var slots = horasDia.slice().sort(function (a, b) {
             return escasez[d][a] - escasez[d][b] || a - b;
           });
@@ -5642,7 +5661,7 @@ class Component extends DCLogic {
         for (var s1 = 0; s1 < H && !resuelto; s1++) {
           var ocupa = grid[d1][s1];
           if (!ocupa || ocupa.id === f.id) continue;
-          if (!admite(f, d1, s1) || enDia(d1, f.id) >= 2) continue;
+          if (!admite(f, d1, s1)) continue;
           var otra = null;
           self.S.forEach(function (x) { if (x.id === ocupa.id) otra = x; });
           if (!otra) continue;
@@ -5653,7 +5672,7 @@ class Component extends DCLogic {
               sacar(d1, s1);
               if (!docenteLibre(f, d1, s1)) { poner(otra, d1, s1); continue; }
               poner(f, d1, s1);
-              if (!docenteLibre(otra, d2, s2) || enDia(d2, otra.id) >= 2) {
+              if (!docenteLibre(otra, d2, s2)) {
                 sacar(d1, s1);
                 poner(otra, d1, s1);
                 continue;
@@ -6335,13 +6354,17 @@ class Component extends DCLogic {
 
   habilitados(m) {
     var self = this, nombre = this.MAT[m].n;
+    // Un profesor dado de baja (Profesor.activo = false) no puede ser suplente.
+    var bajas = [];
+    try { bajas = JSON.parse(localStorage.getItem('sahs.bajas') || '[]'); } catch (e) {}
+    var activo = function (tid) { return bajas.indexOf(self.T[tid].n) < 0; };
     try {
       var cat = Catalogo.materias().filter(function (x) { return x.n === nombre && x.a === 1 && x.o === 'Básica'; })[0];
       if (cat) {
-        return Object.keys(this.T).filter(function (tid) { return cat.doc.indexOf(self.T[tid].n) >= 0; });
+        return Object.keys(this.T).filter(function (tid) { return cat.doc.indexOf(self.T[tid].n) >= 0 && activo(tid); });
       }
     } catch (e) {}
-    return this.HABIL[m] || [];
+    return (this.HABIL[m] || []).filter(activo);
   }
 
   // Todas las clases (curso + materia) con sus franjas semanales: [{ d, h }] con h = 1ª, 2ª, …
@@ -8360,10 +8383,16 @@ class Component extends DCLogic {
         || p.dni.indexOf(texto) >= 0;
     });
 
+    // Bajas lógicas (Profesor.activo = false), que se hacen desde la ficha: siguen en la lista, marcadas.
+    var bajas = [];
+    try { bajas = JSON.parse(localStorage.getItem('sahs.bajas') || '[]'); } catch (e) {}
     var listado = visibles.map(function (p) {
       var activa = st.sel === p.leg;
+      var deBaja = bajas.indexOf(p.alias || (p.nom + ' ' + p.ape)) >= 0;
       return {
         nombre: p.ape + ', ' + p.nom,
+        deBaja: deBaja,
+        nombreColor: deBaja ? 'color: #8b95a5;' : '',
         correo: p.mail,
         iniciales: (p.nom.charAt(0) + p.ape.charAt(0)).toUpperCase(),
         legajo: p.leg,
@@ -9588,7 +9617,17 @@ class Component extends DCLogic {
     var self = this;
     this.P.forEach(function (p) { p.disp = self.idsDe(p.turnoAv || 'Mañana', p.av); });
     // cargo: Profesor.cargo_asociado (puede ser null). usr: Profesor.id_usuario (null = sin usuario).
+    // Docentes de clases de la planificación vigente (PLAN-2026-01): no se pueden dar de baja.
+    this.EN_VIGENTE = ['Ramírez', 'Pérez', 'Sánchez', 'Paz', 'Avellaneda', 'Guido', 'González', 'Insúa', 'Villalba', 'Bernal'];
     this.state = { sel: '0' };
+  }
+
+  // Bajas lógicas (Profesor.activo = false): las comparten A7, A13 y A4 por el navegador.
+  bajas() {
+    try { return JSON.parse(localStorage.getItem('sahs.bajas') || '[]'); } catch (e) { return []; }
+  }
+  guardarBajas(l) {
+    try { localStorage.setItem('sahs.bajas', JSON.stringify(l)); } catch (e) {}
   }
 
   idsDe(turno, filas) {
@@ -9656,6 +9695,29 @@ class Component extends DCLogic {
 
     var extra = Object.assign({}, this.valsDatos(p, accent), this.valsUsuario(p, i));
 
+    // Baja lógica (asignar_activo_profesor). La API la rechaza (409) si es docente de la vigente.
+    var bajas = this.bajas();
+    var deBaja = bajas.indexOf(nombreCat) >= 0;
+    extra.dadoDeBaja = deBaja;
+    extra.puedeDarDeBaja = !deBaja && !this.state.confirmandoBaja;
+    extra.confirmandoBaja = !deBaja && !!this.state.confirmandoBaja;
+    extra.hayErrorBaja = !!this.state.errorBaja;
+    extra.errorBaja = this.state.errorBaja || '';
+    extra.pedirBaja = function () { self.setState({ confirmandoBaja: true, errorBaja: null }); };
+    extra.cancelarBaja = function () { self.setState({ confirmandoBaja: false }); };
+    extra.confirmarBaja = function () {
+      if (self.EN_VIGENTE.indexOf(p.ape) >= 0) {
+        self.setState({ confirmandoBaja: false, errorBaja: p.nom + ' ' + p.ape + ' es docente de clases de la planificación Vigente PLAN-2026-01: no se puede dar de baja' });
+        return;
+      }
+      self.guardarBajas(bajas.concat([nombreCat]));
+      self.setState({ confirmandoBaja: false, errorBaja: null });
+    };
+    extra.reactivar = function () {
+      self.guardarBajas(bajas.filter(function (n) { return n !== nombreCat; }));
+      self.setState({ errorBaja: null });
+    };
+
     var vals = {
       accent: accent,
       // La usa la navegación del prototipo para abrir la ficha de un profesor.
@@ -9713,7 +9775,8 @@ class Component extends DCLogic {
   // Estado de formularios y avisos que se descarta al cambiar de profesor.
   limpio(extra) {
     return Object.assign({ editDatos: null, errorDatos: null, avisoDatos: null,
-                           usrModo: null, eNombreUser: '', eEmail: '', usrSel: '', errorUsr: null, avisoUsr: null }, extra || {});
+                           usrModo: null, eNombreUser: '', eEmail: '', usrSel: '', errorUsr: null, avisoUsr: null,
+                           confirmandoBaja: false, errorBaja: null }, extra || {});
   }
 
   // editar_profesor: el formulario manda todos los datos juntos y reemplaza los anteriores.
@@ -11093,8 +11156,8 @@ class Component extends DCLogic {
     this.ESTADOS = {
       'Borrador':    { fondo: '#fdf6ec', texto: '#a56a10' },
       'En revisión': { fondo: '#eef3fc', texto: '#1e4099' },
-      'Validada':    { fondo: '#e9f2ec', texto: '#2f6b45' },
-      'Cerrada':     { fondo: '#f2f4f7', texto: '#7a8393' }
+      'Vigente':     { fondo: '#e9f2ec', texto: '#2f6b45' },
+      'Fue vigente': { fondo: '#f2f4f7', texto: '#7a8393' }
     };
     this.state = {
       ciclo: 2026,
@@ -11103,11 +11166,11 @@ class Component extends DCLogic {
       planes: [
         { n: 'PLAN-2026-02', ciclo: 2026, estado: 'Borrador',
           fecha: 'Hoy, 11:20', origen: 'Creada el 18/02/2026 a partir de PLAN-2026-01', vigente: false },
-        { n: 'PLAN-2026-01', ciclo: 2026, estado: 'Validada',
-          fecha: '02/03/2026', origen: 'Validada por Dirección el 02/03/2026', vigente: true },
-        { n: 'PLAN-2025-02', ciclo: 2025, estado: 'Cerrada',
-          fecha: '15/12/2025', origen: 'Ciclo cerrado el 15/12/2025', vigente: false },
-        { n: 'PLAN-2025-01', ciclo: 2025, estado: 'Cerrada',
+        { n: 'PLAN-2026-01', ciclo: 2026, estado: 'Vigente',
+          fecha: '02/03/2026', origen: 'Aprobada como vigente por Dirección el 02/03/2026', vigente: true },
+        { n: 'PLAN-2025-02', ciclo: 2025, estado: 'Vigente',
+          fecha: '15/12/2025', origen: 'La vigente del ciclo 2025', vigente: true },
+        { n: 'PLAN-2025-01', ciclo: 2025, estado: 'Fue vigente',
           fecha: '20/03/2025', origen: 'Reemplazada por PLAN-2025-02', vigente: false }
       ]
     };
@@ -11720,6 +11783,8 @@ class Component extends DCLogic {
     var self = this;
     var porNombre = {};
     Object.keys(this.T).forEach(function (t) { porNombre[self.T[t].n] = t; });
+    var bajas = [];
+    try { bajas = JSON.parse(localStorage.getItem('sahs.bajas') || '[]'); } catch (e) {}
     var viejo = this.MAT || {};
     var MAT = {}, HAB = {};
     // Cachés que dependen de los turnos del catálogo: se recalculan en cada render.
@@ -11741,7 +11806,8 @@ class Component extends DCLogic {
       var clave = Catalogo.clave(m);
       var k = self.CLAVES[clave] || ('x_' + clave.normalize('NFD').replace(/[^A-Za-z0-9]/g, '_'));
       MAT[k] = { n: m.n, ar: m.ar || 'Sin área', h: m.h, anio: m.a, or: m.o, juntos: !!m.juntos };
-      var tids = m.doc.map(function (d) { return porNombre[d]; }).filter(Boolean);
+      // Los dados de baja (Profesor.activo = false, en A9) no están disponibles para ninguna materia.
+      var tids = m.doc.filter(function (d) { return bajas.indexOf(d) < 0; }).map(function (d) { return porNombre[d]; }).filter(Boolean);
       HAB[k] = m.juntos ? (tids.length ? [tids] : []) : tids.map(function (x) { return [x]; });
     });
     // Una materia que ya está en alguna grilla pero se quitó del catálogo sigue visible.
@@ -11932,10 +11998,8 @@ class Component extends DCLogic {
     var docs = this.docsClase(cursoId, matId) || this.docsDe(clave);
     if (this.state.grillas[cursoId][d][sl]) return { ok: false, tipo: 'ocupada' };
     if (docs.length === 0 || docs[0] === '') return { ok: false, tipo: 'sinDocente' };
-    var enDia = this.state.grillas[cursoId][d].filter(function (x) {
-      return x && self.matDe(x) === matId;
-    }).length;
-    if (enDia >= 2) return { ok: false, tipo: 'tope' };
+    // Una materia no pasa sus horas semanales en el curso (no hay tope de horas por día).
+    if (this.horasPuestas(cursoId, matId) >= (this.MAT[matId] || { h: 0 }).h) return { ok: false, tipo: 'completa' };
     var noDeclaro = docs.some(function (t) { return !self.disponible(t, cursoId, d, sl); });
     if (noDeclaro) return { ok: false, tipo: 'noDeclaro' };
     var choque = null;
@@ -11969,7 +12033,6 @@ class Component extends DCLogic {
     var docentesDe = function (cid, mid) { return self.docsClase(cid, mid, cl); };
     var puede = function (cid, combo, mid, d, sl) {
       if (g[cid][d][sl]) return false;
-      if (enDia(cid, d, mid) >= 2) return false;
       if (combo.some(function (t) { return !self.disponible(t, cid, d, sl); })) return false;
       if (combo.some(function (t) { return !!self.ocupaEnGrillas(g, cl, t, cid, d, sl); })) return false;
       return true;
@@ -12078,21 +12141,25 @@ class Component extends DCLogic {
     var COLOR_ESTADO = {
       borrador: { punto: '#c08430', chip: '#fdf6ec', texto: '#a56a10', label: 'Borrador' },
       revision: { punto: '#3a6fd8', chip: '#eef3fc', texto: '#1e4099', label: 'En revisión' },
-      validada: { punto: '#2f6b45', chip: '#e9f2ec', texto: '#2f6b45', label: 'Validada' },
-      cerrada:  { punto: '#8b95a5', chip: '#f2f4f7', texto: '#5b6471', label: 'Cerrada' }
+      vigente:    { punto: '#2f6b45', chip: '#e9f2ec', texto: '#2f6b45', label: 'Vigente' },
+      fuevigente: { punto: '#8b95a5', chip: '#f2f4f7', texto: '#5b6471', label: 'Fue vigente' }
     };
-    // Transiciones que acepta la API (asignar_estado_a_propuesta).
-    var TRANSICIONES = { borrador: ['revision'], revision: ['validada', 'borrador'], validada: ['cerrada'], cerrada: [] };
-    // La API rechaza (409) el paso a revisión o a validada si falta completar algún curso.
+    // Transiciones que acepta la API (asignar_estado_a_propuesta). Una Vigente pasa sola a
+    // Fue vigente cuando otra del ciclo pasa a Vigente: hay una sola Vigente por ciclo.
+    var TRANSICIONES = { borrador: ['revision'], revision: ['vigente', 'borrador'], vigente: [], fuevigente: [] };
+    // La API rechaza (409) el paso a revisión o a Vigente si alguna materia de algún curso no
+    // tiene exactamente sus horas semanales, e informa curso, materia y horas.
     var rechazoApi = function () {
-      var faltan = [];
+      var dif = [];
       self.CURSOS.forEach(function (c) {
-        var p = 0, t = 0;
-        st.grillas[c.id].forEach(function (f) { f.forEach(function (x) { if (x) p++; }); });
-        c.plan.forEach(function (id) { t += self.MAT[id].h; });
-        if (p < t) faltan.push(c.nombre + ' (' + (t - p) + ' h)');
+        c.plan.forEach(function (id) {
+          var p = self.horasPuestas(c.id, id);
+          if (p !== self.MAT[id].h) dif.push(c.nombre + ': ' + self.MAT[id].n + ' ' + p + ' de ' + self.MAT[id].h + ' h');
+        });
       });
-      return faltan.length ? 'La planificación se envía entera: falta completar ' + faltan.join(' y ') + '.' : null;
+      if (!dif.length) return null;
+      var lista = dif.slice(0, 10).join('; ') + (dif.length > 10 ? '; y ' + (dif.length - 10) + ' más' : '');
+      return 'La planificación no está completa: ' + lista + '. Se envía a revisión y pasa a Vigente con cada materia en sus horas semanales.';
     };
 
     var cursos = this.CURSOS.map(function (c, i) {
@@ -12261,7 +12328,7 @@ class Component extends DCLogic {
           };
         }
 
-        var motivo = { otroCurso: ev.donde, noDeclaro: 'no declaró', tope: '2 h ese día', sinDocente: 'sin docente' };
+        var motivo = { otroCurso: ev.donde, noDeclaro: 'no declaró', completa: 'horas completas', sinDocente: 'sin docente' };
         return {
           clase: 'slot slot-bloq',
           titulo: motivo[ev.tipo] || '', sub: '',
@@ -12357,12 +12424,12 @@ class Component extends DCLogic {
       revision: { titulo: 'Enviada a revisión', color: '#1e4099', fondo: '#eef3fc', borde: '#cfdcf5',
                   icono: 'M12 8v5M12 16.5v.5M12 21a9 9 0 100-18 9 9 0 000 18z',
                   texto: '' },
-      validada: { titulo: 'Planificación validada', color: '#2f6b45', fondo: '#ecf5ef', borde: '#c2e0cd',
+      vigente:    { titulo: 'Planificación vigente', color: '#2f6b45', fondo: '#ecf5ef', borde: '#c2e0cd',
                   icono: 'M20 6L9 17l-5-5',
-                  texto: 'PLAN-2026-02 es la vigente del ciclo.' },
-      cerrada:  { titulo: 'Planificación cerrada', color: '#5b6471', fondo: '#f5f6f8', borde: '#e2e6ec',
+                  texto: 'PLAN-2026-02 es la vigente del ciclo. Pasa a Fue vigente cuando otra del ciclo pase a Vigente.' },
+      fuevigente: { titulo: 'Fue vigente', color: '#5b6471', fondo: '#f5f6f8', borde: '#e2e6ec',
                   icono: 'M5 11h14v10H5zM8 11V8a4 4 0 018 0v3',
-                  texto: 'Fue reemplazada por otra planificación validada del ciclo.' }
+                  texto: 'Fue la vigente del ciclo hasta que otra planificación pasó a Vigente.' }
     };
     var b = banner[estado];
 
@@ -12402,7 +12469,7 @@ class Component extends DCLogic {
       estadoChip: COLOR_ESTADO[estado].label,
       estadoChipEstilo: 'font-size: 11.5px; font-weight: 600; padding: 4px 11px; border-radius: 13px;'
         + ' background: ' + COLOR_ESTADO[estado].chip + '; color: ' + COLOR_ESTADO[estado].texto + ';',
-      estadosBotones: ['borrador','revision','validada','cerrada'].map(function (id, i) {
+      estadosBotones: ['borrador','revision','vigente','fuevigente'].map(function (id, i) {
         var e = COLOR_ESTADO[id];
         var activo = estado === id;
         var permitido = TRANSICIONES[estado].indexOf(id) >= 0;
@@ -12422,18 +12489,18 @@ class Component extends DCLogic {
             if (activo) return;
             if (!permitido) {
               self.setState({
-                aviso: estado === 'borrador' && id === 'validada'
-                  ? 'Primero hay que enviarla a revisión: Dirección la valida desde ahí.'
-                  : 'Una planificación ' + COLOR_ESTADO[estado].label.toLowerCase() + ' no puede pasar a ' + e.label.toLowerCase() + '.',
+                aviso: estado === 'borrador' && id === 'vigente'
+                  ? 'Primero hay que enviarla a revisión: Dirección la aprueba como vigente desde ahí.'
+                  : id === 'fuevigente'
+                    ? 'Una planificación pasa a Fue vigente sola, cuando otra del ciclo pasa a Vigente.'
+                    : estado === 'vigente'
+                      ? 'La planificación vigente no cambia de estado: deja de serlo cuando otra del ciclo pasa a Vigente.'
+                      : 'Una planificación ' + COLOR_ESTADO[estado].label.toLowerCase() + ' no puede pasar a ' + e.label.toLowerCase() + '.',
                 avisoTipo: null, vaciando: false, cerrando: false
               });
               return;
             }
-            if (id === 'cerrada') {
-              self.setState({ cerrando: true, vaciando: false, aviso: null });
-              return;
-            }
-            var rechazo = (id === 'revision' || id === 'validada') ? rechazoApi() : null;
+            var rechazo = (id === 'revision' || id === 'vigente') ? rechazoApi() : null;
             if (rechazo) {
               self.setState({ aviso: rechazo, avisoTipo: null, vaciando: false });
               return;
@@ -12485,9 +12552,10 @@ class Component extends DCLogic {
         self.setState({ grillas: g, clases: cl, vaciando: false, sel: null, celda: null, guardado: false, aviso: null });
       },
       cancelarVaciar: function () { self.setState({ vaciando: false }); },
-      confirmandoCierre: st.cerrando,
-      confirmarCierre: function () { self.setState({ estado: 'cerrada', cerrando: false, sel: null, celda: null, aviso: null }); },
-      cancelarCierre: function () { self.setState({ cerrando: false }); },
+      // No hay cierre manual: una Vigente pasa sola a Fue vigente.
+      confirmandoCierre: false,
+      confirmarCierre: function () {},
+      cancelarCierre: function () {},
 
       guardarTexto: st.guardado ? 'Guardado' : 'Guardar borrador',
       guardarIcono: st.guardado ? 'M20 6L9 17l-5-5' : 'M5 4h11l3 3v13H5zM8 4v5h7V4M8 20v-6h8v6',
@@ -12506,7 +12574,7 @@ class Component extends DCLogic {
       hayAccion: st.vaciando || st.cerrando || !!st.aviso,
       accionTexto: st.vaciando
         ? 'Se van a quitar las ' + ubicadas + ' horas ya ubicadas en ' + cursoActual.nombre + '. Los otros cursos no se tocan.'
-        : (st.cerrando ? 'Cerrar PLAN-2026-02 la deja como histórico y el ciclo se queda sin planificación vigente.' : (st.aviso || '')),
+        : (st.aviso || ''),
       accionColor: (st.vaciando || st.cerrando) ? '#b03a2e' : (st.avisoTipo === 'auto' ? '#2f6b45' : '#a56a10'),
       accionEstilo: 'display: flex; align-items: center; gap: 11px; padding: 12px 18px;'
         + ' border-bottom: 1px solid #eef1f5;'
@@ -12523,7 +12591,9 @@ class Component extends DCLogic {
         + ' background: ' + (b ? b.fondo : '#fff') + ';',
       puedeRetirar: estado === 'revision',
       aprobar: function () {
-        self.setState({ estado: 'validada', aviso: null });
+        var rechazo = rechazoApi();
+        if (rechazo) { self.setState({ aviso: rechazo, avisoTipo: null }); return; }
+        self.setState({ estado: 'vigente', aviso: null });
       },
       rechazar: function () {
         self.setState({ estado: 'borrador', aviso: 'Dirección rechazó la planificación y volvió a borrador.' });

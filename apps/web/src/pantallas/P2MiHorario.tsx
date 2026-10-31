@@ -1,5 +1,5 @@
 // P2 · Mi grilla horaria. Prototipo: <template id="tpl-mihorario"> y DC.registrar("mihorario") en prototipo/index.html.
-// Clases del profesor de la sesión en la propuesta vigente (VAL) del ciclo del año actual
+// Clases del profesor de la sesión en la propuesta vigente (VIG) del ciclo del año actual
 // (planificacion.get_clases con id_profesor e id_propuesta), una grilla por turno, y las
 // suplencias que cubre en la semana (profesor_suplencias.get_suplencias).
 import type { Clase, Curso, FranjaHoraria, Turno } from '@sahs/contratos';
@@ -61,7 +61,7 @@ export default function P2MiHorario() {
   const qProp = useConsulta(['planificacion', 'get_propuestas', { id_ciclo_lectivo: idCiclo }], () => planificacion.get_propuestas({ id_ciclo_lectivo: idCiclo }), {
     enabled: idCiclo != null,
   });
-  const vigente = (qProp.data ?? []).find((p) => p.estado?.codigo === 'VAL') ?? null;
+  const vigente = (qProp.data ?? []).find((p) => p.estado?.codigo === 'VIG') ?? null;
   const idProp = vigente?.id_propuesta;
 
   const qMias = useConsulta(['planificacion', 'get_clases', { id_profesor: idProfesor, id_propuesta: idProp }], () => planificacion.get_clases({ id_profesor: idProfesor, id_propuesta: idProp }), {
@@ -173,7 +173,7 @@ export default function P2MiHorario() {
           <div className="r-envolver" style={css('display: flex; align-items: center; gap: 8px; font-size: 12px; color: #6b7482;')}>
             <span>Ciclo lectivo {anio}</span>
             <span style={css('color: #c3cad4;')}>/</span>
-            <span>{vigente ? `Grilla validada el ${fecha(vigente.fecha_modificacion)}` : 'Sin grilla validada'}</span>
+            <span>{vigente ? `Grilla vigente desde el ${fecha(vigente.fecha_modificacion)}` : 'Sin grilla vigente'}</span>
           </div>
           <div className="r-titulo" style={css('font-size: 24px; font-weight: 600; letter-spacing: -0.02em;')}>Mi grilla horaria</div>
         </div>
@@ -203,7 +203,7 @@ export default function P2MiHorario() {
         ) : !ciclo ? (
           aviso(`No hay un ciclo lectivo ${anio} cargado.`)
         ) : !vigente ? (
-          aviso(`El ciclo lectivo ${anio} todavía no tiene una planificación validada.`)
+          aviso(`El ciclo lectivo ${anio} todavía no tiene una planificación vigente.`)
         ) : grillas.length === 0 ? (
           aviso('No tenés clases asignadas en este ciclo.')
         ) : (

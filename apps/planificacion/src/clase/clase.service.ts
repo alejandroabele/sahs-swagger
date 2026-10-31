@@ -48,6 +48,7 @@ export class ClaseService {
     const pr = [...new Set(body.ids_profesores)];
     await this.reglas.validarClase(clase.id_curso, clase.id_materia, fr, pr);
     for (const p of propuestas) await this.reglas.validarChoques(p, id, clase.id_curso, fr, pr);
+    for (const p of propuestas) await this.reglas.validarHorasMateria(p, id, clase.id_curso, clase.id_materia, fr.length);
     await this.a.clases.manager.transaction(async (tx) => {
       if (body.descripcion !== undefined) await tx.update(this.a.clases.target, id, { descripcion: body.descripcion });
       await tx.delete(this.a.claseFranjas.target, { id_clase: id });
@@ -75,6 +76,7 @@ export class ClaseService {
     const pr = (await this.a.claseProfesores.findBy({ id_clase: id })).map((x) => x.id_profesor);
     await this.reglas.validarClase(body.id_curso, clase.id_materia, fr, pr);
     for (const p of propuestas) await this.reglas.validarChoques(p, id, body.id_curso, fr, pr);
+    for (const p of propuestas) await this.reglas.validarHorasMateria(p, id, body.id_curso, clase.id_materia, fr.length);
     await this.a.clases.update(id, { id_curso: body.id_curso });
     return this.get_clase(id);
   }

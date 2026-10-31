@@ -87,7 +87,7 @@ export class MateriaController {
   }
 
   @Get("materias/:id/profesores")
-  @ApiOperation({"operationId":"get_profesores_materia","summary":"Profesores habilitados para la materia","description":"Invoca: profesor_suplencias.get_profesor"})
+  @ApiOperation({"operationId":"get_profesores_materia","summary":"Profesores habilitados para la materia","description":"Solo profesores activos: los dados de baja no se devuelven.\n\nInvoca: profesor_suplencias.get_profesor"})
   @ApiParam({"name":"id","description":"Id de la materia","type":"integer","format":"int64"})
   @ApiResponse({ status: 200, description: "OK", type: [ProfesorResumen] })
   @ApiResponse({ status: 404, description: 'No existe el recurso', type: ErrorApi })

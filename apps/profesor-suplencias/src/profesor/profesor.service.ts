@@ -3,6 +3,7 @@ import { conflicto, invalido, referenciaInvalida } from '@sahs/comun';
 import type * as C from '@sahs/contratos';
 import type { FranjaHorariaResumen, Profesor } from '../dto/modelos';
 import type {
+  AsignarActivoProfesorDto,
   AsignarDisponibilidadDto,
   AsignarMateriasHabilitadasDto,
   AsignarUsuarioProfesorDto,
@@ -43,6 +44,7 @@ export class ProfesorService {
       legajo: null,
       cargo_asociado: null,
       id_usuario: null,
+      activo: true,
     });
     return this.get_profesor(p.id_profesor);
   }
@@ -104,12 +106,40 @@ export class ProfesorService {
     return this.get_profesor(id);
   }
 
+  /**
+   * Baja lógica (activo: false) o reactivación (activo: true). No se da de baja a un docente
+   * de una clase de una propuesta Vigente. Invoca: planificacion.get_posibles_estados_de_propuestas,
+   * planificacion.get_propuestas, planificacion.get_clases.
+   */
+  async asignar_activo_profesor(id: number, body: AsignarActivoProfesorDto): Promise<Profesor> {
+    const p = await this.a.profesor(id);
+    if (!body.activo && p.activo) {
+      const vig = (await this.a.planificacion.listar<C.EstadoPropuesta>('estados-propuesta')).find((e) => e.codigo === 'VIG');
+      const vigentes = vig ? await this.a.planificacion.listar<C.Propuesta>(`propuestas?id_estado=${vig.id_estado}`) : [];
+      if (vigentes.length) {
+        const suyas = await this.a.planificacion.listar<C.Clase>(`clases?id_profesor=${id}`);
+        for (const prop of vigentes) {
+          const clase = suyas.find((c) => (prop.ids_clases ?? []).includes(c.id_clase));
+          if (clase) {
+            throw conflicto(
+              `${p.nombre} ${p.apellido} es docente de ${clase.codigo} en la planificación Vigente ${prop.codigo}: no se puede dar de baja`,
+            );
+          }
+        }
+      }
+    }
+    await this.a.profesores.update(id, { activo: body.activo });
+    return this.get_profesor(id);
+  }
+
   async get_profesor(id: number): Promise<Profesor> {
     return this.a.armarProfesor(await this.a.profesor(id));
   }
 
   async get_profesores(query: GetProfesoresQuery): Promise<Profesor[]> {
-    const where = query.id_usuario != null ? { id_usuario: query.id_usuario } : {};
+    const where: { id_usuario?: number; activo?: boolean } = {};
+    if (query.id_usuario != null) where.id_usuario = query.id_usuario;
+    if (query.activo != null) where.activo = query.activo;
     const l = await this.a.profesores.find({ where, order: { apellido: 'ASC', nombre: 'ASC' } });
     return this.a.armarProfesores(l);
   }

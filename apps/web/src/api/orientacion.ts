@@ -28,7 +28,7 @@ export const orientacion = {
   /** PUT /orientacion/materias/{id}/anio-academico — Asignar el año académico de la materia. Invoca: planificacion.get_anio_academico */
   asignar_anio_academico_a_materia: (id: number, body: AsignarAnioAcademicoAMateriaBody) =>
     pedir<Materia>(`/orientacion/materias/${id}/anio-academico`, { metodo: 'PUT', body }),
-  /** GET /orientacion/materias/{id}/profesores — Profesores habilitados para la materia. Invoca: profesor_suplencias.get_profesor */
+  /** GET /orientacion/materias/{id}/profesores — Profesores habilitados para la materia. Solo profesores activos: los dados de baja no se devuelven. */
   get_profesores_materia: (id: number) =>
     pedir<ProfesorResumen[]>(`/orientacion/materias/${id}/profesores`, { metodo: 'GET' }),
   /** POST /orientacion/areas — Crear área */
@@ -52,7 +52,7 @@ export const orientacion = {
   /** DELETE /orientacion/areas/{id}/materias/{id_materia} — Quitar una materia del área */
   quitar_materia_area: (id: number, idMateria: number) =>
     pedir<Materia>(`/orientacion/areas/${id}/materias/${idMateria}`, { metodo: 'DELETE' }),
-  /** GET /orientacion/areas/{id}/profesores — Profesores del área. Invoca: profesor_suplencias.get_profesor */
+  /** GET /orientacion/areas/{id}/profesores — Profesores del área. Solo profesores activos: los dados de baja no se devuelven. */
   get_profesores_area: (id: number) =>
     pedir<ProfesorResumen[]>(`/orientacion/areas/${id}/profesores`, { metodo: 'GET' }),
   /** POST /orientacion/orientaciones — Crear orientación */

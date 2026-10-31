@@ -14,7 +14,7 @@ export class SuplenciaController {
   constructor(private readonly servicio: SuplenciaService) {}
 
   @Post("profesores/:id/suplencias")
-  @ApiOperation({"operationId":"crear_suplencia","summary":"Crear suplencia del profesor (las clases que cubre)","description":"La suplencia es del profesor que la cubre (el suplente, `{id}`) y se crea completa, con las clases que cubre en el período.\n\nInvoca: planificacion.get_clase"})
+  @ApiOperation({"operationId":"crear_suplencia","summary":"Crear suplencia del profesor (las clases que cubre)","description":"La suplencia es del profesor que la cubre (el suplente, `{id}`) y se crea completa, con las clases que cubre en el período. El suplente tiene que estar activo, tener habilitada la materia de cada clase y haber declarado como disponibles todas sus franjas; no puede ser docente de la clase, y una clase no puede tener dos suplencias con fechas superpuestas (`409`).\n\nInvoca: planificacion.get_clase, horarios.get_franja_horaria"})
   @ApiParam({"name":"id","description":"Id del profesor que cubre la suplencia (suplente)","type":"integer","format":"int64"})
   @ApiResponse({ status: 201, description: "Creado", type: Suplencia })
   @ApiResponse({ status: 400, description: 'Datos inválidos', type: ErrorApi })

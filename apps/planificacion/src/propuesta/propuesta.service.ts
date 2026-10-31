@@ -40,8 +40,9 @@ export class PropuestaService {
   }
 
   /**
-   * Transiciones: Borrador → En revisión → Validada → Cerrada, y En revisión → Borrador.
-   * Al validar una propuesta, la que estaba validada en el mismo ciclo pasa a Cerrada.
+   * Transiciones: Borrador → En revisión → Vigente, y En revisión → Borrador.
+   * Una Vigente no cambia de estado por pedido: pasa sola a Fue vigente cuando otra
+   * propuesta de su ciclo pasa a Vigente (así hay una sola Vigente por ciclo).
    */
   async asignar_estado_a_propuesta(id: number, body: AsignarEstadoAPropuestaDto): Promise<Propuesta> {
     const p = await this.a.propuesta(id);
@@ -49,6 +50,9 @@ export class PropuestaService {
     if (!nuevo) throw referenciaInvalida(`No existe el estado ${body.id_estado}`);
     const actual = p.estado!.codigo;
     if (actual === nuevo.codigo) return this.get_propuesta(id);
+    if (actual === 'VIG') {
+      throw conflicto(`La propuesta ${p.codigo} está Vigente: pasa a Fue vigente sola, cuando otra del ciclo pasa a Vigente`);
+    }
     const conocidos = actual in TRANSICIONES && nuevo.codigo in TRANSICIONES;
     if (conocidos && !TRANSICIONES[actual].includes(nuevo.codigo)) {
       const posibles = TRANSICIONES[actual].map((c) => NOMBRE_ESTADO[c]).join(' o ') || 'ninguno';
@@ -57,22 +61,23 @@ export class PropuestaService {
     if (nuevo.codigo === 'REV' && !(await this.a.propuestaClases.countBy({ id_propuesta: id }))) {
       throw conflicto('La propuesta no tiene clases: no se puede enviar a revisión');
     }
-    if (nuevo.codigo === 'REV' || nuevo.codigo === 'VAL') {
-      const faltan = await this.cursosIncompletos(id, p.id_ciclo_lectivo);
-      if (faltan.length) {
-        throw conflicto(`La planificación no está completa: faltan horas en ${faltan.join(', ')}. Se envía a revisión y se valida con todos los cursos completos.`);
+    if (nuevo.codigo === 'REV' || nuevo.codigo === 'VIG') {
+      const dif = await this.diferenciasDeHoras(id, p.id_ciclo_lectivo);
+      if (dif.length) {
+        const lista = dif.slice(0, 10).join('; ') + (dif.length > 10 ? `; y ${dif.length - 10} más` : '');
+        throw conflicto(
+          `La planificación no está completa: ${lista}. Se envía a revisión y pasa a Vigente con cada materia en sus horas semanales.`,
+        );
       }
     }
     await this.a.propuestas.manager.transaction(async (tx) => {
-      if (nuevo.codigo === 'VAL') {
-        const cer = await tx.findOneBy(this.a.estados.target, { codigo: 'CER' });
-        const val = await tx.findOneBy(this.a.estados.target, { codigo: 'VAL' });
-        if (cer && val) {
-          await tx.update(this.a.propuestas.target, { id_ciclo_lectivo: p.id_ciclo_lectivo, id_estado: (val as any).id_estado }, {
-            id_estado: (cer as any).id_estado,
-            fecha_modificacion: new Date().toISOString(),
-          });
-        }
+      if (nuevo.codigo === 'VIG') {
+        const fvg = await tx.findOneBy(this.a.estados.target, { codigo: 'FVG' });
+        if (!fvg) throw conflicto('Falta el estado Fue vigente (FVG) en el catálogo');
+        await tx.update(this.a.propuestas.target, { id_ciclo_lectivo: p.id_ciclo_lectivo, id_estado: nuevo.id_estado }, {
+          id_estado: (fvg as any).id_estado,
+          fecha_modificacion: new Date().toISOString(),
+        });
       }
       await tx.update(this.a.propuestas.target, id, { id_estado: nuevo.id_estado, fecha_modificacion: new Date().toISOString() });
     });
@@ -80,11 +85,12 @@ export class PropuestaService {
   }
 
   /**
-   * Cursos del ciclo a los que les faltan horas en la propuesta: alguna materia del curso
-   * tiene menos franjas ubicadas que sus horas semanales.
+   * Materias de los cursos del ciclo cuyas horas en la propuesta (una por franja) no son
+   * exactamente sus horas semanales en el curso, como "1A: Matemática 3 de 5 h".
+   * Invoca: orientacion.get_materia (nombres de las materias).
    */
-  private async cursosIncompletos(idPropuesta: number, idCiclo: number): Promise<string[]> {
-    const cursos = await this.a.cursos.findBy({ id_ciclo_lectivo: idCiclo });
+  private async diferenciasDeHoras(idPropuesta: number, idCiclo: number): Promise<string[]> {
+    const cursos = await this.a.cursos.find({ where: { id_ciclo_lectivo: idCiclo }, order: { id_anio_academico: 'ASC', division: 'ASC' } });
     if (!cursos.length) return [];
     const ids = cursos.map((c) => c.id_curso);
     const [materias, enPropuesta, anios] = await Promise.all([
@@ -100,14 +106,24 @@ export class PropuestaService {
       const k = c.id_curso + '|' + c.id_materia;
       puestas.set(k, (puestas.get(k) ?? 0) + (c.franjas?.length ?? 0));
     }
+    const distintas = cursos.flatMap((c) =>
+      materias
+        .filter((m) => m.id_curso === c.id_curso && (puestas.get(c.id_curso + '|' + m.id_materia) ?? 0) !== m.horas_semanales)
+        .map((m) => ({ c, m, h: puestas.get(c.id_curso + '|' + m.id_materia) ?? 0 })),
+    );
+    if (!distintas.length) return [];
+    // Primero las horas de más: el generador no las corrige, hay que sacarlas a mano.
+    distintas.sort((x, y) => Number(y.h > y.m.horas_semanales) - Number(x.h > x.m.horas_semanales));
+    const nombres = await this.a.materiasPorId();
     const anioDe = new Map(anios.map((a) => [a.id_anio_academico, a.anio_curricular]));
-    return cursos
-      .filter((c) => materias.some((m) => m.id_curso === c.id_curso && (puestas.get(c.id_curso + '|' + m.id_materia) ?? 0) < m.horas_semanales))
-      .map((c) => (c.id_anio_academico != null ? (anioDe.get(c.id_anio_academico) ?? '') + ' ' : '') + c.division)
-      .map((n) => n.replace(/ año/, '').trim());
+    const curso = (c: (typeof cursos)[number]) =>
+      ((c.id_anio_academico != null ? (anioDe.get(c.id_anio_academico) ?? '') + ' ' : '') + c.division).replace(/ año/, '').trim();
+    return distintas.map(
+      ({ c, m, h }) => `${curso(c)}: ${nombres.get(m.id_materia)?.nombre_materia ?? `materia ${m.id_materia}`} ${h} de ${m.horas_semanales} h`,
+    );
   }
 
-  /** Agrega una clase a la propuesta. Solo en Borrador y sin choques de curso ni de docentes. */
+  /** Agrega una clase a la propuesta. Solo en Borrador, sin choques de curso ni de docentes y sin pasarse de las horas de la materia. */
   async asignar_clase_a_propuesta(id: number, body: AsignarClaseAPropuestaDto): Promise<Propuesta> {
     const p = await this.a.propuesta(id);
     const clase = await this.a.clases.findOneBy({ id_clase: body.id_clase });
@@ -117,6 +133,7 @@ export class PropuestaService {
       const fr = (await this.a.claseFranjas.findBy({ id_clase: clase.id_clase })).map((x) => x.id_franja_horaria);
       const pr = (await this.a.claseProfesores.findBy({ id_clase: clase.id_clase })).map((x) => x.id_profesor);
       await this.reglas.validarChoques(id, clase.id_clase, clase.id_curso, fr, pr);
+      await this.reglas.validarHorasMateria(id, clase.id_clase, clase.id_curso, clase.id_materia, fr.length);
       await this.a.propuestaClases.insert({ id_propuesta: id, id_clase: clase.id_clase });
       await this.a.tocar(id);
     }
@@ -191,7 +208,8 @@ export class PropuestaService {
       this.a.materiasPorId(),
       this.a.turnosPorId(),
       this.a.franjasPorId(),
-      this.a.profesores.listar<C.Profesor>('profesores'),
+      // Solo activos: un profesor dado de baja no está disponible para ninguna materia.
+      this.a.profesores.listar<C.Profesor>('profesores').then((l) => l.filter((x) => x.activo !== false)),
       idsClases.length ? this.a.clases.find({ where: { id_clase: In(idsClases) }, order: { id_clase: 'ASC' } }) : Promise.resolve([]),
       idsClases.length ? this.a.claseFranjas.findBy({ id_clase: In(idsClases) }) : Promise.resolve([]),
       idsClases.length ? this.a.claseProfesores.findBy({ id_clase: In(idsClases) }) : Promise.resolve([]),

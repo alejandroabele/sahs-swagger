@@ -3,7 +3,7 @@
 // Usuario: usuario.get_usuarios (nombre del usuario asignado y selector para asignar), usuario.editar_usuario
 // y asignar_usuario_profesor. Materias habilitadas (asignar_materias_habilitadas) con
 // orientacion.get_plan_de_estudios (año y orientación de cada una, y selector agrupado). Disponibilidad declarada: grilla del turno con más
-// franjas declaradas (horarios.get_turnos).
+// franjas declaradas (horarios.get_turnos). Baja lógica y reactivación (asignar_activo_profesor).
 import { useEffect, useMemo, useState } from 'react';
 import type { Profesor } from '@sahs/contratos';
 import { horarios, orientacion, profesorSuplencias, usuario } from '../api';
@@ -185,6 +185,14 @@ function Ficha({ p }: { p: Profesor }) {
     }
   };
 
+  // ---- baja lógica (asignar_activo_profesor): la API la rechaza si está en la planificación vigente ----
+  const [confirmandoBaja, setConfirmandoBaja] = useState(false);
+  const accActivo = useAccion(profesorSuplencias.asignar_activo_profesor, ['profesor_suplencias', 'orientacion']);
+  const cambiarActivo = async (activo: boolean) => {
+    setConfirmandoBaja(false);
+    await accActivo.ejecutar(p.id_profesor, { activo });
+  };
+
   const errorCarga = qPlan.error ?? qTurnos.error ?? qUsuarios.error;
   const grupos = gruposDelPlan(qPlan.data);
 
@@ -224,10 +232,58 @@ function Ficha({ p }: { p: Profesor }) {
               <span className="mono" style={css('font-size: 11.5px; font-weight: 600; padding: 4px 11px; border-radius: 13px; background: #f2f4f7; color: #4a5462;')}>
                 {p.legajo || 'Sin legajo'}
               </span>
+              {!p.activo && <span style={css(PILL + ' background: #fbeef0; color: #a63244;')}>Dado de baja</span>}
             </div>
           </div>
+          <div style={css('flex-grow: 1;')}></div>
+          {p.activo && !confirmandoBaja && (
+            <button
+              onClick={() => {
+                accActivo.limpiarError();
+                setConfirmandoBaja(true);
+              }}
+              style={css('height: 36px; padding: 0 15px; border-radius: 8px; border: 1px solid #edc9c4; background: #fff; color: #a63244; font-size: 12.5px; font-weight: 500;')}
+            >
+              Dar de baja
+            </button>
+          )}
+          {p.activo && confirmandoBaja && (
+            <span className="r-envolver" style={css('display: flex; align-items: center; gap: 8px;')}>
+              <span style={css('font-size: 12px; color: #a63244; max-width: 300px; line-height: 1.4;')}>
+                Deja de aparecer como habilitado para sus materias. Se conservan sus datos y recibos.
+              </span>
+              <button
+                onClick={() => void cambiarActivo(false)}
+                disabled={accActivo.enCurso}
+                style={css('height: 32px; padding: 0 13px; border-radius: 7px; border: none; background: #b03a2e; color: #fff; font-size: 12px; font-weight: 600;')}
+              >
+                Sí, dar de baja
+              </button>
+              <button
+                onClick={() => setConfirmandoBaja(false)}
+                style={css('height: 32px; padding: 0 13px; border-radius: 7px; border: 1px solid #edc9c4; background: #fff; color: #b03a2e; font-size: 12px; font-weight: 500;')}
+              >
+                Cancelar
+              </button>
+            </span>
+          )}
+          {!p.activo && (
+            <button
+              onClick={() => void cambiarActivo(true)}
+              disabled={accActivo.enCurso}
+              style={css(`height: 36px; padding: 0 15px; border-radius: 8px; border: none; background: ${ACCENT}; color: #fff; font-size: 12.5px; font-weight: 600;`)}
+            >
+              Reactivar
+            </button>
+          )}
         </div>
       </div>
+
+      {accActivo.error && (
+        <div className="r-margen" style={css('padding: 16px 28px 0;')}>
+          <MensajeError mensaje={accActivo.error} />
+        </div>
+      )}
 
       {errorCarga && (
         <div className="r-margen" style={css('padding: 16px 28px 0;')}>

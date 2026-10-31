@@ -40,7 +40,7 @@ Cada tabla SHALL pertenecer a un solo servicio, llevar su prefijo (`usuario_`, `
 `db-init` SHALL cargar, después de las migraciones, solo en las tablas que estén vacías:
 - los privilegios del sistema;
 - los roles Administrativo, Profesor y Coordinador de área, con sus privilegios;
-- los estados de propuesta Borrador (BOR), En revisión (REV), Validada (VAL) y Cerrada (CER);
+- los estados de propuesta Borrador (BOR), En revisión (REV), Vigente (VIG) y Fue vigente (FVG);
 - los datos de ejemplo de `datos-de-ejemplo.md` y del prototipo.
 
 Las contraseñas MUST guardarse con bcrypt. La contraseña de los usuarios de ejemplo es `sahs2026`.
@@ -60,3 +60,13 @@ Las contraseñas MUST guardarse con bcrypt. La contraseña de los usuarios de ej
 - **WHEN** se ejecuta `docker compose up -d`
 - **THEN** los 6 servicios arrancan recién después de que `db-init` terminó bien
 
+### Requirement: Migración de las reglas de negocio
+La migración `ReglasDeNegocio` SHALL agregar `profesor_profesor.activo` (booleano, `true` por defecto) y renombrar en `planificacion_estado_propuesta` Validada (`VAL`) a Vigente (`VIG`) y Cerrada (`CER`) a Fue vigente (`FVG`), sin cambiar los `id_estado`. Su `down` MUST revertir los dos cambios.
+
+#### Scenario: Base con datos anteriores
+- **WHEN** `db-init` corre sobre una base con propuestas en `VAL` y `CER`
+- **THEN** esas propuestas quedan en `VIG` y `FVG` con el mismo `id_estado`, y todos los profesores quedan con `activo: true`
+
+#### Scenario: Entidades y migraciones alineadas
+- **WHEN** después de `db-init` se corre `migration:generate`
+- **THEN** no encuentra cambios de esquema

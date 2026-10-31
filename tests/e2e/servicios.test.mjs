@@ -193,8 +193,8 @@ describe('Planificación', () => {
 
   test('transición inválida de la propuesta → 409', async () => {
     const borr = (await get('planificacion', 'propuestas')).datos.find((p) => p.estado.codigo === 'BOR');
-    const val = (await get('planificacion', 'estados-propuesta')).datos.find((e) => e.codigo === 'VAL');
-    const r = await api('PUT', 'planificacion', `propuestas/${borr.id_propuesta}/estado`, { id_estado: val.id_estado });
+    const vig = (await get('planificacion', 'estados-propuesta')).datos.find((e) => e.codigo === 'VIG');
+    const r = await api('PUT', 'planificacion', `propuestas/${borr.id_propuesta}/estado`, { id_estado: vig.id_estado });
     assert.equal(r.status, 409);
     assert.equal((await get('planificacion', `propuestas/${borr.id_propuesta}`)).datos.estado.codigo, 'BOR');
   });
@@ -220,12 +220,12 @@ describe('Planificación', () => {
     assert.equal(r.status, 404);
   });
 
-  test('propuesta incompleta no pasa a revisión → 409 con los cursos que faltan', async () => {
+  test('propuesta incompleta no pasa a revisión → 409 con curso, materia y horas', async () => {
     const borr = (await get('planificacion', 'propuestas')).datos.find((p) => p.estado.codigo === 'BOR');
     const rev = (await get('planificacion', 'estados-propuesta')).datos.find((e) => e.codigo === 'REV');
     const r = await api('PUT', 'planificacion', `propuestas/${borr.id_propuesta}/estado`, { id_estado: rev.id_estado });
     assert.equal(r.status, 409);
-    assert.match(r.datos.mensaje, /no está completa: faltan horas en/);
+    assert.match(r.datos.mensaje, /no está completa: [^:]+: .+ \d+ de \d+ h/);
     assert.equal((await get('planificacion', `propuestas/${borr.id_propuesta}`)).datos.estado.codigo, 'BOR');
   });
 
@@ -281,6 +281,170 @@ describe('Profesor y Suplencias', () => {
     const recreo = (await get('horarios', 'franjas-horarias')).datos.find((f) => f.es_recreo);
     const r = await api('PUT', 'profesor_suplencias', 'profesores/1/disponibilidad', { ids_franjas_horarias: [recreo.id_franja_horaria] });
     assert.equal(r.status, 400);
+  });
+});
+
+describe('Reglas de negocio', () => {
+  const estado = async (codigo) => (await get('planificacion', 'estados-propuesta')).datos.find((e) => e.codigo === codigo);
+  const pasar = async (id, codigo) => api('PUT', 'planificacion', `propuestas/${id}/estado`, { id_estado: (await estado(codigo)).id_estado });
+  const propuesta = async (codigo) => (await get('planificacion', 'propuestas')).datos.find((p) => p.codigo === codigo);
+  const nuevoProfesor = async (documento) =>
+    (await api('POST', 'profesor_suplencias', 'profesores', { nombre: 'Prueba', apellido: 'Reglas' + documento, documento, correo_electronico: `p${documento}@x.com` })).datos;
+
+  test('catálogo de estados: Borrador, En revisión, Vigente y Fue vigente', async () => {
+    const codigos = (await get('planificacion', 'estados-propuesta')).datos.map((e) => e.codigo).sort();
+    assert.deepEqual(codigos, ['BOR', 'FVG', 'REV', 'VIG']);
+  });
+
+  test('una propuesta Vigente no cambia de estado a mano → 409', async () => {
+    const vig = (await get('planificacion', 'propuestas')).datos.find((p) => p.estado.codigo === 'VIG');
+    for (const codigo of ['FVG', 'BOR']) {
+      const r = await pasar(vig.id_propuesta, codigo);
+      assert.equal(r.status, 409);
+      assert.match(r.datos.mensaje, /Vigente/);
+    }
+    assert.equal((await get('planificacion', `propuestas/${vig.id_propuesta}`)).datos.estado.codigo, 'VIG');
+  });
+
+  test('horas de más: la clase no puede pasar las horas semanales y la propuesta no pasa a revisión', async () => {
+    const borr = (await get('planificacion', 'propuestas')).datos.find((p) => p.estado.codigo === 'BOR');
+    const clase = (await get('planificacion', `clases?id_propuesta=${borr.id_propuesta}`)).datos.find((c) => c.ids_franjas_horarias.length >= 2);
+    const n = clase.ids_franjas_horarias.length;
+    const curso = (await get('planificacion', `cursos/${clase.id_curso}`)).datos;
+    const horas = curso.materias.find((m) => m.id_materia === clase.id_materia).horas_semanales;
+    const rutaHoras = `cursos/${clase.id_curso}/materias/${clase.id_materia}`;
+    await api('PATCH', 'planificacion', rutaHoras, { horas_semanales: n - 1 });
+    try {
+      const e = await api('PUT', 'planificacion', `clases/${clase.id_clase}`, { ids_franjas_horarias: clase.ids_franjas_horarias, ids_profesores: clase.ids_profesores });
+      assert.equal(e.status, 409);
+      assert.match(e.datos.mensaje, new RegExp(`${clase.materia.nombre_materia} en .+ de ${n - 1} h: la clase suma ${n} más`));
+      const r = await pasar(borr.id_propuesta, 'REV');
+      assert.equal(r.status, 409);
+      assert.match(r.datos.mensaje, new RegExp(`${clase.materia.nombre_materia} ${n} de ${n - 1} h`));
+    } finally {
+      await api('PATCH', 'planificacion', rutaHoras, { horas_semanales: horas });
+    }
+  });
+
+  test('una sola Vigente por ciclo: la anterior pasa sola a Fue vigente', async () => {
+    const vigente2026 = (await get('planificacion', 'propuestas')).datos.find((p) => p.estado.codigo === 'VIG' && p.codigo === 'PLAN-2026-01');
+    const ciclo = (await api('POST', 'planificacion', 'ciclos-lectivos', { anio_calendario: 2099 })).datos;
+    const turno = (await get('horarios', 'turnos')).datos.find((t) => t.nombre === 'Mañana');
+    const orient = (await get('orientacion', 'orientaciones')).datos[0];
+    const curso = (await api('POST', 'planificacion', 'cursos', {
+      division: 'R', id_ciclo_lectivo: ciclo.id_ciclo_lectivo, id_turno: turno.id_turno, id_orientacion: orient.id_orientacion,
+    })).datos;
+    // Una materia de 1 hora, con un docente habilitado y disponible en una hora del turno.
+    const profes = (await get('profesor_suplencias', 'profesores?activo=true')).datos;
+    let materia, prof, franja;
+    for (const p of profes) {
+      const libre = turno.franjas_horarias.find((f) => !f.es_recreo && p.disponibilidad.some((d) => d.id_franja_horaria === f.id_franja_horaria));
+      if (libre && p.lista_materias_habilitadas.length) {
+        [materia, prof, franja] = [p.lista_materias_habilitadas[0], p, libre];
+        break;
+      }
+    }
+    await api('POST', 'planificacion', `cursos/${curso.id_curso}/materias`, { id_materia: materia.id_materia, horas_semanales: 1 });
+    const clase = (await api('POST', 'planificacion', 'clases', {
+      codigo: '2099-R', id_curso: curso.id_curso, id_materia: materia.id_materia,
+      ids_franjas_horarias: [franja.id_franja_horaria], ids_profesores: [prof.id_profesor],
+    })).datos;
+    const ids = [];
+    for (const codigo of ['PLAN-2099-01', 'PLAN-2099-02']) {
+      const p = (await api('POST', 'planificacion', 'propuestas', { nombre: codigo, codigo, id_ciclo_lectivo: ciclo.id_ciclo_lectivo })).datos;
+      assert.equal(p.estado.codigo, 'BOR');
+      assert.equal((await api('POST', 'planificacion', `propuestas/${p.id_propuesta}/clases`, { id_clase: clase.id_clase })).status, 200);
+      assert.equal((await pasar(p.id_propuesta, 'REV')).status, 200);
+      const r = await pasar(p.id_propuesta, 'VIG');
+      assert.equal(r.status, 200, r.datos?.mensaje);
+      ids.push(p.id_propuesta);
+    }
+    assert.equal((await get('planificacion', `propuestas/${ids[0]}`)).datos.estado.codigo, 'FVG');
+    assert.equal((await get('planificacion', `propuestas/${ids[1]}`)).datos.estado.codigo, 'VIG');
+    const fvg = await estado('FVG');
+    const historial = (await get('planificacion', `propuestas?id_ciclo_lectivo=${ciclo.id_ciclo_lectivo}&id_estado=${fvg.id_estado}`)).datos;
+    assert.deepEqual(historial.map((p) => p.id_propuesta), [ids[0]]);
+    // Fue vigente no tiene salida, y el otro ciclo no se tocó.
+    assert.equal((await pasar(ids[0], 'BOR')).status, 409);
+    assert.equal((await propuesta(vigente2026.codigo)).estado.codigo, 'VIG');
+  });
+
+  test('baja lógica: no si está en la Vigente; inactivo fuera de habilitados, clases y suplencias; reactivar', async () => {
+    // Un docente de la propuesta Vigente de los seeds no se puede dar de baja.
+    const vig = await propuesta('PLAN-2026-01');
+    const claseVig = (await get('planificacion', `clases?id_propuesta=${vig.id_propuesta}`)).datos[0];
+    const titular = claseVig.ids_profesores[0];
+    const r = await api('PUT', 'profesor_suplencias', `profesores/${titular}/activo`, { activo: false });
+    assert.equal(r.status, 409);
+    assert.match(r.datos.mensaje, /Vigente/);
+    assert.equal((await get('profesor_suplencias', `profesores/${titular}`)).datos.activo, true);
+
+    // Uno nuevo, habilitado en la materia de la clase y disponible en sus franjas.
+    const p = await nuevoProfesor('90000001');
+    assert.equal(p.activo, true);
+    await api('PUT', 'profesor_suplencias', `profesores/${p.id_profesor}/materias-habilitadas`, { ids_materias: [claseVig.id_materia] });
+    await api('PUT', 'profesor_suplencias', `profesores/${p.id_profesor}/disponibilidad`, { ids_franjas_horarias: claseVig.ids_franjas_horarias });
+    const habilitados = async () => (await get('orientacion', `materias/${claseVig.id_materia}/profesores`)).datos.map((x) => x.id_profesor);
+    assert.ok((await habilitados()).includes(p.id_profesor));
+
+    const baja = await api('PUT', 'profesor_suplencias', `profesores/${p.id_profesor}/activo`, { activo: false });
+    assert.equal(baja.status, 200);
+    assert.equal(baja.datos.activo, false);
+    assert.ok(!(await habilitados()).includes(p.id_profesor));
+    assert.ok((await get('profesor_suplencias', 'profesores?activo=false')).datos.some((x) => x.id_profesor === p.id_profesor));
+    assert.ok(!(await get('profesor_suplencias', 'profesores?activo=true')).datos.some((x) => x.id_profesor === p.id_profesor));
+    assert.ok((await get('profesor_suplencias', 'profesores')).datos.some((x) => x.id_profesor === p.id_profesor));
+
+    const clase = await api('POST', 'planificacion', 'clases', {
+      codigo: 'BAJA-1', id_curso: claseVig.id_curso, id_materia: claseVig.id_materia,
+      ids_franjas_horarias: claseVig.ids_franjas_horarias, ids_profesores: [p.id_profesor],
+    });
+    assert.equal(clase.status, 409);
+    assert.match(clase.datos.mensaje, /dado de baja/);
+    const sup = await api('POST', 'profesor_suplencias', `profesores/${p.id_profesor}/suplencias`, {
+      fecha_inicio: '2027-03-01', fecha_fin: '2027-03-05', motivo: 'Prueba', ids_clases: [claseVig.id_clase],
+    });
+    assert.equal(sup.status, 409);
+    assert.match(sup.datos.mensaje, /dado de baja/);
+
+    const alta = await api('PUT', 'profesor_suplencias', `profesores/${p.id_profesor}/activo`, { activo: true });
+    assert.equal(alta.datos.activo, true);
+    assert.ok((await habilitados()).includes(p.id_profesor));
+  });
+
+  test('el suplente tiene que estar habilitado en la materia y disponible en las franjas', async () => {
+    const vig = await propuesta('PLAN-2026-01');
+    const clase = (await get('planificacion', `clases?id_propuesta=${vig.id_propuesta}`)).datos[0];
+    const p = await nuevoProfesor('90000002');
+    const body = { fecha_inicio: '2027-04-05', fecha_fin: '2027-04-09', motivo: 'Prueba', ids_clases: [clase.id_clase] };
+    const ruta = `profesores/${p.id_profesor}/suplencias`;
+
+    let r = await api('POST', 'profesor_suplencias', ruta, body);
+    assert.equal(r.status, 409);
+    assert.match(r.datos.mensaje, /no tiene habilitada la materia/);
+
+    await api('PUT', 'profesor_suplencias', `profesores/${p.id_profesor}/materias-habilitadas`, { ids_materias: [clase.id_materia] });
+    r = await api('POST', 'profesor_suplencias', ruta, body);
+    assert.equal(r.status, 409);
+    assert.match(r.datos.mensaje, /no está disponible/);
+
+    await api('PUT', 'profesor_suplencias', `profesores/${p.id_profesor}/disponibilidad`, { ids_franjas_horarias: clase.ids_franjas_horarias });
+    r = await api('POST', 'profesor_suplencias', ruta, body);
+    assert.equal(r.status, 201, r.datos?.mensaje);
+  });
+
+  test('el generador no tiene tope de horas diarias por materia', async () => {
+    const { generar } = await import(path.join(RAIZ, 'apps/planificacion/dist/propuesta/generacion.js'));
+    // Un curso con 4 horas, todas el lunes, y una materia de 4 horas.
+    const horas = [0, 1, 2, 3].map((i) => ({ id: i + 1, d: 0, ini: 480 + 40 * i, fn: 520 + 40 * i }));
+    const disponibilidad = horas.map((b) => ({ id_franja_horaria: b.id }));
+    const r = generar({
+      cursos: [{ id: 1, nombre: '1° A', horas, plan: [{ mid: 7, nombre: 'Matemática', h: 4 }] }],
+      clases: [],
+      profesores: [{ id_profesor: 1, nombre: 'A', apellido: 'B', documento: '1', activo: true, lista_materias_habilitadas: [{ id_materia: 7 }], disponibilidad }],
+    });
+    assert.equal(r.ubicadas, 4);
+    assert.deepEqual(r.sinUbicar, []);
   });
 });
 

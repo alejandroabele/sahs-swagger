@@ -23,6 +23,8 @@ export interface Profesor {
   direccion?: string;
   /** Usuario para ingresar al sistema. Se asigna con asignar_usuario_profesor */
   id_usuario?: number | null;
+  /** false = dado de baja en la institución. Se cambia con asignar_activo_profesor */
+  readonly activo: boolean;
   readonly lista_materias_habilitadas?: MateriaResumen[];
   readonly disponibilidad?: FranjaHorariaResumen[];
 }
@@ -85,10 +87,17 @@ export interface AsignarDisponibilidadBody {
   ids_franjas_horarias: number[];
 }
 
+/** Body de PUT /profesor-suplencias/profesores/{id}/activo */
+export interface AsignarActivoProfesorBody {
+  activo: boolean;
+}
+
 /** Query de GET /profesor-suplencias/profesores */
 export interface GetProfesoresQuery {
   /** Usuario del profesor (filtro opcional) */
   id_usuario?: number;
+  /** Solo activos (true) o solo dados de baja (false) (filtro opcional) */
+  activo?: boolean;
 }
 
 /** Query de GET /profesor-suplencias/suplencias */

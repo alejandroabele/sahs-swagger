@@ -57,12 +57,15 @@ const ALTO = 62;
 const COLOR_ESTADO: Record<string, { punto: string; chip: string; texto: string; label: string }> = {
   BOR: { punto: '#c08430', chip: '#fdf6ec', texto: '#a56a10', label: 'Borrador' },
   REV: { punto: '#3a6fd8', chip: '#eef3fc', texto: '#1e4099', label: 'En revisión' },
-  VAL: { punto: '#2f6b45', chip: '#e9f2ec', texto: '#2f6b45', label: 'Validada' },
-  CER: { punto: '#8b95a5', chip: '#f2f4f7', texto: '#5b6471', label: 'Cerrada' },
+  VIG: { punto: '#2f6b45', chip: '#e9f2ec', texto: '#2f6b45', label: 'Vigente' },
+  FVG: { punto: '#8b95a5', chip: '#f2f4f7', texto: '#5b6471', label: 'Fue vigente' },
 };
 
-/** Transiciones que acepta la API (asignar_estado_a_propuesta; TRANSICIONES de apps/planificacion). */
-const TRANSICIONES: Record<string, string[]> = { BOR: ['REV'], REV: ['VAL', 'BOR'], VAL: ['CER'], CER: [] };
+/**
+ * Transiciones que acepta la API (asignar_estado_a_propuesta; TRANSICIONES de apps/planificacion).
+ * Una Vigente pasa sola a Fue vigente cuando otra del ciclo pasa a Vigente.
+ */
+const TRANSICIONES: Record<string, string[]> = { BOR: ['REV'], REV: ['VIG', 'BOR'], VIG: [], FVG: [] };
 
 interface Sel {
   mid: number;
@@ -116,7 +119,6 @@ export default function A13PlanificacionManual() {
   const [sel, setSel] = useState<Sel | null>(null);
   const [celda, setCelda] = useState<number | null>(null); // id de franja tocada
   const [vaciando, setVaciando] = useState(false);
-  const [cerrando, setCerrando] = useState(false);
   const [aviso, setAviso] = useState<Aviso | null>(null);
   /** Lo necesario para deshacer la última generación automática (los `cambios` de generar_planilla). */
   const [previas, setPrevias] = useState<CambioGeneracion[] | null>(null);
@@ -129,6 +131,8 @@ export default function A13PlanificacionManual() {
   const clasesCurso = useMemo(() => qClasesCurso.data ?? [], [qClasesCurso.data]);
   const clasesTodas = useMemo(() => qClasesTodas.data ?? [], [qClasesTodas.data]);
   const profesores = useMemo(() => qProfes.data ?? [], [qProfes.data]);
+  /** Para elegir docentes: un profesor dado de baja no está disponible para ninguna materia. */
+  const activos = useMemo(() => profesores.filter((p) => p.activo !== false), [profesores]);
 
   const curso = (idCursoParam && cursos.find((c) => c.id_curso === idCursoParam)) || null;
 
@@ -142,7 +146,6 @@ export default function A13PlanificacionManual() {
     setSel(null);
     setCelda(null);
     setVaciando(false);
-    setCerrando(false);
     setAviso(avisoAlLlegar.current);
     avisoAlLlegar.current = null;
   }, [idCursoParam, idPropParam]);
@@ -152,9 +155,9 @@ export default function A13PlanificacionManual() {
   useEffect(() => {
     if (!listo || !sel || sel.docs.length || !curso) return;
     const m = (curso.materias ?? []).find((x) => x.id_materia === sel.mid);
-    const combos = m ? combosDe(m.id_materia, m.nombre_materia, profesores) : [];
+    const combos = m ? combosDe(m.id_materia, m.nombre_materia, activos) : [];
     setSel(combos.length === 1 ? { mid: sel.mid, docs: combos[0] } : null);
-  }, [listo, sel, curso, profesores]);
+  }, [listo, sel, curso, activos]);
 
   const ocs = useMemo(() => ocupaciones(clasesTodas), [clasesTodas]);
   const profPorId = useMemo(() => new Map(profesores.map((p) => [p.id_profesor, p])), [profesores]);
@@ -199,7 +202,6 @@ export default function A13PlanificacionManual() {
     if (duplicando || acc.enCurso) return;
     setAviso(null);
     setVaciando(false);
-    setCerrando(false);
     acc.limpiarError();
     setDuplicando('Creando la copia de ' + propuesta.codigo + '…');
     let nuevaId: number | null = null;
@@ -395,7 +397,6 @@ export default function A13PlanificacionManual() {
   const ejecutar = async (fn: () => Promise<unknown>) => {
     setAviso(null);
     setVaciando(false);
-    setCerrando(false);
     return acc.ejecutar(fn);
   };
   const descripcion = (mid: number) => `${nombreMateria(mid)} · ${nombreCursoActual}`;
@@ -546,7 +547,7 @@ export default function A13PlanificacionManual() {
       });
       return;
     }
-    const combos = combosDe(mid, m.nombre_materia, profesores);
+    const combos = combosDe(mid, m.nombre_materia, activos);
     let elegida: string | null = null;
     if (clase && docsClase.length) {
       const c = combos.find((x) => x[0] === docsClase[0] && x.every((t) => docsClase.includes(t)));
@@ -740,7 +741,7 @@ export default function A13PlanificacionManual() {
         };
       }),
       // Para sumarse a la clase, el profesor tiene que estar libre en TODAS sus horas.
-      candidatos: habilitadosEn(mid, profesores)
+      candidatos: habilitadosEn(mid, activos)
         .filter((p: Profesor) => !cDocs.includes(p.id_profesor))
         .map((p) => {
           let problema: string | null = null;
@@ -782,28 +783,28 @@ export default function A13PlanificacionManual() {
       icono: 'M12 8v5M12 16.5v.5M12 21a9 9 0 100-18 9 9 0 000 18z',
       texto: '',
     },
-    VAL: {
-      titulo: 'Planificación validada',
+    VIG: {
+      titulo: 'Planificación vigente',
       color: '#2f6b45',
       fondo: '#ecf5ef',
       borde: '#c2e0cd',
       icono: 'M20 6L9 17l-5-5',
-      texto: propuesta.codigo + ' es la vigente del ciclo.',
+      texto: propuesta.codigo + ' es la vigente del ciclo. Pasa a Fue vigente cuando otra del ciclo pase a Vigente.',
     },
-    CER: {
-      titulo: 'Planificación cerrada',
+    FVG: {
+      titulo: 'Fue vigente',
       color: '#5b6471',
       fondo: '#f5f6f8',
       borde: '#e2e6ec',
       icono: 'M5 11h14v10H5zM8 11V8a4 4 0 018 0v3',
-      texto: 'Fue reemplazada por otra planificación validada del ciclo.',
+      texto: 'Fue la vigente del ciclo hasta que otra planificación pasó a Vigente.',
     },
   };
   const banner = banners[codigoEstado];
 
-  // Si la planificación está incompleta, la API rechaza el paso a revisión o a validada (409) con
-  // los cursos que faltan, y el mensaje se muestra en la pantalla (acc.error).
-  const ORDEN_ESTADOS = ['BOR', 'REV', 'VAL', 'CER'];
+  // Si la planificación está incompleta, la API rechaza el paso a revisión o a Vigente (409) con
+  // el curso, la materia y las horas de cada diferencia, y el mensaje se muestra en la pantalla (acc.error).
+  const ORDEN_ESTADOS = ['BOR', 'REV', 'VIG', 'FVG'];
   const estadosBotones = ORDEN_ESTADOS.map((id, i) => {
     const e = COLOR_ESTADO[id];
     const activo = codigoEstado === id;
@@ -826,20 +827,17 @@ export default function A13PlanificacionManual() {
         if (activo || ocupado) return;
         if (!permitido) {
           setVaciando(false);
-          setCerrando(false);
           setAviso({
             texto:
-              codigoEstado === 'BOR' && id === 'VAL'
-                ? 'Primero hay que enviarla a revisión: Dirección la valida desde ahí.'
-                : `Una planificación ${estadoVista.label.toLowerCase()} no puede pasar a ${e.label.toLowerCase()}.`,
+              codigoEstado === 'BOR' && id === 'VIG'
+                ? 'Primero hay que enviarla a revisión: Dirección la aprueba como vigente desde ahí.'
+                : id === 'FVG'
+                  ? 'Una planificación pasa a Fue vigente sola, cuando otra del ciclo pasa a Vigente.'
+                  : codigoEstado === 'VIG'
+                    ? 'La planificación vigente no cambia de estado: deja de serlo cuando otra del ciclo pasa a Vigente.'
+                    : `Una planificación ${estadoVista.label.toLowerCase()} no puede pasar a ${e.label.toLowerCase()}.`,
             tipo: 'info',
           });
-          return;
-        }
-        if (id === 'CER') {
-          setAviso(null);
-          setVaciando(false);
-          setCerrando(true);
           return;
         }
         void cambiarEstado(id);
@@ -850,14 +848,12 @@ export default function A13PlanificacionManual() {
   const generarHabilitado = editable && !ocupado;
   const vaciarHabilitado = editable && ubicadas > 0 && !ocupado;
   const hayDeshacer = !!previas && aviso?.tipo === 'auto';
-  const confirmando = vaciando || cerrando;
+  const confirmando = vaciando;
   const hayAccion = confirmando || !!duplicando || !!aviso;
   const accionColor = confirmando ? '#b03a2e' : aviso?.tipo === 'auto' ? '#2f6b45' : '#a56a10';
   const accionTexto = vaciando
     ? 'Se van a quitar las ' + ubicadas + ' horas ya ubicadas en ' + nombreCursoActual + '. Los otros cursos no se tocan.'
-    : cerrando
-      ? 'Cerrar ' + propuesta.codigo + ' la deja como histórico y el ciclo se queda sin planificación vigente.'
-      : duplicando ?? aviso?.texto ?? '';
+    : duplicando ?? aviso?.texto ?? '';
 
   const columnasHoras = grilla.columnas.filter((b) => !b.es_recreo);
   const tituloGrilla =
@@ -929,7 +925,6 @@ export default function A13PlanificacionManual() {
               onClick={() => {
                 if (!vaciarHabilitado) return;
                 setAviso(null);
-                setCerrando(false);
                 setVaciando(true);
               }}
               style={css(
@@ -999,23 +994,6 @@ export default function A13PlanificacionManual() {
                   </button>
                 </span>
               )}
-              {cerrando && (
-                <span style={css('display: flex; gap: 8px; flex-shrink: 0;')}>
-                  <button
-                    onClick={() => void cambiarEstado('CER')}
-                    disabled={ocupado}
-                    style={css('height: 30px; padding: 0 13px; border-radius: 7px; border: none; background: #b03a2e; color: #fff; font-size: 12px; font-weight: 600;')}
-                  >
-                    Sí, cerrar
-                  </button>
-                  <button
-                    onClick={() => setCerrando(false)}
-                    style={css('height: 30px; padding: 0 13px; border-radius: 7px; border: 1px solid #edc9c4; background: #fff; color: #b03a2e; font-size: 12px; font-weight: 500;')}
-                  >
-                    Cancelar
-                  </button>
-                </span>
-              )}
             </div>
           )}
 
@@ -1039,11 +1017,11 @@ export default function A13PlanificacionManual() {
                     Rechazar
                   </button>
                   <button
-                    onClick={() => void cambiarEstado('VAL')}
+                    onClick={() => void cambiarEstado('VIG')}
                     disabled={ocupado}
                     style={css('height: 30px; padding: 0 13px; border-radius: 7px; border: none; background: #2f6b45; color: #fff; font-size: 12px; font-weight: 600;')}
                   >
-                    Aprobar como Dirección
+                    Aprobar como vigente
                   </button>
                 </span>
               )}

@@ -1,6 +1,7 @@
 // A7 · Profesores. Prototipo: <template id="tpl-profesoreslistado"> y DC.registrar("profesoreslistado") en prototipo/index.html.
 // Listado de profesores (profesor_suplencias.get_profesores) con sus materias habilitadas, que vienen
 // anidadas en cada profesor, y búsqueda por apellido, legajo o documento. Cada fila abre la ficha del profesor.
+// Los dados de baja (activo: false) siguen en la lista, marcados, para poder reactivarlos desde la ficha.
 import { useMemo, useState } from 'react';
 import { profesorSuplencias } from '../api';
 import { useIr } from '../app/navegar';
@@ -125,8 +126,13 @@ export default function A7Profesores() {
                       {iniciales(p.nombre, p.apellido)}
                     </span>
                     <span style={css('display: flex; flex-direction: column; gap: 2px; min-width: 0; text-align: left;')}>
-                      <span style={css('font-size: 13.5px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;')}>
+                      <span style={css('font-size: 13.5px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;' + (p.activo ? '' : ' color: #8b95a5;'))}>
                         {p.apellido}, {p.nombre}
+                        {!p.activo && (
+                          <span style={css('margin-left: 8px; font-size: 10.5px; font-weight: 600; padding: 2px 8px; border-radius: 9px; background: #fbeef0; color: #a63244;')}>
+                            Dado de baja
+                          </span>
+                        )}
                       </span>
                       <span style={css('font-size: 11.5px; color: #8b95a5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;')}>{p.correo_electronico ?? ''}</span>
                     </span>
