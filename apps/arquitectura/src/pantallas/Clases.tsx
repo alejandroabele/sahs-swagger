@@ -5,10 +5,14 @@ import { LINEA_CRUZA, clases, relaciones } from '../clases';
 import { ANCHO_CLASE, CLASES, GRUPOS, LEYENDA_CLASES, RUTAS_CLASES, altoClase } from '../layout';
 import { validado } from '../modelo';
 
-export function Clases() {
+/**
+ * Diagrama de clases en dos fases: sin agrupar (todas las clases iguales, como el draw.io) y
+ * agrupado por microservicio (recuadros con los colores de cada uno). Las clases quedan en el mismo lugar.
+ */
+export function Clases({ agrupado }: { agrupado: boolean }) {
   const { nodos, aristas } = useMemo(() => {
     const servicioDe = new Map(clases.map((c) => [c.id, c.servicio]));
-    const grupos: Node[] = Object.entries(GRUPOS).map(([id, g]) => {
+    const grupos: Node[] = !agrupado ? [] : Object.entries(GRUPOS).map(([id, g]) => {
       const s = validado.servicios.find((v) => v.id === id);
       return {
         id: `grupo-${id}`,
@@ -24,11 +28,11 @@ export function Clases() {
     const nodosClase: Node[] = clases.map((c) => {
       const p = CLASES[c.id] ?? { x: 0, y: 1000 };
       const h = altoClase(c.atributos.length);
-      return { id: c.id, type: 'clase', data: { clase: c }, position: p, width: ANCHO_CLASE, height: h, style: { width: ANCHO_CLASE, height: h } };
+      return { id: c.id, type: 'clase', data: { clase: c, agrupado }, position: p, width: ANCHO_CLASE, height: h, style: { width: ANCHO_CLASE, height: h } };
     });
     const aristas: Edge[] = relaciones.map((r) => {
       const ruta = RUTAS_CLASES[`${r.de}>${r.a}`];
-      const cruza = servicioDe.get(r.de) !== servicioDe.get(r.a);
+      const cruza = agrupado && servicioDe.get(r.de) !== servicioDe.get(r.a);
       const color = cruza ? LINEA_CRUZA : COLOR.linea;
       return {
         id: `${r.de}>${r.a}`,
@@ -46,14 +50,14 @@ export function Clases() {
     const leyenda: Node = {
       id: 'leyenda',
       type: 'leyendaClases',
-      data: { linea: COLOR.linea },
+      data: { linea: COLOR.linea, agrupado },
       position: { x: L.x, y: L.y },
       width: L.w,
       height: L.h,
       style: { width: L.w, height: L.h },
     };
     return { nodos: [...grupos, ...nodosClase, leyenda], aristas };
-  }, []);
+  }, [agrupado]);
 
   return <Diagrama nodos={nodos} aristas={aristas} />;
 }

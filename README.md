@@ -26,7 +26,7 @@ docker compose down -v         # baja todo y borra la base (al volver a levantar
 - **Web:** http://localhost:8100
 - **Swagger UI:** http://localhost:8100/docs/ (elegir el servicio en "Select a definition"; "Try it out" responde de verdad)
 - **Prototipo:** http://localhost:8100/prototipo/ (referencia visual, ver "Prototipo")
-- **Arquitectura:** http://localhost:8100/arquitectura/ (diagramas de componentes, de comunicación entre servicios y de clases, ver "Vista de arquitectura")
+- **Arquitectura:** http://localhost:8100/arquitectura/ (diagramas de componentes, de comunicación entre servicios y de clases, sin agrupar y por microservicio; ver "Vista de arquitectura")
 - **Usuarios de ejemplo:** `secretaria` (Administrativo), `jramirez` (Profesor) y `sferreyra` (Coordinador de área), entre otros. La contraseña de todos es **`sahs2026`**.
 
 Rutas de la web (las mismas que usa el prototipo, en el hash):
@@ -393,7 +393,7 @@ Para sumar una pantalla, se agrega a `CONFIG.pantallas` con el id del `.dc.html`
 
 ## Vista de arquitectura
 
-http://localhost:8100/arquitectura/ muestra tres diagramas para presentar el sistema: **Componentes** (usuarios → aplicación web → API Gateway → microservicios → base de datos, cada pieza con su tipo y el recuadro "Qué es cada pieza") y **Comunicación** (`/arquitectura/comunicacion`, las llamadas HTTP entre servicios; en azul los pares que se llaman entre sí) y **Diagrama de clases** (`/arquitectura/clases`, el diagrama de clases del grupo con cada clase dentro de su microservicio; sale de `apps/arquitectura/modelo/clases.json`, copiado del draw.io, y no del código). La llamada de pago a planificación existe en el código pero no se dibuja, para simplificar la lámina. Los cambios del código sin validar se ven en `/arquitectura/validar`, que no tiene pestaña.
+http://localhost:8100/arquitectura/ muestra cuatro láminas para presentar el sistema: **Componentes** (usuarios → aplicación web → API Gateway → microservicios → base de datos, cada pieza con su tipo y el recuadro "Qué es cada pieza") y **Comunicación** (`/arquitectura/comunicacion`, las llamadas HTTP entre servicios; en azul los pares que se llaman entre sí) **Diagrama de clases** (`/arquitectura/clases`, el diagrama de clases del grupo, sin agrupar) y **Clases por microservicio** (`/arquitectura/clases-por-microservicio`, las mismas clases dentro del microservicio dueño de su tabla). Las dos salen de `apps/arquitectura/modelo/clases.json`, copiado del draw.io, y no del código. La llamada de pago a planificación existe en el código pero no se dibuja, para simplificar la lámina. Los cambios del código sin validar se ven en `/arquitectura/validar`, que no tiene pestaña.
 
 Los datos salen del código, pero los diagramas muestran lo que **validó una persona**:
 

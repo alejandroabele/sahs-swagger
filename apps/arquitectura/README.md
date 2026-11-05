@@ -4,7 +4,8 @@ Vista de arquitectura de SAHS (React + Vite + React Flow), publicada en http://l
 
 - `/arquitectura/`: Componentes (usuarios → aplicación web → API Gateway → microservicios → base de datos).
 - `/arquitectura/comunicacion`: llamadas HTTP entre microservicios.
-- `/arquitectura/clases`: el diagrama de clases del grupo, con cada clase dentro del recuadro del microservicio dueño de su tabla y con el color que usa el draw.io.
+- `/arquitectura/clases`: el diagrama de clases del grupo, sin agrupar y sin colores.
+- `/arquitectura/clases-por-microservicio`: las mismas clases, en el mismo lugar, dentro del recuadro del microservicio dueño de su tabla y con el color que usa el draw.io. Las relaciones entre microservicios van punteadas.
 - `/arquitectura/validar`: cambios del código que todavía no aprobó una persona. No tiene pestaña: se entra por la URL.
 
 La app está siempre en modo presentación: sin estado de los servicios, avisos ni controles de zoom.

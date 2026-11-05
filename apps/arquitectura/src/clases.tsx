@@ -45,6 +45,8 @@ export const COLORES: Record<string, { fondo: string; cabecera: string; borde: s
   orientacion: { fondo: '#eef6ee', cabecera: '#d5e8d4', borde: '#82b366' },
 };
 const SIN_COLOR = { fondo: '#f7f8fa', cabecera: '#eef1f5', borde: '#c3cad4' };
+/** Colores de la lámina sin agrupar: todas las clases iguales. */
+const NEUTRO = { fondo: '#fff', cabecera: '#eef1f5', borde: '#8b95a5' };
 export const colorDe = (servicio: string) => COLORES[servicio] ?? SIN_COLOR;
 
 /** Puntos de conexión: en cada lado, al medio, a 1/3 y 2/3 (1 y 2) y cerca de las puntas (3 y 4). */
@@ -78,11 +80,11 @@ function Conexiones() {
   );
 }
 
-export type NodoClase = Node<{ clase: Clase }, 'clase'>;
+export type NodoClase = Node<{ clase: Clase; agrupado: boolean }, 'clase'>;
 
 export function NodoClase({ data }: NodeProps<NodoClase>) {
-  const { clase: c } = data;
-  const color = colorDe(c.servicio);
+  const { clase: c, agrupado } = data;
+  const color = agrupado ? colorDe(c.servicio) : NEUTRO;
   return (
     <div className="clase" style={{ borderColor: color.borde }}>
       <Conexiones />
@@ -158,17 +160,25 @@ export function AristaRelacion(props: EdgeProps<AristaRelacion>) {
 
 export const LINEA_CRUZA = '#4a5462';
 
-export type NodoLeyendaClases = Node<{ linea: string }, 'leyendaClases'>;
+export type NodoLeyendaClases = Node<{ linea: string; agrupado: boolean }, 'leyendaClases'>;
 
 export function NodoLeyendaClases({ data }: NodeProps<NodoLeyendaClases>) {
   return (
     <div className="leyenda leyenda-clases">
-      <span>
-        <i style={{ background: data.linea }} /> relación dentro del microservicio (clave foránea)
-      </span>
-      <span>
-        <i className="punteada" style={{ color: LINEA_CRUZA }} /> relación entre microservicios (se guarda el id, sin clave foránea)
-      </span>
+      {data.agrupado ? (
+        <>
+          <span>
+            <i style={{ background: data.linea }} /> relación dentro del microservicio (clave foránea)
+          </span>
+          <span>
+            <i className="punteada" style={{ color: LINEA_CRUZA }} /> relación entre microservicios (se guarda el id, sin clave foránea)
+          </span>
+        </>
+      ) : (
+        <span>
+          <i style={{ background: data.linea }} /> relación
+        </span>
+      )}
       <span>
         <b className="mono">1 · N · M</b> cardinalidad
       </span>
