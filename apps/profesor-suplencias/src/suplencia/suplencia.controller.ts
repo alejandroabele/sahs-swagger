@@ -19,7 +19,7 @@ export class SuplenciaController {
   @ApiResponse({ status: 201, description: "Creado", type: Suplencia })
   @RespuestaError(400)
   @RespuestaError(404)
-  @RespuestaError(409, 'PS-02.01')
+  @RespuestaError(409, 'RN-15')
   crear_suplencia(@Param("id", ParseIntPipe) id: number, @Body() body: CrearSuplenciaDto): Promise<Suplencia> {
     return this.servicio.crear_suplencia(id, body);
   }

@@ -79,7 +79,7 @@ export class SuplenciaService {
   }
 
   /**
-   * PS-02.01: el período tiene que incluir al menos un día en que se dicta la clase. Si algún día
+   * RN-15: el período tiene que incluir al menos un día en que se dicta la clase. Si algún día
    * lectivo de la clase no es un día de la semana conocido, no se puede controlar y se deja pasar.
    * Invoca: horarios.get_franja_horaria.
    */
@@ -92,7 +92,7 @@ export class SuplenciaService {
     if (!dias.length || dias.some((d) => d === undefined)) return;
     const periodo = diasDelPeriodo(desde, hasta);
     if (!dias.some((d) => periodo.has(d!))) {
-      throw conflicto(`Del ${desde} al ${hasta} no hay ningún dictado de la clase ${clase.codigo} (${nombres.join(', ')})`, 'PS-02.01');
+      throw conflicto(`Del ${desde} al ${hasta} no hay ningún dictado de la clase ${clase.codigo} (${nombres.join(', ')})`, 'RN-15');
     }
   }
 

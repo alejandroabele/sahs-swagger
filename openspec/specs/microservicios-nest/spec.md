@@ -49,12 +49,14 @@ Cada servicio SHALL publicar su OpenAPI 3 con `@nestjs/swagger` en `GET /docs-js
 - **THEN** responde `404`, y `GET /docs-json` sigue devolviendo el OpenAPI
 
 ### Requirement: Errores uniformes
-Toda respuesta de error SHALL tener el cuerpo `Error { codigo, mensaje }`. El `codigo` SHALL ser el id de la regla de negocio violada, como figura en la pestaña "Reglas de negocio" del documento del grupo (`RN-11`, `PS-02.01`), o la genérica del status:
+Toda respuesta de error SHALL tener el cuerpo `Error { codigo, mensaje }`. El `codigo` SHALL ser el id de la regla de negocio violada, como figura en la pestaña "Reglas de negocio" del documento del grupo (`RN-11`, `RN-15`), o la genérica del status:
 - validación de body o query: `400`, `codigo: "RN-14"`;
 - entidad inexistente: `404`, `codigo: "RN-13"`;
 - referencia a una entidad inexistente de otro servicio: `400`, `codigo: "RN-14"`;
 - conflicto con una regla de negocio sin id propio: `409`, `codigo: "RN-12"`;
-- otro servicio que no responde: `503`, `codigo: "SERVICIO_NO_DISPONIBLE"`.
+- otro servicio que no responde: `503`, `codigo: "RN-20"`;
+- error interno: `500`, `codigo: "RN-21"`;
+- otro servicio que respondió con un error: `502`, `codigo: "RN-22"`.
 
 En el swagger, cada respuesta de error SHALL tener un ejemplo por cada regla que la operación puede violar, más el de la genérica del status.
 

@@ -122,8 +122,11 @@ Todas las respuestas de error tienen el cuerpo `Error { codigo, mensaje }`, con 
 | 400 | `RN-14` | Datos inválidos: body, query o id inválidos, o un id de otra entidad que no existe |
 | 404 | `RN-13` | No encontrado: la entidad de la ruta no existe |
 | 409 | `RN-12` | Conflicto con una regla de negocio sin id propio (transición de estado inválida, recibo ya firmado...) |
-| 503 | `SERVICIO_NO_DISPONIBLE` | Otro servicio no responde |
-| 500, 502 | `ERROR_INTERNO`, `ERROR_DEPENDENCIA` | Error del servicio o de otro servicio |
+| 503 | `RN-20` | Otro servicio (o la base de datos) no responde |
+| 500 | `RN-21` | Error interno del servicio |
+| 502 | `RN-22` | Otro servicio respondió con un error |
+
+RN-20, RN-21 y RN-22 no están en el documento: son los errores que no vienen de una regla de negocio.
 
 Reglas con id propio:
 
@@ -136,9 +139,11 @@ Reglas con id propio:
 | `RN-05` | 400 | Nombre, apellido y documento del profesor son obligatorios | `crear_profesor`, `editar_profesor` |
 | `RN-10` | 400 | No hay franjas horarias después de las 23:59 | `crear_franja_horaria` |
 | `RN-11` | 409 | No hay dos profesores con el mismo documento | `crear_profesor`, `editar_profesor` |
-| `PS-02.01` | 409 | El período de la suplencia tiene que incluir al menos un dictado de la clase | `crear_suplencia` |
+| `RN-15` | 409 | El período de la suplencia tiene que incluir al menos un dictado de la clase | `crear_suplencia` |
 | `RN-16` | 400 | La franja termina después de empezar | `crear_franja_horaria` |
 | `RN-17` | 400 | Una materia tiene como máximo 12 horas semanales | `crear_materia`, `asignar_materia_a_curso`, `cambiar_horas_materia_curso` |
+| `RN-18` | 400 | La descripción de la materia, si se carga, tiene al menos 15 caracteres | `crear_materia` |
+| `RN-19` | 400 | Una franja horaria dura al menos 10 minutos | `crear_franja_horaria` |
 
 El catálogo está en `libs/comun/src/reglas.ts`. Un servicio lanza una regla con `conflicto(mensaje, 'RN-11')` o `invalido(mensaje, 'RN-17')`, y un campo de un DTO la declara con `context: { regla: 'RN-05' }` en su validador. En el swagger, cada operación documenta sus errores con `@RespuestaError(409, 'RN-11')`: la descripción lista las reglas y hay un ejemplo por regla, más el de la genérica.
 
@@ -229,7 +234,7 @@ Para sumar una pantalla, se agrega a `CONFIG.pantallas` con el id del `.dc.html`
 - **Estados de la planificación:** el catálogo pasa a ser Borrador (`BOR`), En revisión (`REV`), Vigente (`VIG`) y Fue vigente (`FVG`). Vigente y Fue vigente reemplazan a Validada y Cerrada (la migración `ReglasDeNegocio` renombra las filas y conserva los `id_estado`). Hay una sola Vigente por ciclo lectivo: cuando otra pasa a Vigente, la anterior pasa sola a Fue vigente, y no hay paso manual de Vigente a otro estado.
 - **Reglas de negocio:** están escritas en la pestaña "Reglas de negocio" del documento del grupo. Las que se agregaron con ese cambio: cada materia de cada curso tiene que tener exactamente sus horas semanales para pasar a revisión o a Vigente (el `409` lista curso, materia y horas), una clase no puede hacer que una materia pase sus horas, no se da de baja a un docente de la planificación Vigente, un profesor dado de baja no aparece como habilitado (`get_profesores_materia`, `get_profesores_area`) ni se le asignan clases o suplencias, y el suplente tiene que estar habilitado en la materia y disponible en las franjas de la clase.
 
-- **Códigos de error:** el `codigo` de los errores es el id de la regla de negocio (`RN-11`, `PS-02.01`) o la genérica del status (`RN-12`, `RN-13`, `RN-14`), en lugar de `VALIDACION`, `REFERENCIA_INEXISTENTE`, `NO_ENCONTRADO` y `CONFLICTO` (ver "Errores"). Con ese cambio la máxima de horas semanales de una materia baja de 20 a 12 (RN-17), `crear_suplencia` exige que el período incluya al menos un dictado de la clase (PS-02.01) y `validar_pago` controla que el pago tenga recibo y monto (RN-03 y RN-04).
+- **Códigos de error:** el `codigo` de los errores es el id de la regla de negocio (`RN-11`) o la genérica del status (`RN-12`, `RN-13`, `RN-14`, y `RN-20` a `RN-22` para los 5xx), en lugar de `VALIDACION`, `REFERENCIA_INEXISTENTE`, `NO_ENCONTRADO`, `CONFLICTO`, `SERVICIO_NO_DISPONIBLE`, `ERROR_INTERNO` y `ERROR_DEPENDENCIA` (ver "Errores"). Con ese cambio la máxima de horas semanales de una materia baja de 20 a 12 (RN-17), la descripción de la materia tiene al menos 15 caracteres (RN-18), una franja dura al menos 10 minutos (RN-19), `crear_suplencia` exige que el período incluya al menos un dictado de la clase (RN-15) y `validar_pago` controla que el pago tenga recibo y monto (RN-03 y RN-04).
 
   `npm run verificar-contratos` compara contra `specs/*.json` por `operationId`, con esas diferencias como excepciones.
 
@@ -398,8 +403,9 @@ Para sumar una pantalla, se agrega a `CONFIG.pantallas` con el id del `.dc.html`
     - RN-05 pide también el tipo de documento, pero el profesor no tiene ese dato (falta en el diagrama de clases).
     - RN-06, RN-07 y RN-08 (solo los administradores modifican la planificación; cada profesor modifica solo su disponibilidad y los administradores la de cualquiera) dependen de los roles, y la API todavía no valida el token.
     - RN-09 (no se carga un profesor sin materias): `crear_profesor` no recibe materias; se habilitan después con `asignar_materias_habilitadas`. Hace falta definir si las materias pasan al alta.
-    - No hay RN-15: en su lugar está PS-02.01, que se usa con ese id. RN-16 dice "hora de fin menor a la hora de inicio"; se tomó como "fin posterior al inicio".
-    - Los errores que no son reglas (`503`, `500`, `502`) mantienen su código (`SERVICIO_NO_DISPONIBLE`, `ERROR_INTERNO`, `ERROR_DEPENDENCIA`). Si el grupo quiere, se les puede dar un id en el documento.
+    - RN-16 dice "hora de fin menor a la hora de inicio"; se tomó como "fin posterior al inicio".
+    - RN-18: la descripción de la materia es opcional en la API; la regla se aplica cuando se carga. Falta definir si pasa a ser obligatoria.
+    - RN-20 (otro servicio no responde), RN-21 (error interno) y RN-22 (otro servicio respondió con un error) se agregaron en la API para los errores que no son reglas. Hay que sumarlas al documento.
 
 ## Mantenimiento
 
