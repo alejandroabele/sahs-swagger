@@ -34,3 +34,10 @@
 - [x] 5.1 `npm run build -w apps/arquitectura` y `npm run verificar-arquitectura` (muestra solo el contenedor `arquitectura` pendiente)
 - [x] 5.2 `docker compose up -d --build` y revisar `/arquitectura/`, `/arquitectura/comunicacion`, `/arquitectura/validar`, la salud y el modo presentación
 - [x] 5.3 `npm test` y `npm run verificar-contratos` siguen pasando
+
+## 6. Ajuste: solo modo presentación
+
+- [x] 6.1 Quitar el botón de modo, `?presentacion`, el aviso de cambios sin validar y los controles de zoom; Validar sin pestaña (solo por URL)
+- [x] 6.2 Quitar el estado en vivo (`src/salud.ts`, ruta de salud en `nginx.conf` y proxy de Vite)
+- [x] 6.3 No dibujar la llamada `pago → planificacion` en Comunicación (`NO_SE_DIBUJAN`)
+- [x] 6.4 Actualizar README raíz, README de la app, spec y design

@@ -1,5 +1,6 @@
 import { useEffect, type ReactNode } from 'react';
-import { Controls, MarkerType, ReactFlow, ReactFlowProvider, useReactFlow, type Edge, type Node } from '@xyflow/react';
+import { MarkerType, ReactFlow, ReactFlowProvider, useReactFlow, type Edge, type Node } from '@xyflow/react';
+import { tiposDeArista } from './clases';
 import { tiposDeNodo } from './nodos';
 import type { Marca } from './modelo';
 
@@ -39,12 +40,10 @@ function Encuadre() {
 export function Diagrama({
   nodos,
   aristas,
-  presentacion,
   children,
 }: {
   nodos: Node[];
   aristas: Edge[];
-  presentacion: boolean;
   children?: ReactNode;
 }) {
   return (
@@ -53,6 +52,7 @@ export function Diagrama({
         nodes={nodos}
         edges={aristas}
         nodeTypes={tiposDeNodo}
+        edgeTypes={tiposDeArista}
         nodesDraggable={false}
         nodesConnectable={false}
         elementsSelectable={false}
@@ -62,7 +62,6 @@ export function Diagrama({
         maxZoom={2}
       >
         <Encuadre />
-        {!presentacion && <Controls showInteractive={false} position="bottom-right" />}
         {children}
       </ReactFlow>
     </ReactFlowProvider>

@@ -1,7 +1,7 @@
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
+import { NodoClase, NodoGrupo, NodoLeyendaClases } from './clases';
 import { Icono } from './iconos';
 import type { Componente, Servicio } from './modelo';
-import type { Salud } from './salud';
 
 /**
  * Puntos de conexión de cada nodo. Cada lado tiene uno de salida (s-) y uno de llegada (t-);
@@ -55,19 +55,10 @@ export function NodoComponente({ data }: NodeProps<NodoComponente>) {
   );
 }
 
-export type NodoServicio = Node<
-  { servicio: Servicio; salud?: Salud; mostrarSalud: boolean; forma: 'columna' | 'fila' },
-  'servicio'
->;
-
-const TEXTO_SALUD: Record<Salud, string> = {
-  arriba: 'en línea',
-  caido: 'sin respuesta',
-  desconocido: 'consultando',
-};
+export type NodoServicio = Node<{ servicio: Servicio; forma: 'columna' | 'fila' }, 'servicio'>;
 
 export function NodoServicio({ data }: NodeProps<NodoServicio>) {
-  const { servicio: s, salud = 'desconocido', mostrarSalud, forma } = data;
+  const { servicio: s, forma } = data;
   return (
     <div className={`tarjeta tarjeta-servicio ${forma} marca-${s.marca}`}>
       <Conexiones />
@@ -77,9 +68,6 @@ export function NodoServicio({ data }: NodeProps<NodoServicio>) {
       <span className="texto">
         <span className="titulo">
           <b>{s.nombre}</b>
-          {mostrarSalud && (
-            <span className={`salud salud-${salud}`} title={TEXTO_SALUD[salud]} role="img" aria-label={TEXTO_SALUD[salud]} />
-          )}
         </span>
         <span className="descripcion">
           {s.marca === 'nuevo' ? 'Nuevo en el código: falta validarlo' : s.marca === 'eliminado' ? 'Ya no está en el código' : s.descripcion}
@@ -132,4 +120,7 @@ export const tiposDeNodo = {
   servicio: NodoServicio,
   banda: NodoBanda,
   glosario: NodoGlosario,
+  clase: NodoClase,
+  grupo: NodoGrupo,
+  leyendaClases: NodoLeyendaClases,
 };
