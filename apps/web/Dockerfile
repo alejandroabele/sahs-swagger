@@ -18,6 +18,7 @@ COPY apps/planificacion/package.json apps/planificacion/
 COPY apps/orientacion/package.json apps/orientacion/
 COPY apps/profesor-suplencias/package.json apps/profesor-suplencias/
 COPY apps/web/package.json apps/web/
+COPY apps/arquitectura/package.json apps/arquitectura/
 RUN npm ci --no-audit --no-fund --ignore-scripts
 COPY libs/contratos libs/contratos
 COPY apps/web apps/web

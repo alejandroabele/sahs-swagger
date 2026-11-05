@@ -1,0 +1,26 @@
+{
+  "name": "@sahs/arquitectura",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Vista de arquitectura de SAHS (React + Vite + React Flow), generada del código y validada por una persona",
+  "type": "module",
+  "scripts": {
+    "modelo": "node ../../tools/arquitectura.mjs generar",
+    "predev": "npm run modelo",
+    "dev": "vite",
+    "prebuild": "npm run modelo",
+    "build": "tsc -p tsconfig.json --noEmit && vite build",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.23",
+    "@types/react-dom": "^18.3.7",
+    "@vitejs/plugin-react": "^4.7.0",
+    "@xyflow/react": "12.12.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "typescript": "~5.9.3",
+    "vite": "^6.4.1"
+  }
+}

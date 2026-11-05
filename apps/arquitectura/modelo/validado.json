@@ -1,0 +1,167 @@
+{
+  "validado": "2026-11-05",
+  "componentes": {
+    "usuarios": {
+      "nombre": "Usuarios",
+      "tipo": "personas",
+      "descripcion": "Administrativo · Coordinador de área · Profesor",
+      "icono": "usuarios"
+    },
+    "web": {
+      "nombre": "Aplicación web",
+      "tipo": "cliente",
+      "descripcion": "En el navegador de una computadora o un celular",
+      "icono": "cliente"
+    },
+    "gateway": {
+      "nombre": "API Gateway",
+      "tipo": "servidor",
+      "descripcion": "Valida el token y dirige cada pedido a su servicio",
+      "icono": "gateway"
+    },
+    "base": {
+      "nombre": "Base de datos",
+      "tipo": "almacenamiento",
+      "descripcion": "Una sola base. Cada servicio es dueño de sus tablas",
+      "icono": "base"
+    }
+  },
+  "servicios": [
+    {
+      "id": "horarios",
+      "nombre": "Horarios",
+      "descripcion": "Turnos, franjas horarias y días lectivos",
+      "icono": "horarios",
+      "tablas": [
+        "horarios_dia_lectivo",
+        "horarios_franja_horaria",
+        "horarios_turno"
+      ]
+    },
+    {
+      "id": "orientacion",
+      "nombre": "Orientación",
+      "descripcion": "Orientaciones, áreas y materias: el plan de estudios",
+      "icono": "orientacion",
+      "tablas": [
+        "orientacion_area",
+        "orientacion_curso",
+        "orientacion_materia",
+        "orientacion_materia_clase",
+        "orientacion_orientacion"
+      ]
+    },
+    {
+      "id": "pago",
+      "nombre": "Pago",
+      "descripcion": "Valor hora, liquidación, pagos y recibos de sueldo",
+      "icono": "pago",
+      "tablas": [
+        "pago_concepto_recibo",
+        "pago_pago",
+        "pago_parametro",
+        "pago_recibo_sueldo",
+        "pago_valor_hora"
+      ]
+    },
+    {
+      "id": "planificacion",
+      "nombre": "Planificación",
+      "descripcion": "Ciclos lectivos, cursos, clases y planificaciones",
+      "icono": "planificacion",
+      "tablas": [
+        "planificacion_anio_academico",
+        "planificacion_ciclo_lectivo",
+        "planificacion_clase",
+        "planificacion_clase_franja",
+        "planificacion_clase_profesor",
+        "planificacion_curso",
+        "planificacion_estado_planificacion",
+        "planificacion_materia_curso",
+        "planificacion_planificacion",
+        "planificacion_planificacion_clase"
+      ]
+    },
+    {
+      "id": "profesor-suplencias",
+      "nombre": "Profesor y suplencias",
+      "descripcion": "Profesores, disponibilidad, habilitaciones y suplencias",
+      "icono": "profesor",
+      "tablas": [
+        "profesor_disponibilidad",
+        "profesor_materia_habilitada",
+        "profesor_profesor",
+        "profesor_suplencia",
+        "profesor_suplencia_clase"
+      ]
+    },
+    {
+      "id": "usuario",
+      "nombre": "Usuario",
+      "descripcion": "Usuarios, roles y privilegios. Emite el token de sesión",
+      "icono": "usuario",
+      "tablas": [
+        "usuario_privilegio",
+        "usuario_rol",
+        "usuario_usuario"
+      ]
+    }
+  ],
+  "llamadas": [
+    {
+      "de": "orientacion",
+      "a": "planificacion"
+    },
+    {
+      "de": "orientacion",
+      "a": "profesor-suplencias"
+    },
+    {
+      "de": "pago",
+      "a": "planificacion"
+    },
+    {
+      "de": "pago",
+      "a": "profesor-suplencias"
+    },
+    {
+      "de": "planificacion",
+      "a": "horarios"
+    },
+    {
+      "de": "planificacion",
+      "a": "orientacion"
+    },
+    {
+      "de": "planificacion",
+      "a": "profesor-suplencias"
+    },
+    {
+      "de": "profesor-suplencias",
+      "a": "horarios"
+    },
+    {
+      "de": "profesor-suplencias",
+      "a": "orientacion"
+    },
+    {
+      "de": "profesor-suplencias",
+      "a": "planificacion"
+    },
+    {
+      "de": "profesor-suplencias",
+      "a": "usuario"
+    }
+  ],
+  "contenedores": [
+    "caddy",
+    "db-init",
+    "horarios",
+    "orientacion",
+    "pago",
+    "planificacion",
+    "profesor-suplencias",
+    "usuario",
+    "web"
+  ]
+}

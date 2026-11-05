@@ -14,15 +14,18 @@
     "apps/planificacion",
     "apps/orientacion",
     "apps/profesor-suplencias",
-    "apps/web"
+    "apps/web",
+    "apps/arquitectura"
   ],
   "scripts": {
     "build": "npm run build:libs && npm run build:apps",
     "build:libs": "npm run build -w libs/contratos -w libs/comun -w libs/entidades",
-    "build:apps": "npm run build -w apps/db -w apps/usuario -w apps/pago -w apps/horarios -w apps/planificacion -w apps/orientacion -w apps/profesor-suplencias -w apps/web",
+    "build:apps": "npm run build -w apps/db -w apps/usuario -w apps/pago -w apps/horarios -w apps/planificacion -w apps/orientacion -w apps/profesor-suplencias -w apps/web -w apps/arquitectura",
     "lint": "npm run lint --workspaces --if-present",
     "test": "node --test --test-concurrency=1 tests/e2e/*.test.mjs",
     "verificar-contratos": "node tools/verificar_contratos.mjs",
+    "verificar-arquitectura": "node tools/arquitectura.mjs verificar",
+    "arquitectura:validar": "node tools/arquitectura.mjs validar",
     "db:init": "npm run db-init -w apps/db",
     "dev:usuario": "npm run dev -w apps/usuario",
     "dev:pago": "npm run dev -w apps/pago",
@@ -31,6 +34,7 @@
     "dev:orientacion": "npm run dev -w apps/orientacion",
     "dev:profesor-suplencias": "npm run dev -w apps/profesor-suplencias",
     "dev:web": "npm run dev -w apps/web",
+    "dev:arquitectura": "npm run dev -w apps/arquitectura",
     "test:web": "npm run test -w apps/web --if-present"
   },
   "devDependencies": {
