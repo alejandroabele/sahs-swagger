@@ -151,7 +151,8 @@ export class ClienteServicio {
     if (e instanceof ErrorRemoto) {
       if (e.status === 503) return noDisponible(e.cuerpo?.mensaje ?? `El servicio ${this.servicio} no está disponible`);
       if (e.status >= 500) return new ErrorSahs(502, 'ERROR_DEPENDENCIA', `El servicio ${this.servicio} respondió con un error`);
-      return new ErrorSahs(e.status === 404 ? 400 : e.status, e.cuerpo?.codigo ?? 'ERROR_DEPENDENCIA', e.cuerpo?.mensaje ?? `Error en ${this.servicio}`);
+      if (e.status === 404) return referenciaInvalida(e.cuerpo?.mensaje ?? `No existe en ${this.servicio}`);
+      return new ErrorSahs(e.status, e.cuerpo?.codigo ?? 'ERROR_DEPENDENCIA', e.cuerpo?.mensaje ?? `Error en ${this.servicio}`);
     }
     return e;
   }

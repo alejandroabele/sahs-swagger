@@ -17,8 +17,8 @@ export class FranjaHorariaService {
   ) {}
 
   async crear_franja_horaria(body: CrearFranjaHorariaDto): Promise<FranjaHoraria> {
-    if (!HORA.test(body.hora_inicio) || !HORA.test(body.hora_fin)) throw invalido('Las horas van en formato HH:MM');
-    if (body.hora_inicio >= body.hora_fin) throw invalido('La hora de inicio tiene que ser anterior a la de fin');
+    if (!HORA.test(body.hora_inicio) || !HORA.test(body.hora_fin)) throw invalido('Las horas van en formato HH:MM, de 00:00 a 23:59', 'RN-10');
+    if (body.hora_inicio >= body.hora_fin) throw invalido('La hora de inicio tiene que ser anterior a la de fin', 'RN-16');
     if (!(await this.dias.findOneBy({ id_dia_lectivo: body.id_dia_lectivo }))) {
       throw referenciaInvalida(`No existe el día lectivo ${body.id_dia_lectivo}`);
     }

@@ -19,9 +19,16 @@ const vacioANull = (s: string | null | undefined) => (s == null || s.trim() === 
 export class ProfesorService {
   constructor(private readonly a: Armado) {}
 
+  /** RN-05: nombre, apellido y documento son obligatorios (también si vienen solo con espacios). */
+  private exigirDatos(body: { nombre: string; apellido: string; documento: string }) {
+    for (const campo of ['nombre', 'apellido', 'documento'] as const) {
+      if (!body[campo].trim()) throw invalido(`${campo} es obligatorio`, 'RN-05');
+    }
+  }
+
   private async documentoLibre(documento: string, salvo?: number) {
     const otro = await this.a.profesores.findOneBy({ documento });
-    if (otro && otro.id_profesor !== salvo) throw conflicto(`Ya hay un profesor con el documento ${documento}`);
+    if (otro && otro.id_profesor !== salvo) throw conflicto(`Ya hay un profesor con el documento ${documento}`, 'RN-11');
   }
 
   private async legajoLibre(legajo: string | null, salvo?: number) {
@@ -32,6 +39,7 @@ export class ProfesorService {
 
   /** No crea el usuario: se asigna después con asignar_usuario_profesor. */
   async crear_profesor(body: CrearProfesorDto): Promise<Profesor> {
+    this.exigirDatos(body);
     const documento = body.documento.trim();
     await this.documentoLibre(documento);
     const p = await this.a.profesores.save({
@@ -52,6 +60,7 @@ export class ProfesorService {
   /** Reemplaza todos los datos editables. null en legajo o cargo los deja vacíos. */
   async editar_profesor(id: number, body: EditarProfesorDto): Promise<Profesor> {
     await this.a.profesor(id);
+    this.exigirDatos(body);
     const documento = body.documento.trim();
     const legajo = vacioANull(body.legajo);
     await this.documentoLibre(documento, id);

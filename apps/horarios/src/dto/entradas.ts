@@ -17,12 +17,12 @@ export class CrearFranjaHorariaDto implements C.CrearFranjaHorariaBody {
   @ApiProperty({"type":"string","example":"07:30","required":true})
   @IsString()
   @IsNotEmpty()
-  @Matches(/^([01]\d|2[0-3]):[0-5]\d$/)
+  @Matches(/^([01]\d|2[0-3]):[0-5]\d$/, { context: { regla: 'RN-10' } })
   hora_inicio!: string;
   @ApiProperty({"type":"string","example":"08:10","required":true})
   @IsString()
   @IsNotEmpty()
-  @Matches(/^([01]\d|2[0-3]):[0-5]\d$/)
+  @Matches(/^([01]\d|2[0-3]):[0-5]\d$/, { context: { regla: 'RN-10' } })
   hora_fin!: string;
   @ApiProperty({"type":"string","example":"1° módulo","required":false})
   @IsOptional()

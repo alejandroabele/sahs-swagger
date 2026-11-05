@@ -4,6 +4,10 @@ import { ApiProperty } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
 import { IsArray, IsBoolean, IsDateString, IsEmail, IsInt, IsNotEmpty, IsOptional, IsString, ValidateIf } from 'class-validator';
 import type * as C from '@sahs/contratos';
+
+/** Regla de los datos obligatorios del profesor (nombre, apellido y documento). */
+const RN05 = { regla: 'RN-05' };
+
 /** Body de POST /profesor-suplencias/suplencias */
 export class CrearSuplenciaDto implements C.CrearSuplenciaBody {
   @ApiProperty({"type":"string","format":"date","example":"2026-05-04","required":true})
@@ -27,16 +31,16 @@ export class CrearSuplenciaDto implements C.CrearSuplenciaBody {
 /** Body de POST /profesor-suplencias/profesores */
 export class CrearProfesorDto implements C.CrearProfesorBody {
   @ApiProperty({"type":"string","example":"Juan","required":true})
-  @IsString()
-  @IsNotEmpty()
+  @IsString({ context: RN05 })
+  @IsNotEmpty({ context: RN05 })
   nombre!: string;
   @ApiProperty({"type":"string","example":"Ramírez","required":true})
-  @IsString()
-  @IsNotEmpty()
+  @IsString({ context: RN05 })
+  @IsNotEmpty({ context: RN05 })
   apellido!: string;
   @ApiProperty({"type":"string","example":"30123456","required":true})
-  @IsString()
-  @IsNotEmpty()
+  @IsString({ context: RN05 })
+  @IsNotEmpty({ context: RN05 })
   documento!: string;
   @ApiProperty({"type":"string","format":"email","example":"jramirez@donbosco.edu.ar","required":true})
   @IsEmail()
@@ -55,16 +59,16 @@ export class CrearProfesorDto implements C.CrearProfesorBody {
 /** Body de PUT /profesor-suplencias/profesores/{id} */
 export class EditarProfesorDto implements C.EditarProfesorBody {
   @ApiProperty({"type":"string","example":"Juan","required":true})
-  @IsString()
-  @IsNotEmpty()
+  @IsString({ context: RN05 })
+  @IsNotEmpty({ context: RN05 })
   nombre!: string;
   @ApiProperty({"type":"string","example":"Ramírez","required":true})
-  @IsString()
-  @IsNotEmpty()
+  @IsString({ context: RN05 })
+  @IsNotEmpty({ context: RN05 })
   apellido!: string;
   @ApiProperty({"type":"string","example":"30123456","required":true})
-  @IsString()
-  @IsNotEmpty()
+  @IsString({ context: RN05 })
+  @IsNotEmpty({ context: RN05 })
   documento!: string;
   @ApiProperty({"type":"string","format":"email","example":"jramirez@donbosco.edu.ar","required":true})
   @IsEmail()

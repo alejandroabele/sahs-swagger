@@ -91,17 +91,30 @@ describe('convenciones', () => {
     assert.ok(d.info['x-dependencias'].some((x) => x.servicio === 'profesor_suplencias' && x.endpoint === 'get_profesor'));
   });
 
-  test('body inválido → 400 VALIDACION', async () => {
+  test('body inválido → 400 RN-14', async () => {
     const r = await api('POST', 'usuario', 'usuarios', { nombre_user: 'x' });
     assert.equal(r.status, 400);
-    assert.equal(r.datos.codigo, 'VALIDACION');
+    assert.equal(r.datos.codigo, 'RN-14');
     assert.match(r.datos.mensaje, /email es obligatorio/);
   });
 
-  test('inexistente → 404 NO_ENCONTRADO', async () => {
+  test('inexistente → 404 RN-13', async () => {
     const r = await get('usuario', 'usuarios/9999');
     assert.equal(r.status, 404);
-    assert.equal(r.datos.codigo, 'NO_ENCONTRADO');
+    assert.equal(r.datos.codigo, 'RN-13');
+  });
+
+  test('swagger: cada respuesta de error trae los ejemplos de sus reglas', async () => {
+    const d = await (await fetch(`http://localhost:${SERVICIOS.profesor_suplencias}/docs-json`)).json();
+    const ejemplos = (op, status) => Object.keys(op.responses[status].content['application/json'].examples).sort();
+    const crear = d.paths['/profesor-suplencias/profesores'].post;
+    assert.deepEqual(ejemplos(crear, '400'), ['RN-05', 'RN-14']);
+    assert.deepEqual(ejemplos(crear, '409'), ['RN-11', 'RN-12']);
+    assert.deepEqual(ejemplos(crear, '503'), ['SERVICIO_NO_DISPONIBLE']);
+    assert.match(crear.responses['409'].description, /RN-11/);
+    const leer = d.paths['/profesor-suplencias/profesores/{id}'].get;
+    assert.deepEqual(ejemplos(leer, '404'), ['RN-13']);
+    assert.deepEqual(ejemplos(leer, '409'), ['RN-12']);
   });
 
   test('la contraseña nunca aparece en las respuestas', async () => {
@@ -440,6 +453,11 @@ describe('Reglas de negocio', () => {
     assert.match(r.datos.mensaje, /no está disponible/);
 
     await api('PUT', 'profesor_suplencias', `profesores/${p.id_profesor}/disponibilidad`, { ids_franjas_horarias: clase.ids_franjas_horarias });
+    // PS-02.01: un fin de semana no incluye ningún dictado de la clase.
+    r = await api('POST', 'profesor_suplencias', ruta, { ...body, fecha_inicio: '2027-04-10', fecha_fin: '2027-04-11' });
+    assert.equal(r.status, 409);
+    assert.equal(r.datos.codigo, 'PS-02.01');
+
     r = await api('POST', 'profesor_suplencias', ruta, body);
     assert.equal(r.status, 201, r.datos?.mensaje);
   });
@@ -456,6 +474,61 @@ describe('Reglas de negocio', () => {
     });
     assert.equal(r.ubicadas, 4);
     assert.deepEqual(r.sinUbicar, []);
+  });
+});
+
+describe('Códigos de las reglas de negocio', () => {
+  const profesor = (body) => api('POST', 'profesor_suplencias', 'profesores', { nombre: 'Ana', apellido: 'Codigos', correo_electronico: 'ana@x.com', ...body });
+
+  test('RN-05: nombre, apellido y documento del profesor son obligatorios → 400', async () => {
+    for (const body of [{ documento: '91000001', nombre: '  ' }, { documento: '91000002', apellido: undefined }, { documento: '' }]) {
+      const r = await profesor(body);
+      assert.equal(r.status, 400, JSON.stringify(body));
+      assert.equal(r.datos.codigo, 'RN-05');
+    }
+    const r = await profesor({ documento: '91000003', correo_electronico: 'no-es-email' });
+    assert.equal(r.status, 400);
+    assert.equal(r.datos.codigo, 'RN-14');
+  });
+
+  test('RN-11: no se repite el documento de otro profesor → 409', async () => {
+    assert.equal((await profesor({ documento: '91000010' })).status, 201);
+    const r = await profesor({ documento: '91000010', correo_electronico: 'otra@x.com' });
+    assert.equal(r.status, 409);
+    assert.equal(r.datos.codigo, 'RN-11');
+  });
+
+  test('RN-10 y RN-16: franjas hasta las 23:59 y con el fin después del inicio → 400', async () => {
+    const dia = (await get('horarios', 'dias-lectivos')).datos[0];
+    const franja = (hora_inicio, hora_fin) => api('POST', 'horarios', 'franjas-horarias', { hora_inicio, hora_fin, es_recreo: false, id_dia_lectivo: dia.id_dia_lectivo });
+    let r = await franja('23:20', '24:00');
+    assert.equal(r.status, 400);
+    assert.equal(r.datos.codigo, 'RN-10');
+    r = await franja('10:00', '09:20');
+    assert.equal(r.status, 400);
+    assert.equal(r.datos.codigo, 'RN-16');
+  });
+
+  test('RN-17: una materia tiene como máximo 12 horas semanales → 400', async () => {
+    const curso = (await get('planificacion', 'cursos')).datos.find((c) => c.materias?.length);
+    const m = curso.materias[0];
+    const r = await api('PATCH', 'planificacion', `cursos/${curso.id_curso}/materias/${m.id_materia}`, { horas_semanales: 13 });
+    assert.equal(r.status, 400);
+    assert.equal(r.datos.codigo, 'RN-17');
+  });
+
+  test('RN-01: una clase no ocupa una franja fuera del turno del curso → 409', async () => {
+    const curso = (await get('planificacion', 'cursos')).datos.find((c) => c.turno?.nombre === 'Mañana');
+    const tarde = (await get('horarios', 'turnos')).datos.find((t) => t.nombre === 'Tarde');
+    const franja = tarde.franjas_horarias.find((f) => !f.es_recreo);
+    const mat = curso.materias[0];
+    const profes = (await get('orientacion', `materias/${mat.id_materia}/profesores`)).datos;
+    const r = await api('POST', 'planificacion', 'clases', {
+      codigo: 'T-RN01', id_curso: curso.id_curso, id_materia: mat.id_materia,
+      ids_franjas_horarias: [franja.id_franja_horaria], ids_profesores: [profes[0].id_profesor],
+    });
+    assert.equal(r.status, 409);
+    assert.equal(r.datos.codigo, 'RN-01');
   });
 });
 

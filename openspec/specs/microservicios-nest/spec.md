@@ -49,18 +49,28 @@ Cada servicio SHALL publicar su OpenAPI 3 con `@nestjs/swagger` en `GET /docs-js
 - **THEN** responde `404`, y `GET /docs-json` sigue devolviendo el OpenAPI
 
 ### Requirement: Errores uniformes
-Toda respuesta de error SHALL tener el cuerpo `Error { codigo, mensaje }`:
-- validación de body o query: `400`, `codigo: "VALIDACION"`;
-- entidad inexistente: `404`, `codigo: "NO_ENCONTRADO"`;
-- referencia a una entidad inexistente de otro servicio: `400`;
-- conflicto con una regla de negocio: `409`;
-- otro servicio que no responde: `503`.
+Toda respuesta de error SHALL tener el cuerpo `Error { codigo, mensaje }`. El `codigo` SHALL ser el id de la regla de negocio violada, como figura en la pestaña "Reglas de negocio" del documento del grupo (`RN-11`, `PS-02.01`), o la genérica del status:
+- validación de body o query: `400`, `codigo: "RN-14"`;
+- entidad inexistente: `404`, `codigo: "RN-13"`;
+- referencia a una entidad inexistente de otro servicio: `400`, `codigo: "RN-14"`;
+- conflicto con una regla de negocio sin id propio: `409`, `codigo: "RN-12"`;
+- otro servicio que no responde: `503`, `codigo: "SERVICIO_NO_DISPONIBLE"`.
+
+En el swagger, cada respuesta de error SHALL tener un ejemplo por cada regla que la operación puede violar, más el de la genérica del status.
 
 Las contraseñas MUST NOT aparecer en ninguna respuesta.
 
 #### Scenario: Body inválido
 - **WHEN** se llama `POST /usuario/usuarios` sin `email`
-- **THEN** responde `400` con `{ "codigo": "VALIDACION", "mensaje": ... }`
+- **THEN** responde `400` con `{ "codigo": "RN-14", "mensaje": ... }`
+
+#### Scenario: Regla con id propio
+- **WHEN** se llama `POST /profesor-suplencias/profesores` con el documento de otro profesor
+- **THEN** responde `409` con `{ "codigo": "RN-11", "mensaje": ... }`
+
+#### Scenario: Ejemplos por regla en el swagger
+- **WHEN** se pide el swagger de Profesor y Suplencias
+- **THEN** la respuesta `409` de `crear_profesor` tiene los ejemplos `RN-11` y `RN-12`, y la `404` de `get_profesor` tiene el ejemplo `RN-13`
 
 #### Scenario: Referencia inexistente en otro servicio
 - **WHEN** se llama `POST /pago/pagos` con un `id_profesor` que Profesor y Suplencias no tiene

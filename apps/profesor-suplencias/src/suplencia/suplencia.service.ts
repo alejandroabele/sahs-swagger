@@ -6,6 +6,19 @@ import type { Suplencia } from '../dto/modelos';
 import type { CrearSuplenciaDto, GetSuplenciasQuery } from '../dto/entradas';
 import { Armado } from '../armado';
 
+const DIA_SEMANA: Record<string, number> = { domingo: 0, lunes: 1, martes: 2, miercoles: 3, jueves: 4, viernes: 5, sabado: 6 };
+
+/** Día de la semana (0 = domingo) de un día lectivo por su nombre ("Miércoles" → 3), o undefined si no es uno. */
+const diaSemana = (nombre: string) => DIA_SEMANA[nombre.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase()];
+
+/** Días de la semana que hay entre dos fechas AAAA-MM-DD, inclusive. */
+function diasDelPeriodo(desde: string, hasta: string): Set<number> {
+  const dias = new Set<number>();
+  const fin = new Date(hasta + 'T00:00:00Z');
+  for (const d = new Date(desde + 'T00:00:00Z'); d <= fin && dias.size < 7; d.setUTCDate(d.getUTCDate() + 1)) dias.add(d.getUTCDay());
+  return dias;
+}
+
 @Injectable()
 export class SuplenciaService {
   constructor(private readonly a: Armado) {}
@@ -39,6 +52,7 @@ export class SuplenciaService {
       if (!habilitadas.has(clase.id_materia)) {
         throw conflicto(`${nombre} no tiene habilitada la materia de la clase ${clase.codigo}`);
       }
+      await this.exigirDictado(clase, desde, hasta);
       const falta = (clase.ids_franjas_horarias ?? []).find((f) => !disponibles.has(f));
       if (falta != null) {
         const franja = await this.a.horarios.buscar<C.FranjaHoraria>(`franjas-horarias/${falta}`);
@@ -62,6 +76,24 @@ export class SuplenciaService {
     });
     const creada = await this.a.suplencias.findOneByOrFail({ id_suplencia: s.id_suplencia });
     return (await this.a.armarSuplencias([creada]))[0];
+  }
+
+  /**
+   * PS-02.01: el período tiene que incluir al menos un día en que se dicta la clase. Si algún día
+   * lectivo de la clase no es un día de la semana conocido, no se puede controlar y se deja pasar.
+   * Invoca: horarios.get_franja_horaria.
+   */
+  private async exigirDictado(clase: C.Clase, desde: string, hasta: string) {
+    const franjas = await Promise.all(
+      (clase.ids_franjas_horarias ?? []).map((f) => this.a.horarios.buscar<C.FranjaHoraria>(`franjas-horarias/${f}`)),
+    );
+    const nombres = [...new Set(franjas.map((f) => f?.dia_lectivo?.nombre_dia_lectivo).filter((n): n is string => !!n))];
+    const dias = nombres.map(diaSemana);
+    if (!dias.length || dias.some((d) => d === undefined)) return;
+    const periodo = diasDelPeriodo(desde, hasta);
+    if (!dias.some((d) => periodo.has(d!))) {
+      throw conflicto(`Del ${desde} al ${hasta} no hay ningún dictado de la clase ${clase.codigo} (${nombres.join(', ')})`, 'PS-02.01');
+    }
   }
 
   /**

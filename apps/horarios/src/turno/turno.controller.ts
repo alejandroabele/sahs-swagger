@@ -1,14 +1,14 @@
 // Rutas de Turno. Generado una vez por tools/generar_scaffold.mjs; desde entonces se mantiene a mano.
 import { Body, Controller, Delete, Get, HttpCode, Param, ParseIntPipe, Post } from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { ErrorApi } from '@sahs/comun';
+import { RespuestaError } from '@sahs/comun';
 import { Turno } from '../dto/modelos';
 import { AsignarFranjaATurnoDto, CrearTurnoDto } from '../dto/entradas';
 import { TurnoService } from './turno.service';
 
 @ApiTags("Turno")
-@ApiResponse({ status: 409, description: 'Conflicto con una regla de negocio', type: ErrorApi })
-@ApiResponse({ status: 503, description: 'Otro servicio no responde', type: ErrorApi })
+@RespuestaError(409)
+@RespuestaError(503)
 @Controller("horarios")
 export class TurnoController {
   constructor(private readonly servicio: TurnoService) {}
@@ -16,7 +16,7 @@ export class TurnoController {
   @Post("turnos")
   @ApiOperation({"operationId":"crear_turno","summary":"Crear turno"})
   @ApiResponse({ status: 201, description: "Creado", type: Turno })
-  @ApiResponse({ status: 400, description: 'Datos inválidos', type: ErrorApi })
+  @RespuestaError(400)
   crear_turno(@Body() body: CrearTurnoDto): Promise<Turno> {
     return this.servicio.crear_turno(body);
   }
@@ -26,7 +26,7 @@ export class TurnoController {
   @ApiOperation({"operationId":"eliminar_turno","summary":"Eliminar turno"})
   @ApiParam({"name":"id","description":"Id del turno","type":"integer","format":"int64"})
   @ApiResponse({ status: 204, description: "Eliminado" })
-  @ApiResponse({ status: 404, description: 'No existe el recurso', type: ErrorApi })
+  @RespuestaError(404)
   eliminar_turno(@Param("id", ParseIntPipe) id: number): Promise<void> {
     return this.servicio.eliminar_turno(id);
   }
@@ -36,8 +36,8 @@ export class TurnoController {
   @ApiOperation({"operationId":"asignar_franja_a_turno","summary":"Asignar franja horaria al turno"})
   @ApiParam({"name":"id","description":"Id del turno","type":"integer","format":"int64"})
   @ApiResponse({ status: 200, description: "OK", type: Turno })
-  @ApiResponse({ status: 400, description: 'Datos inválidos', type: ErrorApi })
-  @ApiResponse({ status: 404, description: 'No existe el recurso', type: ErrorApi })
+  @RespuestaError(400)
+  @RespuestaError(404)
   asignar_franja_a_turno(@Param("id", ParseIntPipe) id: number, @Body() body: AsignarFranjaATurnoDto): Promise<Turno> {
     return this.servicio.asignar_franja_a_turno(id, body);
   }
@@ -47,7 +47,7 @@ export class TurnoController {
   @ApiParam({"name":"id","description":"Id del turno","type":"integer","format":"int64"})
   @ApiParam({"name":"id_franja_horaria","description":"Id de la franja horaria a quitar","type":"integer","format":"int64"})
   @ApiResponse({ status: 200, description: "OK", type: Turno })
-  @ApiResponse({ status: 404, description: 'No existe el recurso', type: ErrorApi })
+  @RespuestaError(404)
   eliminar_franja_horaria_turno(@Param("id", ParseIntPipe) id: number, @Param("id_franja_horaria", ParseIntPipe) idFranjaHoraria: number): Promise<Turno> {
     return this.servicio.eliminar_franja_horaria_turno(id, idFranjaHoraria);
   }
@@ -56,7 +56,7 @@ export class TurnoController {
   @ApiOperation({"operationId":"get_turno","summary":"Obtener turno (con sus franjas)"})
   @ApiParam({"name":"id","description":"Id del turno","type":"integer","format":"int64"})
   @ApiResponse({ status: 200, description: "OK", type: Turno })
-  @ApiResponse({ status: 404, description: 'No existe el recurso', type: ErrorApi })
+  @RespuestaError(404)
   get_turno(@Param("id", ParseIntPipe) id: number): Promise<Turno> {
     return this.servicio.get_turno(id);
   }

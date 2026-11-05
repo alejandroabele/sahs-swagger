@@ -41,7 +41,7 @@ export class Reglas {
       const f = franjas.get(id);
       if (!f) throw referenciaInvalida(`No existe la franja horaria ${id}`);
       if (f.es_recreo) throw conflicto(`La franja ${nombreFranja(f)} es un recreo: no se puede ocupar`);
-      if (!delTurno.has(id)) throw conflicto(`La franja ${nombreFranja(f)} no es del turno ${turno.nombre} del curso`);
+      if (!delTurno.has(id)) throw conflicto(`La franja ${nombreFranja(f)} no es del turno ${turno.nombre} del curso`, 'RN-01');
     }
     const profes = await this.a.profesoresPorId();
     for (const idp of idsProfesores) {
@@ -83,7 +83,7 @@ export class Reglas {
       if (comunes.length) {
         const profes = await this.a.profesoresPorId();
         const p = profes.get(comunes[0].id_profesor);
-        throw conflicto(`${p ? p.nombre + ' ' + p.apellido : 'El docente'} ya tiene la clase ${otra.codigo} el ${cuando}`);
+        throw conflicto(`${p ? p.nombre + ' ' + p.apellido : 'El docente'} ya tiene la clase ${otra.codigo} el ${cuando}`, 'RN-02');
       }
     }
   }
