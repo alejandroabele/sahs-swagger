@@ -1,14 +1,14 @@
 // Rutas de Día lectivo. Generado una vez por tools/generar_scaffold.mjs; desde entonces se mantiene a mano.
 import { Body, Controller, Delete, Get, HttpCode, Param, ParseIntPipe, Post } from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { ErrorApi } from '@sahs/comun';
+import { RespuestaError } from '@sahs/comun';
 import { DiaLectivo, FranjaHoraria } from '../dto/modelos';
 import { CrearDiaLectivoDto } from '../dto/entradas';
 import { DiaLectivoService } from './dia-lectivo.service';
 
 @ApiTags("Día lectivo")
-@ApiResponse({ status: 409, description: 'Conflicto con una regla de negocio', type: ErrorApi })
-@ApiResponse({ status: 503, description: 'Otro servicio no responde', type: ErrorApi })
+@RespuestaError(409)
+@RespuestaError(503)
 @Controller("horarios")
 export class DiaLectivoController {
   constructor(private readonly servicio: DiaLectivoService) {}
@@ -16,7 +16,7 @@ export class DiaLectivoController {
   @Post("dias-lectivos")
   @ApiOperation({"operationId":"crear_dia_lectivo","summary":"Crear día lectivo"})
   @ApiResponse({ status: 201, description: "Creado", type: DiaLectivo })
-  @ApiResponse({ status: 400, description: 'Datos inválidos', type: ErrorApi })
+  @RespuestaError(400)
   crear_dia_lectivo(@Body() body: CrearDiaLectivoDto): Promise<DiaLectivo> {
     return this.servicio.crear_dia_lectivo(body);
   }
@@ -26,7 +26,7 @@ export class DiaLectivoController {
   @ApiOperation({"operationId":"eliminar_dia_lectivo","summary":"Eliminar día lectivo"})
   @ApiParam({"name":"id","description":"Id del día lectivo","type":"integer","format":"int64"})
   @ApiResponse({ status: 204, description: "Eliminado" })
-  @ApiResponse({ status: 404, description: 'No existe el recurso', type: ErrorApi })
+  @RespuestaError(404)
   eliminar_dia_lectivo(@Param("id", ParseIntPipe) id: number): Promise<void> {
     return this.servicio.eliminar_dia_lectivo(id);
   }
@@ -35,7 +35,7 @@ export class DiaLectivoController {
   @ApiOperation({"operationId":"get_dia_lectivo","summary":"Obtener día lectivo"})
   @ApiParam({"name":"id","description":"Id del día lectivo","type":"integer","format":"int64"})
   @ApiResponse({ status: 200, description: "OK", type: DiaLectivo })
-  @ApiResponse({ status: 404, description: 'No existe el recurso', type: ErrorApi })
+  @RespuestaError(404)
   get_dia_lectivo(@Param("id", ParseIntPipe) id: number): Promise<DiaLectivo> {
     return this.servicio.get_dia_lectivo(id);
   }
@@ -51,7 +51,7 @@ export class DiaLectivoController {
   @ApiOperation({"operationId":"get_franja_horaria_dia_lectivo","summary":"Franjas horarias del día lectivo"})
   @ApiParam({"name":"id","description":"Id del día lectivo","type":"integer","format":"int64"})
   @ApiResponse({ status: 200, description: "OK", type: [FranjaHoraria] })
-  @ApiResponse({ status: 404, description: 'No existe el recurso', type: ErrorApi })
+  @RespuestaError(404)
   get_franja_horaria_dia_lectivo(@Param("id", ParseIntPipe) id: number): Promise<FranjaHoraria[]> {
     return this.servicio.get_franja_horaria_dia_lectivo(id);
   }

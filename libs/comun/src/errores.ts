@@ -10,22 +10,31 @@ import { ApiProperty, ApiSchema } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { QueryFailedError } from 'typeorm';
 import type * as C from '@sahs/contratos';
+import type { CodigoRegla } from './reglas';
 
-/** Cuerpo de toda respuesta de error: `Error { codigo, mensaje }`. */
+/**
+ * Cuerpo de toda respuesta de error: `Error { codigo, mensaje }`. El código es el id de la
+ * regla de negocio violada (`RN-11`) o, si no es una regla, el del problema (`SERVICIO_NO_DISPONIBLE`).
+ */
 @ApiSchema({ name: 'Error' })
 export class ErrorApi implements C.ErrorApi {
-  @ApiProperty({ type: 'string', example: 'NO_ENCONTRADO', required: true })
+  @ApiProperty({
+    type: 'string',
+    description: 'Id de la regla de negocio violada (RN-01 a RN-17, PS-02.01) o código del problema (SERVICIO_NO_DISPONIBLE, ERROR_INTERNO...)',
+    example: 'RN-12',
+    required: true,
+  })
   codigo!: string;
 
-  @ApiProperty({ type: 'string', example: 'No existe el usuario 99', required: true })
+  @ApiProperty({ type: 'string', description: 'Qué pasó, en español', example: 'Ya existe un registro con esos datos', required: true })
   mensaje!: string;
 }
 
-/** Códigos de error que usan los servicios. */
+/** Código de cada status cuando el error no trae uno propio. */
 export const CODIGOS = {
-  400: 'VALIDACION',
-  404: 'NO_ENCONTRADO',
-  409: 'CONFLICTO',
+  400: 'RN-14',
+  404: 'RN-13',
+  409: 'RN-12',
   500: 'ERROR_INTERNO',
   501: 'NO_IMPLEMENTADO',
   502: 'ERROR_DEPENDENCIA',
@@ -39,10 +48,14 @@ export class ErrorSahs extends HttpException {
   }
 }
 
-export const noEncontrado = (mensaje: string) => new ErrorSahs(404, 'NO_ENCONTRADO', mensaje);
-export const invalido = (mensaje: string) => new ErrorSahs(400, 'VALIDACION', mensaje);
-export const referenciaInvalida = (mensaje: string) => new ErrorSahs(400, 'REFERENCIA_INEXISTENTE', mensaje);
-export const conflicto = (mensaje: string) => new ErrorSahs(409, 'CONFLICTO', mensaje);
+/** 404 (RN-13): la entidad de la ruta no existe. */
+export const noEncontrado = (mensaje: string) => new ErrorSahs(404, 'RN-13', mensaje);
+/** 400: datos inválidos (RN-14) o la regla indicada. */
+export const invalido = (mensaje: string, regla: CodigoRegla = 'RN-14') => new ErrorSahs(400, regla, mensaje);
+/** 400 (RN-14): un id de otra entidad que no existe. */
+export const referenciaInvalida = (mensaje: string) => new ErrorSahs(400, 'RN-14', mensaje);
+/** 409: conflicto con una regla de negocio (RN-12) o la regla indicada. */
+export const conflicto = (mensaje: string, regla: CodigoRegla = 'RN-12') => new ErrorSahs(409, regla, mensaje);
 export const noDisponible = (mensaje: string) => new ErrorSahs(503, 'SERVICIO_NO_DISPONIBLE', mensaje);
 
 const TRADUCCIONES: [RegExp, string][] = [
@@ -67,7 +80,7 @@ function traducir(mensaje: string): string {
 }
 
 /** Un mensaje por campo (el primero), traducido. */
-function traducirLista(mensajes: string[]): string {
+export function traducirLista(mensajes: string[]): string {
   const vistos = new Set<string>();
   const out: string[] = [];
   for (const m of mensajes) {
@@ -81,7 +94,8 @@ function traducirLista(mensajes: string[]): string {
 
 /**
  * Transforma cualquier error en `Error { codigo, mensaje }`:
- * validación → 400, inexistente → 404, regla de negocio o restricción de la base → 409.
+ * validación → 400 (RN-14), inexistente → 404 (RN-13), regla de negocio o restricción de la base → 409 (RN-12),
+ * salvo que el error traiga su propia regla.
  */
 @Catch()
 export class FiltroErrores implements ExceptionFilter {
@@ -100,13 +114,15 @@ export class FiltroErrores implements ExceptionFilter {
       } else {
         const msj = r && typeof r === 'object' ? r.message : r;
         const mensaje = Array.isArray(msj) ? traducirLista(msj) : traducir(String(msj ?? error.message));
-        cuerpo = { codigo: CODIGOS[status] ?? 'ERROR', mensaje };
+        // La validación de un DTO puede traer la regla del campo (ver PipeValidacion).
+        const codigo = r && typeof r === 'object' && r.codigo ? r.codigo : CODIGOS[status];
+        cuerpo = { codigo: codigo ?? 'ERROR', mensaje };
       }
     } else if (error instanceof QueryFailedError) {
       const msj = String((error as any).driverError?.message ?? error.message);
       status = HttpStatus.CONFLICT;
-      if (/UNIQUE/.test(msj)) cuerpo = { codigo: 'CONFLICTO', mensaje: 'Ya existe un registro con esos datos (' + msj.replace(/^.*: /, '') + ')' };
-      else if (/FOREIGN KEY/.test(msj)) cuerpo = { codigo: 'CONFLICTO', mensaje: 'El registro está en uso o referencia a uno que no existe' };
+      if (/UNIQUE/.test(msj)) cuerpo = { codigo: 'RN-12', mensaje: 'Ya existe un registro con esos datos (' + msj.replace(/^.*: /, '') + ')' };
+      else if (/FOREIGN KEY/.test(msj)) cuerpo = { codigo: 'RN-12', mensaje: 'El registro está en uso o referencia a uno que no existe' };
       else if (/SQLITE_BUSY|database is locked/.test(msj)) {
         status = HttpStatus.SERVICE_UNAVAILABLE;
         cuerpo = { codigo: 'SERVICIO_NO_DISPONIBLE', mensaje: 'La base de datos está ocupada, reintentá en unos segundos' };

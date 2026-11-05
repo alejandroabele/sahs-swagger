@@ -32,7 +32,7 @@ export class MateriaService {
 
   async crear_materia(body: CrearMateriaDto): Promise<Materia> {
     const nombre = body.nombre_materia.trim();
-    if (body.horas_semanales < 1 || body.horas_semanales > 20) throw invalido('Las horas semanales van de 1 a 20');
+    if (body.horas_semanales < 1 || body.horas_semanales > 12) throw invalido('Las horas semanales van de 1 a 12', 'RN-17');
     if (!(await this.a.orientaciones.findOneBy({ id_orientacion: body.id_orientacion }))) {
       throw referenciaInvalida(`No existe la orientación ${body.id_orientacion}`);
     }

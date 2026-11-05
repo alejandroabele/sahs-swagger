@@ -1,6 +1,7 @@
 import 'reflect-metadata';
 
 export * from './errores';
+export * from './reglas';
 export * from './contexto';
 export * from './cliente-servicio';
 export * from './health';

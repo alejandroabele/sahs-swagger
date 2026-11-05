@@ -115,15 +115,32 @@ Las llamadas entre servicios son **planas**: llevan el header `x-sahs-anidados: 
 
 ### Errores
 
-Todas las respuestas de error tienen el cuerpo `Error { codigo, mensaje }`, con el mensaje en español:
+Todas las respuestas de error tienen el cuerpo `Error { codigo, mensaje }`, con el mensaje en español. El `codigo` es el id de la regla de negocio violada, tal como figura en la pestaña "Reglas de negocio" del documento del grupo. Si no hay una regla específica, va la genérica del status:
 
 | Código HTTP | `codigo` | Cuándo |
 |---|---|---|
-| 400 | `VALIDACION` | Body, query o id inválidos |
-| 400 | `REFERENCIA_INEXISTENTE` | Un id de otra entidad que no existe |
-| 404 | `NO_ENCONTRADO` | La entidad de la ruta no existe |
-| 409 | `CONFLICTO` | Una regla de negocio (choque de horarios, transición de estado inválida, recibo ya firmado...) |
+| 400 | `RN-14` | Datos inválidos: body, query o id inválidos, o un id de otra entidad que no existe |
+| 404 | `RN-13` | No encontrado: la entidad de la ruta no existe |
+| 409 | `RN-12` | Conflicto con una regla de negocio sin id propio (transición de estado inválida, recibo ya firmado...) |
 | 503 | `SERVICIO_NO_DISPONIBLE` | Otro servicio no responde |
+| 500, 502 | `ERROR_INTERNO`, `ERROR_DEPENDENCIA` | Error del servicio o de otro servicio |
+
+Reglas con id propio:
+
+| `codigo` | HTTP | Regla | Dónde |
+|---|---|---|---|
+| `RN-01` | 409 | Una materia no puede tener un horario por fuera del escolar (la franja no es del turno del curso) | `crear_clase`, `editar_clase`, `asignar_curso_a_clase` |
+| `RN-02` | 409 | Un profesor no puede estar en dos clases el mismo día y bloque horario | `asignar_clase_a_planificacion`, `editar_clase`, `asignar_curso_a_clase` |
+| `RN-03` | 409 | No se marca abonado (validado) un pago sin el monto calculado | `validar_pago` |
+| `RN-04` | 409 | No se marca abonado un pago sin recibo de sueldo | `validar_pago` |
+| `RN-05` | 400 | Nombre, apellido y documento del profesor son obligatorios | `crear_profesor`, `editar_profesor` |
+| `RN-10` | 400 | No hay franjas horarias después de las 23:59 | `crear_franja_horaria` |
+| `RN-11` | 409 | No hay dos profesores con el mismo documento | `crear_profesor`, `editar_profesor` |
+| `PS-02.01` | 409 | El período de la suplencia tiene que incluir al menos un dictado de la clase | `crear_suplencia` |
+| `RN-16` | 400 | La franja termina después de empezar | `crear_franja_horaria` |
+| `RN-17` | 400 | Una materia tiene como máximo 12 horas semanales | `crear_materia`, `asignar_materia_a_curso`, `cambiar_horas_materia_curso` |
+
+El catálogo está en `libs/comun/src/reglas.ts`. Un servicio lanza una regla con `conflicto(mensaje, 'RN-11')` o `invalido(mensaje, 'RN-17')`, y un campo de un DTO la declara con `context: { regla: 'RN-05' }` en su validador. En el swagger, cada operación documenta sus errores con `@RespuestaError(409, 'RN-11')`: la descripción lista las reglas y hay un ejemplo por regla, más el de la genérica.
 
 ## Prototipo
 
@@ -211,6 +228,8 @@ Para sumar una pantalla, se agrega a `CONFIG.pantallas` con el id del `.dc.html`
 - **Propuesta pasa a llamarse planificación:** lo que el documento y el diagrama de clases llaman propuesta ahora es planificación en la API, el código y la base, y el recurso va en `/planificaciones` (ver "Convenciones"). Cambian las operaciones `crear_propuesta` → `crear_planificacion`, `get_propuestas` → `get_planificaciones`, `get_propuesta` → `get_planificacion`, `get_estado_actual_de_propuesta` → `get_estado_actual_de_planificacion`, `asignar_estado_a_propuesta` → `asignar_estado_a_planificacion`, `asignar_clase_a_propuesta` → `asignar_clase_a_planificacion`, `crear_estado_propuesta` → `crear_estado_planificacion` y `get_posibles_estados_de_propuestas` → `get_posibles_estados_de_planificaciones`; los schemas `Propuesta` → `Planificacion` y `EstadoPropuesta` → `EstadoPlanificacion`; los campos `id_propuesta` → `id_planificacion` (también el filtro de `get_clases`) y `descripcion_propuesta` → `descripcion_planificacion`; y las tablas `planificacion_propuesta`, `planificacion_estado_propuesta` y `planificacion_propuesta_clase` (migración `RenombrarPropuestaAPlanificacion`). "Espacio de propuesta de área" es otro concepto y no cambia. Falta pasarlo al documento del grupo y al diagrama de clases. El verificador aplica estos renombres al contrato congelado (`RENOMBRES`) y controla las rutas nuevas.
 - **Estados de la planificación:** el catálogo pasa a ser Borrador (`BOR`), En revisión (`REV`), Vigente (`VIG`) y Fue vigente (`FVG`). Vigente y Fue vigente reemplazan a Validada y Cerrada (la migración `ReglasDeNegocio` renombra las filas y conserva los `id_estado`). Hay una sola Vigente por ciclo lectivo: cuando otra pasa a Vigente, la anterior pasa sola a Fue vigente, y no hay paso manual de Vigente a otro estado.
 - **Reglas de negocio:** están escritas en la pestaña "Reglas de negocio" del documento del grupo. Las que se agregaron con ese cambio: cada materia de cada curso tiene que tener exactamente sus horas semanales para pasar a revisión o a Vigente (el `409` lista curso, materia y horas), una clase no puede hacer que una materia pase sus horas, no se da de baja a un docente de la planificación Vigente, un profesor dado de baja no aparece como habilitado (`get_profesores_materia`, `get_profesores_area`) ni se le asignan clases o suplencias, y el suplente tiene que estar habilitado en la materia y disponible en las franjas de la clase.
+
+- **Códigos de error:** el `codigo` de los errores es el id de la regla de negocio (`RN-11`, `PS-02.01`) o la genérica del status (`RN-12`, `RN-13`, `RN-14`), en lugar de `VALIDACION`, `REFERENCIA_INEXISTENTE`, `NO_ENCONTRADO` y `CONFLICTO` (ver "Errores"). Con ese cambio la máxima de horas semanales de una materia baja de 20 a 12 (RN-17), `crear_suplencia` exige que el período incluya al menos un dictado de la clase (PS-02.01) y `validar_pago` controla que el pago tenga recibo y monto (RN-03 y RN-04).
 
   `npm run verificar-contratos` compara contra `specs/*.json` por `operationId`, con esas diferencias como excepciones.
 
@@ -375,6 +394,12 @@ Para sumar una pantalla, se agrega a `CONFIG.pantallas` con el id del `.dc.html`
 8. **Liquidación de sueldo:** el documento no tiene la fórmula. Se tomó la del recibo de ejemplo del prototipo (P4): horas cátedra semanales de cada materia en la planificación vigente × valor de la hora del período, más 10 % de antigüedad y, en junio y diciembre, el sueldo anual complementario (50 % de horas + antigüedad). Descuentos: 11 % de jubilación, 3 % de obra social y 2 % sindical. Los valores (valor de la hora por período, porcentajes, día de pago y datos del emisor) son configuración del servicio Pago (tablas `pago_parametro` y `pago_valor_hora`). Las horas de las suplencias todavía no se suman.
 9. **Orientación de los cursos:** está guardada en Orientación (ver "Cambios respecto del documento"). Conviene confirmar en el diagrama de clases de quién es el dato.
 10. **Datos que el prototipo muestra y la API no guarda:** código y horarios de definición de un turno (inicio, fin, duración de la hora), fechas de inicio y fin de un ciclo lectivo, años asociados a una orientación, fecha de ingreso del profesor. La web los deriva o los omite.
+11. **Reglas de negocio del documento que faltan o hay que aclarar:**
+    - RN-05 pide también el tipo de documento, pero el profesor no tiene ese dato (falta en el diagrama de clases).
+    - RN-06, RN-07 y RN-08 (solo los administradores modifican la planificación; cada profesor modifica solo su disponibilidad y los administradores la de cualquiera) dependen de los roles, y la API todavía no valida el token.
+    - RN-09 (no se carga un profesor sin materias): `crear_profesor` no recibe materias; se habilitan después con `asignar_materias_habilitadas`. Hace falta definir si las materias pasan al alta.
+    - No hay RN-15: en su lugar está PS-02.01, que se usa con ese id. RN-16 dice "hora de fin menor a la hora de inicio"; se tomó como "fin posterior al inicio".
+    - Los errores que no son reglas (`503`, `500`, `502`) mantienen su código (`SERVICIO_NO_DISPONIBLE`, `ERROR_INTERNO`, `ERROR_DEPENDENCIA`). Si el grupo quiere, se les puede dar un id en el documento.
 
 ## Mantenimiento
 

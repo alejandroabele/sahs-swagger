@@ -1,14 +1,14 @@
 // Rutas de Planificación. Generado una vez por tools/generar_scaffold.mjs; desde entonces se mantiene a mano.
 import { Body, Controller, Get, HttpCode, Param, ParseIntPipe, Post, Put, Query } from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { ErrorApi } from '@sahs/comun';
+import { RespuestaError } from '@sahs/comun';
 import { ArmadoPlanificacion, EstadoPlanificacion, Planificacion, ResultadoGeneracion } from '../dto/modelos';
 import { AsignarClaseAPlanificacionDto, AsignarEstadoAPlanificacionDto, CrearPlanificacionDto, GenerarPlanillaDto, GetPlanificacionesQuery } from '../dto/entradas';
 import { PlanificacionService } from './planificacion.service';
 
 @ApiTags("Planificación")
-@ApiResponse({ status: 409, description: 'Conflicto con una regla de negocio', type: ErrorApi })
-@ApiResponse({ status: 503, description: 'Otro servicio no responde', type: ErrorApi })
+@RespuestaError(409)
+@RespuestaError(503)
 @Controller("planificaciones")
 export class PlanificacionController {
   constructor(private readonly servicio: PlanificacionService) {}
@@ -16,7 +16,7 @@ export class PlanificacionController {
   @Post()
   @ApiOperation({"operationId":"crear_planificacion","summary":"Crear planificación (queda en estado Borrador)","description":"La planificación nace en Borrador (BOR) y se valida completa, no curso por curso."})
   @ApiResponse({ status: 201, description: "Creado", type: Planificacion })
-  @ApiResponse({ status: 400, description: 'Datos inválidos', type: ErrorApi })
+  @RespuestaError(400)
   crear_planificacion(@Body() body: CrearPlanificacionDto): Promise<Planificacion> {
     return this.servicio.crear_planificacion(body);
   }
@@ -25,8 +25,8 @@ export class PlanificacionController {
   @ApiOperation({"operationId":"asignar_estado_a_planificacion","summary":"Asignar estado a la planificación","description":"Transiciones: Borrador → En revisión; En revisión → Vigente o Borrador. Una planificación Vigente no cambia de estado por pedido: pasa sola a Fue vigente cuando otra de su ciclo lectivo pasa a Vigente, así hay una sola Vigente por ciclo.\n\nPara pasar a En revisión la planificación necesita al menos una clase, y para pasar a En revisión o a Vigente cada materia de cada curso del ciclo tiene que tener exactamente sus horas semanales. Si no, responde `409` con cada diferencia (`1A: Matemática 3 de 5 h`).\n\nInvoca: orientacion.get_materia"})
   @ApiParam({"name":"id","description":"Id de la planificación","type":"integer","format":"int64"})
   @ApiResponse({ status: 200, description: "OK", type: Planificacion })
-  @ApiResponse({ status: 400, description: 'Datos inválidos', type: ErrorApi })
-  @ApiResponse({ status: 404, description: 'No existe el recurso', type: ErrorApi })
+  @RespuestaError(400)
+  @RespuestaError(404)
   asignar_estado_a_planificacion(@Param("id", ParseIntPipe) id: number, @Body() body: AsignarEstadoAPlanificacionDto): Promise<Planificacion> {
     return this.servicio.asignar_estado_a_planificacion(id, body);
   }
@@ -36,8 +36,9 @@ export class PlanificacionController {
   @ApiOperation({"operationId":"asignar_clase_a_planificacion","summary":"Agregar una clase a la planificación","description":"Solo en Borrador. Responde `409` si el curso ya tiene otra clase en alguna de sus franjas, si un docente ya tiene otra clase a la vez, o si con la clase la materia supera sus horas semanales en el curso."})
   @ApiParam({"name":"id","description":"Id de la planificación","type":"integer","format":"int64"})
   @ApiResponse({ status: 200, description: "OK", type: Planificacion })
-  @ApiResponse({ status: 400, description: 'Datos inválidos', type: ErrorApi })
-  @ApiResponse({ status: 404, description: 'No existe el recurso', type: ErrorApi })
+  @RespuestaError(400)
+  @RespuestaError(404)
+  @RespuestaError(409, 'RN-02')
   asignar_clase_a_planificacion(@Param("id", ParseIntPipe) id: number, @Body() body: AsignarClaseAPlanificacionDto): Promise<Planificacion> {
     return this.servicio.asignar_clase_a_planificacion(id, body);
   }
@@ -60,9 +61,9 @@ export class PlanificacionController {
   })
   @ApiParam({"name":"id","description":"Id de la planificación","type":"integer","format":"int64"})
   @ApiResponse({ status: 200, description: "OK", type: ResultadoGeneracion })
-  @ApiResponse({ status: 400, description: 'Datos inválidos o curso que no es del ciclo de la planificación', type: ErrorApi })
-  @ApiResponse({ status: 404, description: 'No existe la planificación', type: ErrorApi })
-  @ApiResponse({ status: 409, description: 'La planificación no está en Borrador', type: ErrorApi })
+  @RespuestaError(400)
+  @RespuestaError(404)
+  @RespuestaError(409)
   generar_planilla(@Param("id", ParseIntPipe) id: number, @Body() body: GenerarPlanillaDto): Promise<ResultadoGeneracion> {
     return this.servicio.generar_planilla(id, body ?? {});
   }
@@ -90,7 +91,7 @@ export class PlanificacionController {
   })
   @ApiParam({"name":"id","description":"Id de la planificación","type":"integer","format":"int64"})
   @ApiResponse({ status: 200, description: "OK", type: ArmadoPlanificacion })
-  @ApiResponse({ status: 404, description: 'No existe la planificación', type: ErrorApi })
+  @RespuestaError(404)
   get_armado_planificacion(@Param("id", ParseIntPipe) id: number): Promise<ArmadoPlanificacion> {
     return this.servicio.get_armado_planificacion(id);
   }
@@ -99,7 +100,7 @@ export class PlanificacionController {
   @ApiOperation({"operationId":"get_estado_actual_de_planificacion","summary":"Estado actual de la planificación"})
   @ApiParam({"name":"id","description":"Id de la planificación","type":"integer","format":"int64"})
   @ApiResponse({ status: 200, description: "OK", type: EstadoPlanificacion })
-  @ApiResponse({ status: 404, description: 'No existe el recurso', type: ErrorApi })
+  @RespuestaError(404)
   get_estado_actual_de_planificacion(@Param("id", ParseIntPipe) id: number): Promise<EstadoPlanificacion> {
     return this.servicio.get_estado_actual_de_planificacion(id);
   }
@@ -107,7 +108,7 @@ export class PlanificacionController {
   @Get()
   @ApiOperation({"operationId":"get_planificaciones","summary":"Listar planificaciones"})
   @ApiResponse({ status: 200, description: "OK", type: [Planificacion] })
-  @ApiResponse({ status: 400, description: 'Datos inválidos', type: ErrorApi })
+  @RespuestaError(400)
   get_planificaciones(@Query() query: GetPlanificacionesQuery): Promise<Planificacion[]> {
     return this.servicio.get_planificaciones(query);
   }
@@ -116,7 +117,7 @@ export class PlanificacionController {
   @ApiOperation({"operationId":"get_planificacion","summary":"Obtener planificación"})
   @ApiParam({"name":"id","description":"Id de la planificación","type":"integer","format":"int64"})
   @ApiResponse({ status: 200, description: "OK", type: Planificacion })
-  @ApiResponse({ status: 404, description: 'No existe el recurso', type: ErrorApi })
+  @RespuestaError(404)
   get_planificacion(@Param("id", ParseIntPipe) id: number): Promise<Planificacion> {
     return this.servicio.get_planificacion(id);
   }

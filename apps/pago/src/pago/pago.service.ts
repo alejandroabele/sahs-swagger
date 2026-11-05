@@ -49,10 +49,17 @@ export class PagoService {
     return (await this.a.armarPagos([await this.a.pago(id)]))[0];
   }
 
-  /** Deja validado el pago y completa la firma del emisor en el recibo. */
+  /**
+   * Deja validado (abonado) el pago y completa la firma del emisor en el recibo. El pago se crea
+   * con su recibo y el monto ya calculado, así que RN-03 y RN-04 se cumplen desde la creación;
+   * igual se controlan acá.
+   */
   async validar_pago(id: number, body: ValidarPagoDto): Promise<Pago> {
     const p = await this.a.pago(id);
     if (p.validado) throw conflicto('El pago ya está validado');
+    const recibo = await this.a.recibos.findOneBy({ id_pago: id });
+    if (!recibo) throw conflicto('El pago no tiene recibo de sueldo: no se puede validar', 'RN-04');
+    if (recibo.neto == null) throw conflicto('El recibo del pago no tiene el monto calculado: no se puede validar', 'RN-03');
     const fecha = new Date().toISOString();
     await this.a.pagos.manager.transaction(async (tx) => {
       await tx.update(this.a.pagos.target, id, { validado: true });

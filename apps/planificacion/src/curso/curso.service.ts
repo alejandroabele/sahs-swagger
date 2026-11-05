@@ -40,7 +40,7 @@ export class CursoService {
       throw conflicto(`El curso ya dicta ${m.nombre_materia}`);
     }
     const horas = body.horas_semanales ?? m.horas_semanales;
-    if (horas < 1 || horas > 20) throw invalido('Las horas semanales van de 1 a 20');
+    if (horas < 1 || horas > 12) throw invalido('Las horas semanales van de 1 a 12', 'RN-17');
     await this.a.materiasCurso.insert({ id_curso: id, id_materia: body.id_materia, horas_semanales: horas });
     return this.get_curso(id);
   }
@@ -50,7 +50,7 @@ export class CursoService {
     await this.a.curso(id);
     const mc = await this.a.materiasCurso.findOneBy({ id_curso: id, id_materia: idMateria });
     if (!mc) throw noEncontrado(`El curso no dicta la materia ${idMateria}`);
-    if (body.horas_semanales < 1 || body.horas_semanales > 20) throw invalido('Las horas semanales van de 1 a 20');
+    if (body.horas_semanales < 1 || body.horas_semanales > 12) throw invalido('Las horas semanales van de 1 a 12', 'RN-17');
     await this.a.materiasCurso.update({ id_curso: id, id_materia: idMateria }, { horas_semanales: body.horas_semanales });
     return this.get_curso(id);
   }
