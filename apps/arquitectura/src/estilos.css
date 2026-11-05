@@ -113,6 +113,32 @@ code, .mono { font-family: var(--mono); font-size: 0.92em; }
 .leyenda span { display: flex; align-items: center; gap: 10px; }
 .leyenda i { display: inline-block; width: 32px; height: 2px; }
 
+/* Diagrama de clases */
+.grupo { width: 100%; height: 100%; border: 2px solid; border-radius: 16px; position: relative; }
+.grupo-titulo {
+  position: absolute; left: 20px; top: 12px; display: flex; align-items: center; gap: 8px;
+  font-size: 17px; font-weight: 600; line-height: 24px;
+}
+.clase {
+  width: 100%; height: 100%; display: flex; flex-direction: column;
+  background: #fff; border: 1.5px solid; border-radius: 6px; overflow: hidden;
+}
+.clase-nombre {
+  flex: none; height: 36px; display: flex; align-items: center; justify-content: center;
+  border-bottom: 1.5px solid; font-size: 13px; font-weight: 600; letter-spacing: 0.02em;
+}
+.clase-atributos { display: flex; flex-direction: column; padding: 6px 10px; font-family: var(--mono); font-size: 11.5px; line-height: 20px; color: #3a4250; }
+.clase-atributos span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.relacion-nombre, .relacion-cardinalidad { position: absolute; pointer-events: none; white-space: nowrap; }
+.relacion-nombre {
+  padding: 1px 6px; border-radius: 4px; background: var(--fondo);
+  font-size: 10.5px; font-weight: 600; letter-spacing: 0.04em; color: var(--texto);
+}
+.relacion-cardinalidad { font-family: var(--mono); font-size: 13px; font-weight: 600; color: var(--tinta); }
+.relacion-nombre.angosta { white-space: normal; width: 72px; text-align: center; line-height: 13px; margin-top: 30px; background: transparent; }
+.leyenda i.punteada { height: 0; border-top: 2px dashed currentColor; }
+.leyenda-clases { margin: 0; width: 100%; height: 100%; align-items: center; font-size: 15px; }
+
 /* Validar */
 .validar { max-width: 1100px; padding: 8px 32px 48px; display: flex; flex-direction: column; gap: 24px; overflow: auto; height: 100%; }
 .validar-intro h2 { margin: 0 0 4px; font-size: 22px; }
