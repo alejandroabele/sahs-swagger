@@ -33,6 +33,8 @@ export class MateriaService {
   async crear_materia(body: CrearMateriaDto): Promise<Materia> {
     const nombre = body.nombre_materia.trim();
     if (body.horas_semanales < 1 || body.horas_semanales > 12) throw invalido('Las horas semanales van de 1 a 12', 'RN-17');
+    const descripcion = body.descripcion_materia?.trim() || null;
+    if (descripcion && descripcion.length < 15) throw invalido('La descripción de la materia tiene que tener al menos 15 caracteres', 'RN-18');
     if (!(await this.a.orientaciones.findOneBy({ id_orientacion: body.id_orientacion }))) {
       throw referenciaInvalida(`No existe la orientación ${body.id_orientacion}`);
     }
@@ -43,7 +45,7 @@ export class MateriaService {
     await this.unica(nombre, body.id_orientacion, body.id_anio_academico ?? null);
     const m = await this.a.materias.save({
       nombre_materia: nombre,
-      descripcion_materia: body.descripcion_materia ?? null,
+      descripcion_materia: descripcion,
       horas_semanales: body.horas_semanales,
       id_area: body.id_area ?? null,
       id_orientacion: body.id_orientacion,

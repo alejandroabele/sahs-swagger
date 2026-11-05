@@ -8,6 +8,7 @@ import type { CrearFranjaHorariaDto } from '../dto/entradas';
 import { aFranja, ordenFranjas, REL_FRANJA } from '../mapeo';
 
 const HORA = /^([01]\d|2[0-3]):[0-5]\d$/;
+const minutos = (hhmm: string) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5));
 
 @Injectable()
 export class FranjaHorariaService {
@@ -19,6 +20,7 @@ export class FranjaHorariaService {
   async crear_franja_horaria(body: CrearFranjaHorariaDto): Promise<FranjaHoraria> {
     if (!HORA.test(body.hora_inicio) || !HORA.test(body.hora_fin)) throw invalido('Las horas van en formato HH:MM, de 00:00 a 23:59', 'RN-10');
     if (body.hora_inicio >= body.hora_fin) throw invalido('La hora de inicio tiene que ser anterior a la de fin', 'RN-16');
+    if (minutos(body.hora_fin) - minutos(body.hora_inicio) < 10) throw invalido('La franja tiene que durar al menos 10 minutos', 'RN-19');
     if (!(await this.dias.findOneBy({ id_dia_lectivo: body.id_dia_lectivo }))) {
       throw referenciaInvalida(`No existe el día lectivo ${body.id_dia_lectivo}`);
     }

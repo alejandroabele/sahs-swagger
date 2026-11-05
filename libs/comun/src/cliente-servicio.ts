@@ -1,6 +1,6 @@
 import { Logger } from '@nestjs/common';
 import { contexto, HEADER_ANIDADOS } from './contexto';
-import { ErrorSahs, noDisponible, referenciaInvalida } from './errores';
+import { codigoDe, ErrorSahs, errorDependencia, noDisponible, referenciaInvalida } from './errores';
 
 export type NombreServicio = 'usuario' | 'pago' | 'horarios' | 'planificacion' | 'orientacion' | 'profesor_suplencias';
 
@@ -150,9 +150,9 @@ export class ClienteServicio {
   private traducir(e: unknown): unknown {
     if (e instanceof ErrorRemoto) {
       if (e.status === 503) return noDisponible(e.cuerpo?.mensaje ?? `El servicio ${this.servicio} no está disponible`);
-      if (e.status >= 500) return new ErrorSahs(502, 'ERROR_DEPENDENCIA', `El servicio ${this.servicio} respondió con un error`);
+      if (e.status >= 500) return errorDependencia(`El servicio ${this.servicio} respondió con un error`);
       if (e.status === 404) return referenciaInvalida(e.cuerpo?.mensaje ?? `No existe en ${this.servicio}`);
-      return new ErrorSahs(e.status, e.cuerpo?.codigo ?? 'ERROR_DEPENDENCIA', e.cuerpo?.mensaje ?? `Error en ${this.servicio}`);
+      return new ErrorSahs(e.status, e.cuerpo?.codigo ?? codigoDe(e.status), e.cuerpo?.mensaje ?? `Error en ${this.servicio}`);
     }
     return e;
   }

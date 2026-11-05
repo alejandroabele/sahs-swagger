@@ -24,7 +24,7 @@ export class MateriaController {
   @Post("materias")
   @ApiOperation({"operationId":"crear_materia","summary":"Crear materia"})
   @ApiResponse({ status: 201, description: "Creado", type: Materia })
-  @RespuestaError(400, 'RN-17')
+  @RespuestaError(400, 'RN-17', 'RN-18')
   crear_materia(@Body() body: CrearMateriaDto): Promise<Materia> {
     return this.servicio.crear_materia(body);
   }

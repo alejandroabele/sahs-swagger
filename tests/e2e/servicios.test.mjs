@@ -110,7 +110,7 @@ describe('convenciones', () => {
     const crear = d.paths['/profesor-suplencias/profesores'].post;
     assert.deepEqual(ejemplos(crear, '400'), ['RN-05', 'RN-14']);
     assert.deepEqual(ejemplos(crear, '409'), ['RN-11', 'RN-12']);
-    assert.deepEqual(ejemplos(crear, '503'), ['SERVICIO_NO_DISPONIBLE']);
+    assert.deepEqual(ejemplos(crear, '503'), ['RN-20']);
     assert.match(crear.responses['409'].description, /RN-11/);
     const leer = d.paths['/profesor-suplencias/profesores/{id}'].get;
     assert.deepEqual(ejemplos(leer, '404'), ['RN-13']);
@@ -453,10 +453,10 @@ describe('Reglas de negocio', () => {
     assert.match(r.datos.mensaje, /no está disponible/);
 
     await api('PUT', 'profesor_suplencias', `profesores/${p.id_profesor}/disponibilidad`, { ids_franjas_horarias: clase.ids_franjas_horarias });
-    // PS-02.01: un fin de semana no incluye ningún dictado de la clase.
+    // RN-15: un fin de semana no incluye ningún dictado de la clase.
     r = await api('POST', 'profesor_suplencias', ruta, { ...body, fecha_inicio: '2027-04-10', fecha_fin: '2027-04-11' });
     assert.equal(r.status, 409);
-    assert.equal(r.datos.codigo, 'PS-02.01');
+    assert.equal(r.datos.codigo, 'RN-15');
 
     r = await api('POST', 'profesor_suplencias', ruta, body);
     assert.equal(r.status, 201, r.datos?.mensaje);
@@ -498,7 +498,7 @@ describe('Códigos de las reglas de negocio', () => {
     assert.equal(r.datos.codigo, 'RN-11');
   });
 
-  test('RN-10 y RN-16: franjas hasta las 23:59 y con el fin después del inicio → 400', async () => {
+  test('RN-10, RN-16 y RN-19: franjas hasta las 23:59, con el fin después del inicio y de al menos 10 minutos → 400', async () => {
     const dia = (await get('horarios', 'dias-lectivos')).datos[0];
     const franja = (hora_inicio, hora_fin) => api('POST', 'horarios', 'franjas-horarias', { hora_inicio, hora_fin, es_recreo: false, id_dia_lectivo: dia.id_dia_lectivo });
     let r = await franja('23:20', '24:00');
@@ -507,6 +507,18 @@ describe('Códigos de las reglas de negocio', () => {
     r = await franja('10:00', '09:20');
     assert.equal(r.status, 400);
     assert.equal(r.datos.codigo, 'RN-16');
+    r = await franja('10:00', '10:09');
+    assert.equal(r.status, 400);
+    assert.equal(r.datos.codigo, 'RN-19');
+  });
+
+  test('RN-18: la descripción de la materia tiene al menos 15 caracteres → 400', async () => {
+    const m = (await get('orientacion', 'materias')).datos[0];
+    const r = await api('POST', 'orientacion', 'materias', {
+      nombre_materia: 'Materia RN-18', descripcion_materia: 'Corta', horas_semanales: 2, id_orientacion: m.id_orientacion,
+    });
+    assert.equal(r.status, 400);
+    assert.equal(r.datos.codigo, 'RN-18');
   });
 
   test('RN-17: una materia tiene como máximo 12 horas semanales → 400', async () => {
@@ -620,7 +632,7 @@ describe('dependencias caídas', () => {
     const t0 = Date.now();
     const r = await get('planificacion', 'clases/1');
     assert.equal(r.status, 503);
-    assert.equal(r.datos.codigo, 'SERVICIO_NO_DISPONIBLE');
+    assert.equal(r.datos.codigo, 'RN-20');
     assert.ok(Date.now() - t0 < 6000);
   });
 });

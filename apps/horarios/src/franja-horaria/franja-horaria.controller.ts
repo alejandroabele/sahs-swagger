@@ -16,7 +16,7 @@ export class FranjaHorariaController {
   @Post("franjas-horarias")
   @ApiOperation({"operationId":"crear_franja_horaria","summary":"Crear franja horaria"})
   @ApiResponse({ status: 201, description: "Creado", type: FranjaHoraria })
-  @RespuestaError(400, 'RN-10', 'RN-16')
+  @RespuestaError(400, 'RN-10', 'RN-16', 'RN-19')
   crear_franja_horaria(@Body() body: CrearFranjaHorariaDto): Promise<FranjaHoraria> {
     return this.servicio.crear_franja_horaria(body);
   }

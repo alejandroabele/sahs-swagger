@@ -4,7 +4,8 @@ import { ErrorApi } from './errores';
 /**
  * Reglas de negocio del documento del grupo (pestaña "Reglas de negocio"). El id de la regla
  * es el `codigo` del error que responde la API cuando se viola. RN-12, RN-13 y RN-14 son las
- * genéricas: conflicto, no encontrado y datos inválidos.
+ * genéricas: conflicto, no encontrado y datos inválidos. RN-20 a RN-22 no están en el documento:
+ * son los errores que no vienen de una regla (otro servicio caído, error interno).
  */
 export const REGLAS = {
   'RN-01': {
@@ -57,7 +58,7 @@ export const REGLAS = {
     regla: 'Datos inválidos.',
     ejemplo: 'nombre es obligatorio',
   },
-  'PS-02.01': {
+  'RN-15': {
     status: 409,
     regla: 'No se puede crear una suplencia si el intervalo de fechas no incluye al menos un dictado de la clase a suplantar.',
     ejemplo: 'Del 2026-05-04 al 2026-05-06 no hay ningún dictado de la clase MAT-1A (Jueves)',
@@ -72,12 +73,38 @@ export const REGLAS = {
     regla: 'Una materia puede tener como máximo 12 horas semanales.',
     ejemplo: 'Las horas semanales van de 1 a 12',
   },
-} as const satisfies Record<string, { status: 400 | 404 | 409; regla: string; ejemplo: string }>;
+  'RN-18': {
+    status: 400,
+    regla: 'La descripción de la materia tiene que tener como mínimo 15 caracteres.',
+    ejemplo: 'La descripción de la materia tiene que tener al menos 15 caracteres',
+  },
+  'RN-19': {
+    status: 400,
+    regla: 'La duración mínima de una franja horaria es de 10 minutos.',
+    ejemplo: 'La franja tiene que durar al menos 10 minutos',
+  },
+  // No están en el documento: errores que no son de una regla de negocio.
+  'RN-20': {
+    status: 503,
+    regla: 'Otro servicio (o la base de datos) no responde.',
+    ejemplo: 'El servicio horarios no responde',
+  },
+  'RN-21': {
+    status: 500,
+    regla: 'Error interno del servicio.',
+    ejemplo: 'Error interno del servicio',
+  },
+  'RN-22': {
+    status: 502,
+    regla: 'Otro servicio respondió con un error.',
+    ejemplo: 'El servicio horarios respondió con un error',
+  },
+} as const satisfies Record<string, { status: 400 | 404 | 409 | 500 | 502 | 503; regla: string; ejemplo: string }>;
 
 export type CodigoRegla = keyof typeof REGLAS;
 
 /** Regla genérica de cada status. */
-export const REGLA_GENERICA = { 400: 'RN-14', 404: 'RN-13', 409: 'RN-12' } as const satisfies Record<number, CodigoRegla>;
+export const REGLA_GENERICA = { 400: 'RN-14', 404: 'RN-13', 409: 'RN-12', 500: 'RN-21', 502: 'RN-22', 503: 'RN-20' } as const satisfies Record<number, CodigoRegla>;
 
 const DESCRIPCION = {
   400: 'Datos inválidos',
@@ -93,19 +120,6 @@ const DESCRIPCION = {
  *   @RespuestaError(409, 'RN-11')   →  ejemplos RN-11 y RN-12
  */
 export function RespuestaError(status: keyof typeof DESCRIPCION, ...reglas: CodigoRegla[]) {
-  if (status === 503) {
-    return ApiResponse({
-      status,
-      description: DESCRIPCION[503],
-      type: ErrorApi,
-      examples: {
-        SERVICIO_NO_DISPONIBLE: {
-          summary: 'Otro servicio no responde',
-          value: { codigo: 'SERVICIO_NO_DISPONIBLE', mensaje: 'El servicio horarios no responde' },
-        },
-      },
-    });
-  }
   for (const r of reglas) {
     if (REGLAS[r].status !== status) throw new Error(`La regla ${r} responde ${REGLAS[r].status}, no ${status}`);
   }
