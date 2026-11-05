@@ -393,7 +393,7 @@ Para sumar una pantalla, se agrega a `CONFIG.pantallas` con el id del `.dc.html`
 
 ## Vista de arquitectura
 
-http://localhost:8100/arquitectura/ muestra dos diagramas para presentar el sistema: **Componentes** (usuarios → aplicación web → API Gateway → microservicios → base de datos, cada pieza con su tipo y el recuadro "Qué es cada pieza") y **Comunicación** (`/arquitectura/comunicacion`, las llamadas HTTP entre servicios; en azul los pares que se llaman entre sí). Cada servicio muestra si responde (verde o rojo, cada 10 s). "Modo presentación" (o `?presentacion` en la URL) oculta el estado y los avisos.
+http://localhost:8100/arquitectura/ muestra dos diagramas para presentar el sistema: **Componentes** (usuarios → aplicación web → API Gateway → microservicios → base de datos, cada pieza con su tipo y el recuadro "Qué es cada pieza") y **Comunicación** (`/arquitectura/comunicacion`, las llamadas HTTP entre servicios; en azul los pares que se llaman entre sí). La llamada de pago a planificación existe en el código pero no se dibuja, para simplificar la lámina. Los cambios del código sin validar se ven en `/arquitectura/validar`, que no tiene pestaña.
 
 Los datos salen del código, pero los diagramas muestran lo que **validó una persona**:
 

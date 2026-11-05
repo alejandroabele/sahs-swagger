@@ -9,15 +9,14 @@ Para la materia (especificación de software) necesitamos mostrar la arquitectur
   - **Componentes** (`/arquitectura/`): usuarios → aplicación web → API Gateway → los 6 microservicios (con ícono y responsabilidad) → base de datos.
   - **Comunicación** (`/arquitectura/comunicacion`): las llamadas HTTP entre microservicios. Los pares que se llaman entre sí van en azul.
 - **Modelo generado y validado:** `tools/arquitectura.mjs` lee el código (servicios y contenedores del compose, llamadas entre servicios y tablas de cada uno) y escribe `generado.json`. Los diagramas muestran `validado.json`, que va en el repo y solo cambia cuando una persona aprueba las diferencias con `npm run arquitectura:validar`. Lo que el código tiene y todavía no se validó aparece con borde punteado y en la pantalla **Validar** (`/arquitectura/validar`). `npm run verificar-arquitectura` falla si hay diferencias sin validar.
-- **Estado en vivo:** cada servicio muestra si responde su `/actuator/health`, consultado cada 10 segundos por `/arquitectura/salud/<servicio>`.
-- **Modo presentación:** un botón (y `?presentacion` en la URL) oculta el estado y el aviso de cambios pendientes.
+- **Solo modo presentación:** la app es una lámina, sin estado de los servicios ni avisos; Validar no tiene pestaña y se entra por su URL. La llamada de Pago a Planificación no se dibuja, para simplificar la lámina.
 - El API Gateway se dibuja como se diseñó: valida el token que emite Usuario. Hoy el gateway no lo valida; implementar esa validación no es parte de este cambio y queda anotado en el README.
 
 ## Capabilities
 
 ### New Capabilities
 
-- `vista-arquitectura`: la app `/arquitectura` (los dos diagramas, la pantalla Validar, el estado en vivo y el modo presentación) y el modelo de arquitectura (generación desde el código, validación humana y verificación).
+- `vista-arquitectura`: la app `/arquitectura` (los dos diagramas, la pantalla Validar y el modo presentación) y el modelo de arquitectura (generación desde el código, validación humana y verificación).
 
 ### Modified Capabilities
 

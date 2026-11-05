@@ -46,17 +46,7 @@ code, .mono { font-family: var(--mono); font-size: 0.92em; }
 }
 .pestanas a + a { border-left: 1px solid var(--borde); }
 .pestanas a[aria-current='page'] { background: var(--verde); color: #fff; font-weight: 500; }
-.aviso {
-  padding: 10px 14px; min-height: 44px; display: flex; align-items: center; border-radius: 8px;
-  background: var(--ambar-suave); border: 1px solid var(--ambar-borde); color: var(--ambar-texto);
-  font-size: 14px; font-weight: 500; text-decoration: none;
-}
-.boton-presentacion {
-  min-height: 44px; padding: 10px 16px; border-radius: 8px; border: 1px solid var(--borde);
-  background: #fff; color: var(--tinta); font: inherit; font-size: 14px; cursor: pointer;
-}
-.boton-presentacion[aria-pressed='true'] { background: var(--oscuro); border-color: var(--oscuro); color: #fff; }
-.pestanas a:focus-visible, .aviso:focus-visible, .boton-presentacion:focus-visible { outline: 3px solid var(--verde); outline-offset: 2px; }
+.pestanas a:focus-visible { outline: 3px solid var(--verde); outline-offset: 2px; }
 
 .contenido { flex: 1; min-height: 0; position: relative; }
 
@@ -96,9 +86,6 @@ code, .mono { font-family: var(--mono); font-size: 0.92em; }
 .tarjeta-servicio.marca-eliminado { border: 2px dashed var(--ambar); opacity: 0.6; }
 .tarjeta-servicio.marca-eliminado .titulo b { text-decoration: line-through; }
 
-.salud { width: 10px; height: 10px; border-radius: 50%; display: inline-block; background: var(--borde); }
-.salud-arriba { background: var(--verde); }
-.salud-caido { background: var(--rojo); }
 
 .banda { width: 100%; height: 100%; background: var(--banda); border-radius: 16px; position: relative; }
 .banda-titulo {

@@ -46,11 +46,11 @@ Nodos personalizados (componente, servicio y banda de fondo) con posiciones fija
 ### Tipo de cada pieza
 Cada componente tiene un `tipo` (`personas`, `cliente`, `servidor`, `almacenamiento`) que se muestra como etiqueta junto al nombre, y la lámina 1 tiene el recuadro "Qué es cada pieza" con un ícono por concepto (cliente, servidor, API Gateway, microservicio y base de datos). La banda de servicios dice "Microservicios (servidores)".
 
-### Estado en vivo
-El nginx de `arquitectura` publica `GET /arquitectura/salud/<servicio>` → `http://<servicio>:3000/actuator/health`, solo para los 6 nombres conocidos. La app consulta cada servicio cada 10 s: verde si responde `UP`, rojo si falla y gris mientras no hay dato. En desarrollo, el proxy de Vite apunta a los puertos 8081 a 8086.
+### Solo modo presentación
+La app es una lámina para presentar: no muestra el estado de los servicios, ni el aviso de cambios sin validar, ni controles de zoom, ni botón de modo. Validar no tiene pestaña y se entra por `/arquitectura/validar`. (Una primera versión tenía estado en vivo por `/actuator/health` y un botón para alternar el modo; se quitaron.)
 
-### Modo presentación
-Un botón en la cabecera alterna el modo y lo refleja en la URL (`?presentacion`). En ese modo se ocultan el estado, el aviso de cambios sin validar y la pestaña Validar; quedan los diagramas, la leyenda y el recuadro "Qué es cada pieza".
+### Llamadas que no se dibujan
+`NO_SE_DIBUJAN` en `src/pantallas/Comunicacion.tsx` lista las llamadas que el código hace pero no se dibujan, para simplificar la lámina. Hoy es `pago → planificacion`. Siguen en `validado.json`, así que la verificación no cambia; el costo es que la lámina 2 deja de mostrar todas las llamadas del código.
 
 ## Risks / Trade-offs
 

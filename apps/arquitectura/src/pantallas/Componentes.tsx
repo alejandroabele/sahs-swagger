@@ -3,11 +3,10 @@ import type { Edge, Node } from '@xyflow/react';
 import { COLOR, Diagrama, estiloArista } from '../Diagrama';
 import { COMPONENTES, bandaFila, cajaEnFila, type Caja } from '../layout';
 import { componentes, servicios } from '../modelo';
-import type { Salud } from '../salud';
 
 const ubicar = (c: Caja) => ({ position: { x: c.x, y: c.y }, width: c.w, height: c.h, style: { width: c.w, height: c.h } });
 
-export function Componentes({ salud, presentacion }: { salud: Record<string, Salud>; presentacion: boolean }) {
+export function Componentes() {
   const { nodos, aristas } = useMemo(() => {
     const ids = servicios.map((s) => s.id);
     const nodos: Node[] = [
@@ -27,7 +26,7 @@ export function Componentes({ salud, presentacion }: { salud: Record<string, Sal
       ...servicios.map((s) => ({
         id: s.id,
         type: 'servicio',
-        data: { servicio: s, salud: salud[s.id], mostrarSalud: !presentacion, forma: 'columna' },
+        data: { servicio: s, forma: 'columna' },
         ...ubicar(cajaEnFila(s.id, ids)),
       })),
     ];
@@ -52,7 +51,7 @@ export function Componentes({ salud, presentacion }: { salud: Record<string, Sal
       ]),
     ];
     return { nodos, aristas };
-  }, [salud, presentacion]);
+  }, []);
 
-  return <Diagrama nodos={nodos} aristas={aristas} presentacion={presentacion} />;
+  return <Diagrama nodos={nodos} aristas={aristas} />;
 }

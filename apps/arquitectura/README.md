@@ -4,8 +4,9 @@ Vista de arquitectura de SAHS (React + Vite + React Flow), publicada en http://l
 
 - `/arquitectura/`: Componentes (usuarios → aplicación web → API Gateway → microservicios → base de datos).
 - `/arquitectura/comunicacion`: llamadas HTTP entre microservicios.
-- `/arquitectura/validar`: cambios del código que todavía no aprobó una persona.
-- `?presentacion`: oculta el estado y los avisos.
+- `/arquitectura/validar`: cambios del código que todavía no aprobó una persona. No tiene pestaña: se entra por la URL.
+
+La app está siempre en modo presentación: sin estado de los servicios, avisos ni controles de zoom.
 
 ## Modelo
 
@@ -17,10 +18,10 @@ Vista de arquitectura de SAHS (React + Vite + React Flow), publicada en http://l
 
 - `src/layout.ts`: posiciones de los diagramas (tomadas del diseño) y lados por los que entra y sale cada llamada.
 - `src/nodos.tsx`: nodos de React Flow (componente, servicio, banda y glosario).
-- `src/salud.ts`: estado de cada servicio, cada 10 s, por `/arquitectura/salud/<servicio>`, que el `nginx.conf` de esta app pasa a `/actuator/health`.
+- `src/pantallas/Comunicacion.tsx`: `NO_SE_DIBUJAN` lista las llamadas validadas que no se dibujan para simplificar la lámina (hoy `pago → planificacion`).
 
 ## Desarrollo
 
 ```bash
-npm run dev:arquitectura   # http://localhost:5174/arquitectura/ (la salud va a los servicios en 8081 a 8086)
+npm run dev:arquitectura   # http://localhost:5174/arquitectura/
 ```

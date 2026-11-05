@@ -1,11 +1,11 @@
 ## ADDED Requirements
 
 ### Requirement: App de arquitectura
-El repo SHALL tener el workspace `apps/arquitectura` (`@sahs/arquitectura`), una app React + Vite que dibuja los diagramas con `@xyflow/react` y se publica bajo `/arquitectura/`. La app SHALL tener tres pantallas: Componentes (`/arquitectura/`), Comunicación (`/arquitectura/comunicacion`) y Validar (`/arquitectura/validar`), con pestañas para pasar de una a otra. Recargar cualquiera de esas rutas MUST devolver la app.
+El repo SHALL tener el workspace `apps/arquitectura` (`@sahs/arquitectura`), una app React + Vite que dibuja los diagramas con `@xyflow/react` y se publica bajo `/arquitectura/`. La app SHALL tener tres pantallas: Componentes (`/arquitectura/`), Comunicación (`/arquitectura/comunicacion`) y Validar (`/arquitectura/validar`). Componentes y Comunicación SHALL tener pestañas para pasar de una a otra; Validar MUST NOT tener pestaña y se entra por su URL. Recargar cualquiera de esas rutas MUST devolver la app.
 
 #### Scenario: Entrar a la vista
 - **WHEN** con el compose levantado se abre `http://localhost:8100/arquitectura/`
-- **THEN** se ve el diagrama de componentes con las pestañas Componentes, Comunicación y Validar
+- **THEN** se ve el diagrama de componentes con las pestañas Componentes y Comunicación
 
 #### Scenario: Recargar una pantalla
 - **WHEN** se recarga `http://localhost:8100/arquitectura/comunicacion`
@@ -27,11 +27,15 @@ La pantalla Componentes SHALL mostrar, de arriba hacia abajo: Usuarios (Administ
 - **THEN** su descripción dice que valida el token y dirige cada pedido a su servicio, y Usuario dice que emite el token
 
 ### Requirement: Diagrama de comunicación
-La pantalla Comunicación SHALL mostrar solo los microservicios y sus llamadas HTTP. Una llamada en un solo sentido MUST dibujarse en gris con una flecha; si dos servicios se llaman entre sí, MUST dibujarse una sola línea azul con flecha en las dos puntas. La pantalla SHALL tener una leyenda con los dos tipos de línea.
+La pantalla Comunicación SHALL mostrar solo los microservicios y sus llamadas HTTP. Una llamada en un solo sentido MUST dibujarse en gris con una flecha; si dos servicios se llaman entre sí, MUST dibujarse una sola línea azul con flecha en las dos puntas. La pantalla SHALL tener una leyenda con los dos tipos de línea. Para simplificar la lámina, la llamada de Pago a Planificación MUST NOT dibujarse, aunque siga en el código y en `validado.json`.
 
 #### Scenario: Llamada en un sentido
 - **WHEN** se abre la pantalla Comunicación
-- **THEN** hay una flecha gris de Pago a Planificación
+- **THEN** hay una flecha gris de Pago a Profesor y suplencias
+
+#### Scenario: Llamada que no se dibuja
+- **WHEN** se abre la pantalla Comunicación
+- **THEN** no hay ninguna línea entre Pago y Planificación, y `npm run verificar-arquitectura` sigue terminando sin error
 
 #### Scenario: Servicios que se llaman entre sí
 - **WHEN** se abre la pantalla Comunicación
@@ -58,7 +62,7 @@ Los diagramas SHALL mostrar el modelo de `apps/arquitectura/modelo/validado.json
 
 #### Scenario: Cambio sin validar
 - **WHEN** el código tiene un contenedor que no está en `validado.json`
-- **THEN** la pantalla Validar lo lista con dónde se detectó y el comando para aprobarlo, y la cabecera avisa cuántos cambios hay sin validar
+- **THEN** la pantalla Validar lo lista con dónde se detectó y el comando para aprobarlo
 
 #### Scenario: Aprobar
 - **WHEN** una persona corre `npm run arquitectura:validar` y aprueba todas las diferencias
@@ -68,24 +72,13 @@ Los diagramas SHALL mostrar el modelo de `apps/arquitectura/modelo/validado.json
 - **WHEN** hay diferencias sin aprobar y se corre `npm run verificar-arquitectura`
 - **THEN** lista las diferencias y termina con código distinto de 0
 
-### Requirement: Estado en vivo
-Cada microservicio SHALL mostrar si responde: verde si `/actuator/health` devuelve `UP`, rojo si falla y gris mientras no hay dato. La app MUST consultarlo cada 10 segundos por `/arquitectura/salud/<servicio>`, que el nginx de `arquitectura` pasa a `http://<servicio>:3000/actuator/health` solo para los 6 servicios conocidos.
-
-#### Scenario: Servicio activo
-- **WHEN** con el compose levantado se abre la pantalla Componentes
-- **THEN** los 6 servicios aparecen en verde
-
-#### Scenario: Servicio caído
-- **WHEN** se detiene el contenedor `pago` y pasan 10 segundos
-- **THEN** Pago aparece en rojo, sin recargar la página
-
-#### Scenario: Ruta de salud acotada
-- **WHEN** se pide `http://localhost:8100/arquitectura/salud/otro`
-- **THEN** responde 404
-
-### Requirement: Modo presentación
-La cabecera SHALL tener un botón "Modo presentación" que también se puede activar con `?presentacion` en la URL. En ese modo MUST ocultarse el estado de los servicios, el aviso de cambios sin validar y la pestaña Validar; los diagramas, la leyenda y el recuadro "Qué es cada pieza" se mantienen.
+### Requirement: Solo modo presentación
+La app SHALL mostrarse siempre como lámina para presentar: sin estado de los servicios, sin aviso de cambios sin validar, sin controles de zoom y sin botón para cambiar de modo. Los diagramas, la leyenda y el recuadro "Qué es cada pieza" se mantienen.
 
 #### Scenario: Presentar
-- **WHEN** se abre `http://localhost:8100/arquitectura/?presentacion`
-- **THEN** no se ven los puntos de estado ni el aviso de cambios, y sí el diagrama y el recuadro "Qué es cada pieza"
+- **WHEN** se abre `http://localhost:8100/arquitectura/`
+- **THEN** no se ven puntos de estado, aviso de cambios ni botón de modo, y sí el diagrama y el recuadro "Qué es cada pieza"
+
+#### Scenario: Validar por URL
+- **WHEN** se abre `http://localhost:8100/arquitectura/validar`
+- **THEN** se ve la pantalla Validar, aunque no tenga pestaña
