@@ -1,5 +1,5 @@
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
-import { NodoClase, NodoGrupo, NodoLeyendaClases } from './clases';
+import { NodoClase, NodoGrupo, NodoLeyendaClases, colorDe } from './clases';
 import { Icono } from './iconos';
 import type { Componente, Servicio } from './modelo';
 
@@ -55,14 +55,20 @@ export function NodoComponente({ data }: NodeProps<NodoComponente>) {
   );
 }
 
-export type NodoServicio = Node<{ servicio: Servicio; forma: 'columna' | 'fila' }, 'servicio'>;
+/** `coloreado` pinta la tarjeta con el color del microservicio (el mismo de las láminas de clases). */
+export type NodoServicio = Node<{ servicio: Servicio; forma: 'columna' | 'fila'; coloreado?: boolean }, 'servicio'>;
 
 export function NodoServicio({ data }: NodeProps<NodoServicio>) {
-  const { servicio: s, forma } = data;
+  const { servicio: s, forma, coloreado } = data;
+  // Lo que falta validar conserva su borde punteado ámbar, sin el color del servicio.
+  const color = coloreado && s.marca === 'validado' ? colorDe(s.id) : null;
   return (
-    <div className={`tarjeta tarjeta-servicio ${forma} marca-${s.marca}`}>
+    <div
+      className={`tarjeta tarjeta-servicio ${forma} marca-${s.marca}`}
+      style={color ? { background: color.fondo, borderColor: color.borde, borderWidth: 2 } : undefined}
+    >
       <Conexiones />
-      <span className="icono verde">
+      <span className={color ? 'icono' : 'icono verde'} style={color ? { background: color.cabecera, color: color.borde } : undefined}>
         <Icono nombre={s.icono} />
       </span>
       <span className="texto">

@@ -48,7 +48,7 @@ export function Comunicacion() {
       return {
         id: s.id,
         type: 'servicio',
-        data: { servicio: s, forma: 'fila' },
+        data: { servicio: s, forma: 'fila', coloreado: true },
         position: { x: c.x, y: c.y },
         width: c.w,
         height: c.h,
