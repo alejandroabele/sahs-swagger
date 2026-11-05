@@ -41,7 +41,7 @@ export class ClaseController {
   }
 
   @Get("clases")
-  @ApiOperation({"operationId":"get_clases","summary":"Listar clases","description":"Con `id_profesor` e `id_propuesta` se arma la grilla de un profesor.\n\nInvoca: orientacion.get_materia"})
+  @ApiOperation({"operationId":"get_clases","summary":"Listar clases","description":"Con `id_profesor` e `id_planificacion` se arma la grilla de un profesor.\n\nInvoca: orientacion.get_materia"})
   @ApiResponse({ status: 200, description: "OK", type: [Clase] })
   @ApiResponse({ status: 400, description: 'Datos inválidos', type: ErrorApi })
   get_clases(@Query() query: GetClasesQuery): Promise<Clase[]> {
@@ -49,7 +49,7 @@ export class ClaseController {
   }
 
   @Put("clases/:id")
-  @ApiOperation({"operationId":"editar_clase","summary":"Editar las franjas y los docentes de la clase","description":"Agregado (no está en el documento). Reemplaza las franjas y los docentes. Solo si todas las propuestas que incluyen la clase están en Borrador; controla disponibilidad, recreos y choques.\n\nInvoca: profesor_suplencias.get_disponibilidad_profesor"})
+  @ApiOperation({"operationId":"editar_clase","summary":"Editar las franjas y los docentes de la clase","description":"Agregado (no está en el documento). Reemplaza las franjas y los docentes. Solo si todas las planificaciones que incluyen la clase están en Borrador; controla disponibilidad, recreos y choques.\n\nInvoca: profesor_suplencias.get_disponibilidad_profesor"})
   @ApiParam({"name":"id","description":"Id de la clase","type":"integer","format":"int64"})
   @ApiResponse({ status: 200, description: "OK", type: Clase })
   @ApiResponse({ status: 400, description: 'Datos inválidos', type: ErrorApi })
@@ -60,7 +60,7 @@ export class ClaseController {
 
   @Delete("clases/:id")
   @HttpCode(204)
-  @ApiOperation({"operationId":"eliminar_clase","summary":"Eliminar clase","description":"Agregado (no está en el documento). Solo si todas las propuestas que incluyen la clase están en Borrador."})
+  @ApiOperation({"operationId":"eliminar_clase","summary":"Eliminar clase","description":"Agregado (no está en el documento). Solo si todas las planificaciones que incluyen la clase están en Borrador."})
   @ApiParam({"name":"id","description":"Id de la clase","type":"integer","format":"int64"})
   @ApiResponse({ status: 204, description: "Eliminada" })
   @ApiResponse({ status: 404, description: 'No existe el recurso', type: ErrorApi })

@@ -20,7 +20,7 @@ Entidades en `libs/entidades/src/pago/`.
 
 - `profesor_suplencias.get_profesor` → `crear_pago`, `calcular_monto_a_liquidar`, `firmar_recibo_de_sueldo`, `bajar_recibo_sueldo`
 - `planificacion.get_ciclos_lectivos` → `crear_pago`, `calcular_monto_a_liquidar`
-- `planificacion.get_propuestas` → `crear_pago`, `calcular_monto_a_liquidar`
+- `planificacion.get_planificaciones` → `crear_pago`, `calcular_monto_a_liquidar`
 - `planificacion.get_clases` → `crear_pago`, `calcular_monto_a_liquidar`
 - `planificacion.get_cursos` → `crear_pago`, `calcular_monto_a_liquidar`
 - `planificacion.get_anios_academicos` → `crear_pago`, `calcular_monto_a_liquidar`

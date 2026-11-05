@@ -1,6 +1,7 @@
 // Swagger UI de SAHS, servido por el nginx de la web en /docs/.
 // Reemplaza al swagger-initializer.js de swagger-ui-dist. Lee el OpenAPI que publica
 // cada servicio (/docs/<servicio>-json) en el mismo origen, así "Try it out" no necesita CORS.
+// "Try it out" usa el primer server de cada OpenAPI, /api, que es por donde nginx publica las APIs.
 window.onload = function () {
   window.ui = SwaggerUIBundle({
     urls: [

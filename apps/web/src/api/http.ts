@@ -24,8 +24,10 @@ export interface OpcionesPedido {
 }
 
 /**
- * Llama a la API por el mismo origen (/usuario/..., /pago/..., etc.). En producción
- * nginx redirige cada prefijo a su servicio; en desarrollo lo hace el proxy de Vite.
+ * Llama a la API por el mismo origen, bajo /api (/api/usuario/..., /api/planificaciones/...).
+ * Va bajo /api porque /planificaciones/... también son rutas de pantallas de la web. En
+ * producción nginx quita el /api y redirige cada prefijo a su servicio; en desarrollo lo hace
+ * el proxy de Vite. Las rutas del cliente generado son las del swagger, sin /api.
  * Si la respuesta es un error, lanza ApiError con el mensaje del servicio.
  */
 export async function pedir<T>(ruta: string, op: OpcionesPedido = {}): Promise<T> {
@@ -35,7 +37,7 @@ export async function pedir<T>(ruta: string, op: OpcionesPedido = {}): Promise<T
     .join('&');
   let r: Response;
   try {
-    r = await fetch(ruta + (qs ? '?' + qs : ''), {
+    r = await fetch('/api' + ruta + (qs ? '?' + qs : ''), {
       method: op.metodo ?? 'GET',
       headers: op.body !== undefined ? { 'content-type': 'application/json' } : undefined,
       body: op.body !== undefined ? JSON.stringify(op.body) : undefined,

@@ -2,64 +2,64 @@ import { Injectable } from '@nestjs/common';
 import { In } from 'typeorm';
 import { conflicto, contexto, ejecutarConContexto, ErrorSahs, noEncontrado, referenciaInvalida } from '@sahs/comun';
 import type * as C from '@sahs/contratos';
-import type { ArmadoPropuesta, EstadoPropuesta, Propuesta, ResultadoGeneracion } from '../dto/modelos';
-import type { AsignarClaseAPropuestaDto, AsignarEstadoAPropuestaDto, CrearPropuestaDto, GenerarPlanillaDto, GetPropuestasQuery } from '../dto/entradas';
+import type { ArmadoPlanificacion, EstadoPlanificacion, Planificacion, ResultadoGeneracion } from '../dto/modelos';
+import type { AsignarClaseAPlanificacionDto, AsignarEstadoAPlanificacionDto, CrearPlanificacionDto, GenerarPlanillaDto, GetPlanificacionesQuery } from '../dto/entradas';
 import { aEstado, aFranjaResumen, Armado } from '../armado';
 import { NOMBRE_ESTADO, Reglas, TRANSICIONES } from '../reglas';
 import { ClaseService } from '../clase/clase.service';
 import { bloqueDeFranja, codigoClase, generar, horasDelTurno, type Bloque, type ClaseGen, type CursoGen } from './generacion';
 
 @Injectable()
-export class PropuestaService {
+export class PlanificacionService {
   constructor(
     private readonly a: Armado,
     private readonly reglas: Reglas,
     private readonly clasesSrv: ClaseService,
   ) {}
 
-  /** La propuesta nace en Borrador (BOR). */
-  async crear_propuesta(body: CrearPropuestaDto): Promise<Propuesta> {
+  /** La planificación nace en Borrador (BOR). */
+  async crear_planificacion(body: CrearPlanificacionDto): Promise<Planificacion> {
     const codigo = body.codigo.trim().toUpperCase();
-    if (await this.a.propuestas.findOneBy({ codigo })) throw conflicto(`Ya existe la propuesta ${codigo}`);
+    if (await this.a.planificaciones.findOneBy({ codigo })) throw conflicto(`Ya existe la planificación ${codigo}`);
     if (!(await this.a.ciclos.findOneBy({ id_ciclo_lectivo: body.id_ciclo_lectivo }))) {
       throw referenciaInvalida(`No existe el ciclo lectivo ${body.id_ciclo_lectivo}`);
     }
     const bor = await this.a.estados.findOneBy({ codigo: 'BOR' });
     if (!bor) throw conflicto('Falta el estado Borrador (BOR) en el catálogo');
     const ahora = new Date().toISOString();
-    const p = await this.a.propuestas.save({
+    const p = await this.a.planificaciones.save({
       nombre: body.nombre.trim(),
-      descripcion_propuesta: body.descripcion_propuesta ?? null,
+      descripcion_planificacion: body.descripcion_planificacion ?? null,
       codigo,
       id_ciclo_lectivo: body.id_ciclo_lectivo,
       id_estado: bor.id_estado,
       fecha_creacion: ahora,
       fecha_modificacion: ahora,
     });
-    return this.get_propuesta(p.id_propuesta);
+    return this.get_planificacion(p.id_planificacion);
   }
 
   /**
    * Transiciones: Borrador → En revisión → Vigente, y En revisión → Borrador.
    * Una Vigente no cambia de estado por pedido: pasa sola a Fue vigente cuando otra
-   * propuesta de su ciclo pasa a Vigente (así hay una sola Vigente por ciclo).
+   * planificación de su ciclo pasa a Vigente (así hay una sola Vigente por ciclo).
    */
-  async asignar_estado_a_propuesta(id: number, body: AsignarEstadoAPropuestaDto): Promise<Propuesta> {
-    const p = await this.a.propuesta(id);
+  async asignar_estado_a_planificacion(id: number, body: AsignarEstadoAPlanificacionDto): Promise<Planificacion> {
+    const p = await this.a.planificacion(id);
     const nuevo = await this.a.estados.findOneBy({ id_estado: body.id_estado });
     if (!nuevo) throw referenciaInvalida(`No existe el estado ${body.id_estado}`);
     const actual = p.estado!.codigo;
-    if (actual === nuevo.codigo) return this.get_propuesta(id);
+    if (actual === nuevo.codigo) return this.get_planificacion(id);
     if (actual === 'VIG') {
-      throw conflicto(`La propuesta ${p.codigo} está Vigente: pasa a Fue vigente sola, cuando otra del ciclo pasa a Vigente`);
+      throw conflicto(`La planificación ${p.codigo} está Vigente: pasa a Fue vigente sola, cuando otra del ciclo pasa a Vigente`);
     }
     const conocidos = actual in TRANSICIONES && nuevo.codigo in TRANSICIONES;
     if (conocidos && !TRANSICIONES[actual].includes(nuevo.codigo)) {
       const posibles = TRANSICIONES[actual].map((c) => NOMBRE_ESTADO[c]).join(' o ') || 'ninguno';
-      throw conflicto(`Una propuesta ${p.estado!.nombre} no puede pasar a ${nuevo.nombre} (puede pasar a: ${posibles})`);
+      throw conflicto(`Una planificación ${p.estado!.nombre} no puede pasar a ${nuevo.nombre} (puede pasar a: ${posibles})`);
     }
-    if (nuevo.codigo === 'REV' && !(await this.a.propuestaClases.countBy({ id_propuesta: id }))) {
-      throw conflicto('La propuesta no tiene clases: no se puede enviar a revisión');
+    if (nuevo.codigo === 'REV' && !(await this.a.planificacionClases.countBy({ id_planificacion: id }))) {
+      throw conflicto('La planificación no tiene clases: no se puede enviar a revisión');
     }
     if (nuevo.codigo === 'REV' || nuevo.codigo === 'VIG') {
       const dif = await this.diferenciasDeHoras(id, p.id_ciclo_lectivo);
@@ -70,36 +70,36 @@ export class PropuestaService {
         );
       }
     }
-    await this.a.propuestas.manager.transaction(async (tx) => {
+    await this.a.planificaciones.manager.transaction(async (tx) => {
       if (nuevo.codigo === 'VIG') {
         const fvg = await tx.findOneBy(this.a.estados.target, { codigo: 'FVG' });
         if (!fvg) throw conflicto('Falta el estado Fue vigente (FVG) en el catálogo');
-        await tx.update(this.a.propuestas.target, { id_ciclo_lectivo: p.id_ciclo_lectivo, id_estado: nuevo.id_estado }, {
+        await tx.update(this.a.planificaciones.target, { id_ciclo_lectivo: p.id_ciclo_lectivo, id_estado: nuevo.id_estado }, {
           id_estado: (fvg as any).id_estado,
           fecha_modificacion: new Date().toISOString(),
         });
       }
-      await tx.update(this.a.propuestas.target, id, { id_estado: nuevo.id_estado, fecha_modificacion: new Date().toISOString() });
+      await tx.update(this.a.planificaciones.target, id, { id_estado: nuevo.id_estado, fecha_modificacion: new Date().toISOString() });
     });
-    return this.get_propuesta(id);
+    return this.get_planificacion(id);
   }
 
   /**
-   * Materias de los cursos del ciclo cuyas horas en la propuesta (una por franja) no son
+   * Materias de los cursos del ciclo cuyas horas en la planificación (una por franja) no son
    * exactamente sus horas semanales en el curso, como "1A: Matemática 3 de 5 h".
    * Invoca: orientacion.get_materia (nombres de las materias).
    */
-  private async diferenciasDeHoras(idPropuesta: number, idCiclo: number): Promise<string[]> {
+  private async diferenciasDeHoras(idPlanificacion: number, idCiclo: number): Promise<string[]> {
     const cursos = await this.a.cursos.find({ where: { id_ciclo_lectivo: idCiclo }, order: { id_anio_academico: 'ASC', division: 'ASC' } });
     if (!cursos.length) return [];
     const ids = cursos.map((c) => c.id_curso);
-    const [materias, enPropuesta, anios] = await Promise.all([
+    const [materias, enPlanificacion, anios] = await Promise.all([
       this.a.materiasCurso.findBy({ id_curso: In(ids) }),
-      this.a.propuestaClases.findBy({ id_propuesta: idPropuesta }),
+      this.a.planificacionClases.findBy({ id_planificacion: idPlanificacion }),
       this.a.anios.find(),
     ]);
-    const clases = enPropuesta.length
-      ? await this.a.clases.find({ where: { id_clase: In(enPropuesta.map((x) => x.id_clase)) }, relations: { franjas: true } })
+    const clases = enPlanificacion.length
+      ? await this.a.clases.find({ where: { id_clase: In(enPlanificacion.map((x) => x.id_clase)) }, relations: { franjas: true } })
       : [];
     const puestas = new Map<string, number>();
     for (const c of clases) {
@@ -123,85 +123,85 @@ export class PropuestaService {
     );
   }
 
-  /** Agrega una clase a la propuesta. Solo en Borrador, sin choques de curso ni de docentes y sin pasarse de las horas de la materia. */
-  async asignar_clase_a_propuesta(id: number, body: AsignarClaseAPropuestaDto): Promise<Propuesta> {
-    const p = await this.a.propuesta(id);
+  /** Agrega una clase a la planificación. Solo en Borrador, sin choques de curso ni de docentes y sin pasarse de las horas de la materia. */
+  async asignar_clase_a_planificacion(id: number, body: AsignarClaseAPlanificacionDto): Promise<Planificacion> {
+    const p = await this.a.planificacion(id);
     const clase = await this.a.clases.findOneBy({ id_clase: body.id_clase });
     if (!clase) throw referenciaInvalida(`No existe la clase ${body.id_clase}`);
-    if (p.estado!.codigo !== 'BOR') throw conflicto(`La propuesta ${p.codigo} está ${p.estado!.nombre}: solo se modifica en Borrador`);
-    if (!(await this.a.propuestaClases.findOneBy({ id_propuesta: id, id_clase: clase.id_clase }))) {
+    if (p.estado!.codigo !== 'BOR') throw conflicto(`La planificación ${p.codigo} está ${p.estado!.nombre}: solo se modifica en Borrador`);
+    if (!(await this.a.planificacionClases.findOneBy({ id_planificacion: id, id_clase: clase.id_clase }))) {
       const fr = (await this.a.claseFranjas.findBy({ id_clase: clase.id_clase })).map((x) => x.id_franja_horaria);
       const pr = (await this.a.claseProfesores.findBy({ id_clase: clase.id_clase })).map((x) => x.id_profesor);
       await this.reglas.validarChoques(id, clase.id_clase, clase.id_curso, fr, pr);
       await this.reglas.validarHorasMateria(id, clase.id_clase, clase.id_curso, clase.id_materia, fr.length);
-      await this.a.propuestaClases.insert({ id_propuesta: id, id_clase: clase.id_clase });
+      await this.a.planificacionClases.insert({ id_planificacion: id, id_clase: clase.id_clase });
       await this.a.tocar(id);
     }
-    return this.get_propuesta(id);
+    return this.get_planificacion(id);
   }
 
-  async get_estado_actual_de_propuesta(id: number): Promise<EstadoPropuesta> {
-    return aEstado((await this.a.propuesta(id)).estado!);
+  async get_estado_actual_de_planificacion(id: number): Promise<EstadoPlanificacion> {
+    return aEstado((await this.a.planificacion(id)).estado!);
   }
 
-  async get_propuestas(query: GetPropuestasQuery): Promise<Propuesta[]> {
+  async get_planificaciones(query: GetPlanificacionesQuery): Promise<Planificacion[]> {
     const where: Record<string, number> = {};
     if (query.id_ciclo_lectivo != null) where.id_ciclo_lectivo = query.id_ciclo_lectivo;
     if (query.id_estado != null) where.id_estado = query.id_estado;
-    const l = await this.a.propuestas.find({ where, relations: { estado: true }, order: { codigo: 'DESC' } });
-    return this.a.armarPropuestas(l);
+    const l = await this.a.planificaciones.find({ where, relations: { estado: true }, order: { codigo: 'DESC' } });
+    return this.a.armarPlanificaciones(l);
   }
 
   /**
    * Fachada de la pantalla de armado (A13): en una respuesta, lo que antes eran
-   * get_propuesta + get_posibles_estados_de_propuestas + get_cursos + get_anios_academicos.
+   * get_planificacion + get_posibles_estados_de_planificaciones + get_cursos + get_anios_academicos.
    * Las tablas propias se leen en paralelo y los datos de otros servicios se piden una sola
    * vez por request (armarCursos). No trae clases: el cliente las pide por curso.
    * Invoca: orientacion.get_materias, orientacion.get_orientaciones, horarios.get_turnos.
    */
-  async get_armado_propuesta(id: number): Promise<ArmadoPropuesta> {
-    const p = await this.a.propuesta(id);
-    const [propuestas, estados, cursos] = await Promise.all([
-      this.a.armarPropuestas([p]),
+  async get_armado_planificacion(id: number): Promise<ArmadoPlanificacion> {
+    const p = await this.a.planificacion(id);
+    const [planificaciones, estados, cursos] = await Promise.all([
+      this.a.armarPlanificaciones([p]),
       this.a.estados.find({ order: { id_estado: 'ASC' } }),
       this.a.cursos.find({ where: { id_ciclo_lectivo: p.id_ciclo_lectivo } }),
     ]);
     cursos.sort((x, y) => (x.id_anio_academico ?? 99) - (y.id_anio_academico ?? 99) || x.division.localeCompare(y.division));
-    return { propuesta: propuestas[0], estados: estados.map(aEstado), cursos: await this.a.armarCursos(cursos) };
+    return { planificacion: planificaciones[0], estados: estados.map(aEstado), cursos: await this.a.armarCursos(cursos) };
   }
 
-  async get_propuesta(id: number): Promise<Propuesta> {
-    const p = await this.a.propuestas.findOne({ where: { id_propuesta: id }, relations: { estado: true } });
-    if (!p) throw noEncontrado(`No existe la propuesta ${id}`);
-    return (await this.a.armarPropuestas([p]))[0];
+  async get_planificacion(id: number): Promise<Planificacion> {
+    const p = await this.a.planificaciones.findOne({ where: { id_planificacion: id }, relations: { estado: true } });
+    if (!p) throw noEncontrado(`No existe la planificación ${id}`);
+    return (await this.a.armarPlanificaciones([p]))[0];
   }
 
   /**
-   * Genera la planilla: completa las horas que faltan en los cursos del ciclo de la propuesta
+   * Genera la planilla: completa las horas que faltan en los cursos del ciclo de la planificación
    * (o solo en `id_curso`) con las reglas de generacion.ts, y guarda cada cambio con
-   * crear_clase + asignar_clase_a_propuesta (clases nuevas) o editar_clase (franjas sumadas a
+   * crear_clase + asignar_clase_a_planificacion (clases nuevas) o editar_clase (franjas sumadas a
    * una clase existente), así corren las validaciones de siempre. Si una regla rechaza un
    * cambio, sigue con el resto y devuelve el mensaje en `errores`.
    * Invoca: orientacion.get_materias, horarios.get_turnos, horarios.get_franjas_horarias,
    * profesor_suplencias.get_profesores (y lo que invocan crear_clase y editar_clase).
    */
   async generar_planilla(id: number, body: GenerarPlanillaDto): Promise<ResultadoGeneracion> {
-    const p = await this.a.propuesta(id);
+    const p = await this.a.planificacion(id);
     if (p.estado!.codigo !== 'BOR') {
-      throw conflicto(`La propuesta ${p.codigo} está ${p.estado!.nombre}: la planilla solo se genera en Borrador`);
+      throw conflicto(`La planificación ${p.codigo} está ${p.estado!.nombre}: la planilla solo se genera en Borrador`);
     }
     const delCiclo = await this.a.cursos.findBy({ id_ciclo_lectivo: p.id_ciclo_lectivo });
     const lista = body?.id_curso != null ? delCiclo.filter((c) => c.id_curso === body.id_curso) : delCiclo;
     if (body?.id_curso != null && !lista.length) {
-      throw referenciaInvalida(`El curso ${body.id_curso} no es del ciclo lectivo ${p.id_ciclo_lectivo} de la propuesta`);
+      throw referenciaInvalida(`El curso ${body.id_curso} no es del ciclo lectivo ${p.id_ciclo_lectivo} de la planificación`);
     }
     const resultado: ResultadoGeneracion = { horas_ubicadas: 0, sin_ubicar: [], cambios: [], errores: [] };
     if (!lista.length) return resultado;
 
-    // Datos: cursos con sus materias y las franjas de su turno, clases de la propuesta con sus
+    // Datos: cursos con sus materias y las franjas de su turno, clases de la planificación con sus
     // franjas y docentes, y profesores con habilitaciones y disponibilidad (ids, llamada plana).
     const idsCursos = lista.map((c) => c.id_curso);
-    const idsClases = (await this.a.propuestaClases.findBy({ id_propuesta: id })).map((x) => x.id_clase);
+    const idsClases = (await this.a.planificacionClases.findBy({ id_planificacion: id })).map((x) => x.id_clase);
     const [materiasCurso, anios, materias, turnos, franjas, profesores, clases, claseFr, clasePr] = await Promise.all([
       this.a.materiasCurso.findBy({ id_curso: In(idsCursos) }),
       this.a.anios.find(),
@@ -264,7 +264,7 @@ export class PropuestaService {
               ids_profesores: ch.profes,
             });
             try {
-              await this.asignar_clase_a_propuesta(id, { id_clase: nueva.id_clase });
+              await this.asignar_clase_a_planificacion(id, { id_clase: nueva.id_clase });
             } catch (e) {
               await this.clasesSrv.eliminar_clase(nueva.id_clase).catch(() => undefined);
               throw e;

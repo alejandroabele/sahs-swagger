@@ -10,24 +10,24 @@ import {
   ClaseFranjaEntidad,
   ClaseProfesorEntidad,
   CursoEntidad,
-  EstadoPropuestaEntidad,
+  EstadoPlanificacionEntidad,
   MateriaCursoEntidad,
-  PropuestaClaseEntidad,
-  PropuestaEntidad,
+  PlanificacionClaseEntidad,
+  PlanificacionEntidad,
 } from '@sahs/entidades';
 import type {
   AnioAcademico,
   CicloLectivo,
   Clase,
   Curso,
-  EstadoPropuesta,
+  EstadoPlanificacion,
   FranjaHorariaResumen,
   ProfesorResumen,
-  Propuesta,
+  Planificacion,
   SuplenciaResumen,
 } from './dto/modelos';
 
-export const aEstado = (e: EstadoPropuestaEntidad): EstadoPropuesta => ({ id_estado: e.id_estado, nombre: e.nombre, codigo: e.codigo });
+export const aEstado = (e: EstadoPlanificacionEntidad): EstadoPlanificacion => ({ id_estado: e.id_estado, nombre: e.nombre, codigo: e.codigo });
 export const aCiclo = (c: CicloLectivoEntidad): CicloLectivo => ({ id_ciclo_lectivo: c.id_ciclo_lectivo, anio_calendario: c.anio_calendario });
 export const aAnio = (a: AnioAcademicoEntidad): AnioAcademico => ({
   id_anio_academico: a.id_anio_academico,
@@ -53,7 +53,7 @@ export const aProfesorResumen = (p: C.Profesor | C.ProfesorResumen): ProfesorRes
 export const nombreFranja = (f: C.FranjaHoraria) => `${f.dia_lectivo?.nombre_dia_lectivo ?? ''} ${f.hora_inicio}`.trim();
 
 /**
- * Arma propuestas, cursos y clases con sus anidados. Los datos de otros servicios
+ * Arma planificaciones, cursos y clases con sus anidados. Los datos de otros servicios
  * (materias, franjas, turnos, profesores, orientaciones, suplencias) se piden con un
  * listado por request. Si la llamada es plana (la hace otro servicio) no se piden.
  */
@@ -64,11 +64,11 @@ export class Armado {
   readonly profesores = new ClienteServicio('profesor_suplencias');
 
   constructor(
-    @InjectRepository(EstadoPropuestaEntidad) readonly estados: Repository<EstadoPropuestaEntidad>,
+    @InjectRepository(EstadoPlanificacionEntidad) readonly estados: Repository<EstadoPlanificacionEntidad>,
     @InjectRepository(CicloLectivoEntidad) readonly ciclos: Repository<CicloLectivoEntidad>,
     @InjectRepository(AnioAcademicoEntidad) readonly anios: Repository<AnioAcademicoEntidad>,
-    @InjectRepository(PropuestaEntidad) readonly propuestas: Repository<PropuestaEntidad>,
-    @InjectRepository(PropuestaClaseEntidad) readonly propuestaClases: Repository<PropuestaClaseEntidad>,
+    @InjectRepository(PlanificacionEntidad) readonly planificaciones: Repository<PlanificacionEntidad>,
+    @InjectRepository(PlanificacionClaseEntidad) readonly planificacionClases: Repository<PlanificacionClaseEntidad>,
     @InjectRepository(CursoEntidad) readonly cursos: Repository<CursoEntidad>,
     @InjectRepository(MateriaCursoEntidad) readonly materiasCurso: Repository<MateriaCursoEntidad>,
     @InjectRepository(ClaseEntidad) readonly clases: Repository<ClaseEntidad>,
@@ -78,9 +78,9 @@ export class Armado {
 
   /* ---------- búsquedas que responden 404 ---------- */
 
-  async propuesta(id: number) {
-    const p = await this.propuestas.findOne({ where: { id_propuesta: id }, relations: { estado: true } });
-    if (!p) throw noEncontrado(`No existe la propuesta ${id}`);
+  async planificacion(id: number) {
+    const p = await this.planificaciones.findOne({ where: { id_planificacion: id }, relations: { estado: true } });
+    if (!p) throw noEncontrado(`No existe la planificación ${id}`);
     return p;
   }
 
@@ -138,19 +138,19 @@ export class Armado {
 
   /* ---------- armado ---------- */
 
-  async armarPropuestas(lista: PropuestaEntidad[]): Promise<Propuesta[]> {
+  async armarPlanificaciones(lista: PlanificacionEntidad[]): Promise<Planificacion[]> {
     if (!lista.length) return [];
-    const pc = await this.propuestaClases.find({ where: { id_propuesta: In(lista.map((p) => p.id_propuesta)) }, order: { id_clase: 'ASC' } });
+    const pc = await this.planificacionClases.find({ where: { id_planificacion: In(lista.map((p) => p.id_planificacion)) }, order: { id_clase: 'ASC' } });
     return lista.map((p) => ({
-      id_propuesta: p.id_propuesta,
+      id_planificacion: p.id_planificacion,
       nombre: p.nombre,
-      descripcion_propuesta: p.descripcion_propuesta ?? undefined,
+      descripcion_planificacion: p.descripcion_planificacion ?? undefined,
       fecha_creacion: p.fecha_creacion,
       fecha_modificacion: p.fecha_modificacion,
       codigo: p.codigo,
       id_ciclo_lectivo: p.id_ciclo_lectivo,
       estado: p.estado ? aEstado(p.estado) : undefined,
-      ids_clases: pc.filter((x) => x.id_propuesta === p.id_propuesta).map((x) => x.id_clase),
+      ids_clases: pc.filter((x) => x.id_planificacion === p.id_planificacion).map((x) => x.id_clase),
     }));
   }
 
@@ -260,8 +260,8 @@ export class Armado {
     };
   }
 
-  /** Marca la propuesta como modificada. */
-  async tocar(idPropuesta: number) {
-    await this.propuestas.update(idPropuesta, { fecha_modificacion: new Date().toISOString() });
+  /** Marca la planificación como modificada. */
+  async tocar(idPlanificacion: number) {
+    await this.planificaciones.update(idPlanificacion, { fecha_modificacion: new Date().toISOString() });
   }
 }

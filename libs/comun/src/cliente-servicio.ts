@@ -59,12 +59,14 @@ export class ClienteServicio {
     this.base = urlServicio(servicio);
   }
 
+  /** Una ruta que empieza con `/` va sin el prefijo del servicio (`/planificaciones`). */
   private url(ruta: string, query?: OpcionesLlamada['query']): string {
     const qs = Object.entries(query ?? {})
       .filter(([, v]) => v !== undefined && v !== null && v !== '')
       .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
       .join('&');
-    return `${this.base}/${prefijoServicio(this.servicio)}/${ruta}${qs ? '?' + qs : ''}`;
+    const camino = ruta.startsWith('/') ? ruta : `/${prefijoServicio(this.servicio)}/${ruta}`;
+    return `${this.base}${camino}${qs ? '?' + qs : ''}`;
   }
 
   private async pedir<T>(metodo: string, url: string, body: unknown, completo: boolean): Promise<T> {

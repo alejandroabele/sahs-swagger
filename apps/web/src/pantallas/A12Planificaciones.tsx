@@ -1,9 +1,9 @@
 // A12 · Planificaciones. Prototipo: <template id="tpl-planificaciones"> y DC.registrar("planificaciones") en prototipo/index.html.
-// Propuestas del ciclo activo (get_propuestas) con su estado y la vigente (una por ciclo). Desde acá se
-// crea una nueva vacía (crear_propuesta) y se abre cada una en el armado, donde se decide todo lo demás
+// Planificaciones del ciclo activo (get_planificaciones) con su estado y la vigente (una por ciclo). Desde acá se
+// crea una nueva vacía (crear_planificacion) y se abre cada una en el armado, donde se decide todo lo demás
 // (cambio de estado, duplicar, generar la planilla).
 import { useState } from 'react';
-import type { Propuesta } from '@sahs/contratos';
+import type { Planificacion } from '@sahs/contratos';
 import { planificacion } from '../api';
 import { mensajeDeError } from '../api/http';
 import { useIr } from '../app/navegar';
@@ -39,11 +39,11 @@ export default function A12Planificaciones() {
   const [error, setError] = useState<string | null>(null);
   const [progreso, setProgreso] = useState<string | null>(null);
 
-  const qProp = useConsulta(['planificacion', 'get_propuestas', idCiclo], () => planificacion.get_propuestas({ id_ciclo_lectivo: idCiclo! }), {
+  const qPlanificaciones = useConsulta(['planificacion', 'get_planificaciones', idCiclo], () => planificacion.get_planificaciones({ id_ciclo_lectivo: idCiclo! }), {
     enabled: !!idCiclo,
   });
 
-  const visibles = [...(qProp.data ?? [])].sort((a, b) => b.codigo.localeCompare(a.codigo));
+  const visibles = [...(qPlanificaciones.data ?? [])].sort((a, b) => b.codigo.localeCompare(a.codigo));
   const ocupado = progreso != null;
 
   const limpiar = () => {
@@ -51,14 +51,14 @@ export default function A12Planificaciones() {
     setError(null);
   };
 
-  /** Crea una propuesta vacía en Borrador. El código sigue al último del año en todos los ciclos. */
+  /** Crea una planificación vacía en Borrador. El código sigue al último del año en todos los ciclos. */
   async function nueva() {
     if (!idCiclo || anio == null) return;
     limpiar();
     setProgreso('Creando la planificación…');
     try {
-      const codigo = siguienteCodigo(anio, await planificacion.get_propuestas());
-      const p = await planificacion.crear_propuesta({ nombre: 'Planificación ' + anio, descripcion_propuesta: 'Creada desde cero', codigo, id_ciclo_lectivo: idCiclo });
+      const codigo = siguienteCodigo(anio, await planificacion.get_planificaciones());
+      const p = await planificacion.crear_planificacion({ nombre: 'Planificación ' + anio, descripcion_planificacion: 'Creada desde cero', codigo, id_ciclo_lectivo: idCiclo });
       setAviso(p.codigo + ' se creó vacía.');
     } catch (e) {
       setError(mensajeDeError(e));
@@ -68,8 +68,8 @@ export default function A12Planificaciones() {
     }
   }
 
-  const cargando = !ciclo.activo || qProp.isLoading;
-  const errorCarga = qProp.error;
+  const cargando = !ciclo.activo || qPlanificaciones.isLoading;
+  const errorCarga = qPlanificaciones.error;
 
   return (
     <div style={css('width: 100%; min-height: 100vh; display: flex; flex-direction: column; background: #f4f6f8;')}>
@@ -181,11 +181,11 @@ export default function A12Planificaciones() {
 
           {!cargando &&
             visibles.map((p, i) => (
-              <FilaPropuesta
-                key={p.id_propuesta}
+              <FilaPlanificacion
+                key={p.id_planificacion}
                 p={p}
                 primera={i === 0}
-                alAbrir={() => ir(rutas.armado(p.id_propuesta))}
+                alAbrir={() => ir(rutas.armado(p.id_planificacion))}
               />
             ))}
           </div>
@@ -197,12 +197,12 @@ export default function A12Planificaciones() {
   );
 }
 
-/** Una fila del listado: lo que se decide sobre la propuesta se hace adentro, en el armado. */
-function FilaPropuesta(props: { p: Propuesta; primera: boolean; alAbrir: () => void }) {
+/** Una fila del listado: lo que se decide sobre la planificación se hace adentro, en el armado. */
+function FilaPlanificacion(props: { p: Planificacion; primera: boolean; alAbrir: () => void }) {
   const { p } = props;
   const codigo = p.estado?.codigo ?? 'BOR';
   const e = ESTADOS[codigo] ?? ESTADOS.FVG;
-  const origen = p.descripcion_propuesta ? p.nombre + ' · ' + p.descripcion_propuesta : p.nombre;
+  const origen = p.descripcion_planificacion ? p.nombre + ' · ' + p.descripcion_planificacion : p.nombre;
 
   return (
     <div style={css(COLS + ' padding: 14px 20px;' + (props.primera ? '' : ' border-top: 1px solid #f2f4f7;'))}>

@@ -10,7 +10,7 @@ import {
   ConceptoReciboEntidad,
   CursoEntidad,
   DiaLectivoEntidad,
-  EstadoPropuestaEntidad,
+  EstadoPlanificacionEntidad,
   FranjaHorariaEntidad,
   MateriaClaseEntidad,
   MateriaCursoEntidad,
@@ -24,8 +24,8 @@ import {
   ProfesorDisponibilidadEntidad,
   ProfesorEntidad,
   ProfesorMateriaEntidad,
-  PropuestaClaseEntidad,
-  PropuestaEntidad,
+  PlanificacionClaseEntidad,
+  PlanificacionEntidad,
   ReciboSueldoEntidad,
   RolEntidad,
   SuplenciaClaseEntidad,
@@ -127,8 +127,8 @@ export async function cargarSeeds(ds: DataSource, log: Log = console.log) {
     }
 
     /* ---------- Planificación (catálogos) ---------- */
-    await siVacia(m, EstadoPropuestaEntidad, 'estados de propuesta', log, async () => {
-      await m.save(EstadoPropuestaEntidad, D.ESTADOS_PROPUESTA);
+    await siVacia(m, EstadoPlanificacionEntidad, 'estados de planificación', log, async () => {
+      await m.save(EstadoPlanificacionEntidad, D.ESTADOS_PLANIFICACION);
     });
     await siVacia(m, CicloLectivoEntidad, 'ciclos lectivos', log, async () => {
       await m.save(CicloLectivoEntidad, D.CICLOS.map((a) => ({ anio_calendario: a })));
@@ -139,7 +139,7 @@ export async function cargarSeeds(ds: DataSource, log: Log = console.log) {
     const anios = new Map((await m.find(AnioAcademicoEntidad)).map((a) => [a.codigo, a.id_anio_academico]));
     const anioId = (n: number) => anios.get(D.ANIOS_ACADEMICOS[n - 1].codigo)!;
     const ciclos = new Map((await m.find(CicloLectivoEntidad)).map((c) => [c.anio_calendario, c.id_ciclo_lectivo]));
-    const estados = new Map((await m.find(EstadoPropuestaEntidad)).map((e) => [e.codigo, e.id_estado]));
+    const estados = new Map((await m.find(EstadoPlanificacionEntidad)).map((e) => [e.codigo, e.id_estado]));
 
     /* ---------- Profesores ---------- */
     const profes = new Map<string, number>();
@@ -229,14 +229,14 @@ export async function cargarSeeds(ds: DataSource, log: Log = console.log) {
       }
     }
 
-    /* ---------- Propuestas y clases ---------- */
-    // clasesPor[propuesta|curso|materia] = id de la clase
+    /* ---------- Planificaciones y clases ---------- */
+    // clasesPor[planificacion|curso|materia] = id de la clase
     const clasesPor = new Map<string, number>();
-    await siVacia(m, PropuestaEntidad, 'propuestas y clases', log, async () => {
+    await siVacia(m, PlanificacionEntidad, 'planificaciones y clases', log, async () => {
       const dt = horasDe['Doble turno'];
-      for (const p of D.PROPUESTAS) {
-        const prop = await m.save(PropuestaEntidad, {
-          nombre: p.nombre, codigo: p.codigo, descripcion_propuesta: p.desc, id_ciclo_lectivo: ciclos.get(p.ciclo)!,
+      for (const p of D.PLANIFICACIONES) {
+        const prop = await m.save(PlanificacionEntidad, {
+          nombre: p.nombre, codigo: p.codigo, descripcion_planificacion: p.desc, id_ciclo_lectivo: ciclos.get(p.ciclo)!,
           id_estado: estados.get(p.estado)!, fecha_creacion: p.creada, fecha_modificacion: p.creada,
         });
         for (const [cursoClave, grilla] of p.grillas) {
@@ -262,7 +262,7 @@ export async function cargarSeeds(ds: DataSource, log: Log = console.log) {
             });
             await m.insert(ClaseFranjaEntidad, ids.map((id) => ({ id_clase: clase.id_clase, id_franja_horaria: id })));
             await m.insert(ClaseProfesorEntidad, D.DOCENTES_GRILLA[k].map((c) => ({ id_clase: clase.id_clase, id_profesor: profes.get(c)! })));
-            await m.insert(PropuestaClaseEntidad, { id_propuesta: prop.id_propuesta, id_clase: clase.id_clase });
+            await m.insert(PlanificacionClaseEntidad, { id_planificacion: prop.id_planificacion, id_clase: clase.id_clase });
             await m.insert(MateriaClaseEntidad, { id_clase: clase.id_clase, id_materia: materias.get(k)! });
             clasesPor.set(`${p.codigo}|${cursoClave}|${k}`, clase.id_clase);
           }
@@ -290,13 +290,13 @@ export async function cargarSeeds(ds: DataSource, log: Log = console.log) {
       const valores = (await m.find(ValorHoraEntidad)).sort((a, b) => a.desde_periodo.localeCompare(b.desde_periodo));
       for (const pg of D.PAGOS) {
         const idProf = profes.get(pg.profesor)!;
-        // Horas del profesor en la propuesta vigente (PLAN-2026-01), agrupadas por materia.
+        // Horas del profesor en la planificación vigente (PLAN-2026-01), agrupadas por materia.
         const horas: { descripcion: string; horas: number }[] = [];
         for (const k of Object.keys(D.DOCENTES_GRILLA)) {
           if (!D.DOCENTES_GRILLA[k].includes(pg.profesor)) continue;
           const cursosConHoras: string[] = [];
           let total = 0;
-          for (const [cursoClave, grilla] of D.PROPUESTAS.find((p) => p.codigo === 'PLAN-2026-01')!.grillas) {
+          for (const [cursoClave, grilla] of D.PLANIFICACIONES.find((p) => p.codigo === 'PLAN-2026-01')!.grillas) {
             const n = D.GRILLAS[grilla].flat().filter((x) => x === k).length;
             if (n) {
               total += n;

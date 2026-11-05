@@ -36,8 +36,8 @@ export const rutas = {
   login: () => '/login',
   inicio: () => '/',
   disponibilidad: (idProfesor?: number) => (idProfesor ? `/disponibilidad/${idProfesor}` : '/disponibilidad'),
-  generacion: (idPropuesta: number, idCurso?: number) =>
-    `/planificaciones/${idPropuesta}/generacion` + (idCurso ? `/${idCurso}` : ''),
+  generacion: (idPlanificacion: number, idCurso?: number) =>
+    `/planificaciones/${idPlanificacion}/generacion` + (idCurso ? `/${idCurso}` : ''),
   suplencias: () => '/suplencias',
   materias: () => '/materias',
   materia: (id: number) => `/materias/${id}`,
@@ -48,8 +48,8 @@ export const rutas = {
   cursoNuevo: () => '/cursos/nuevo',
   curso: (id: number) => `/cursos/${id}`,
   planificaciones: () => '/planificaciones',
-  armado: (idPropuesta: number, idCurso?: number) =>
-    `/planificaciones/${idPropuesta}` + (idCurso ? `/cursos/${idCurso}` : ''),
+  armado: (idPlanificacion: number, idCurso?: number) =>
+    `/planificaciones/${idPlanificacion}` + (idCurso ? `/cursos/${idCurso}` : ''),
   orientaciones: () => '/orientaciones',
   ciclosLectivos: () => '/ciclos-lectivos',
   turnos: () => '/turnos',

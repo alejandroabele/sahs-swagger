@@ -108,14 +108,14 @@ export class ProfesorService {
 
   /**
    * Baja lógica (activo: false) o reactivación (activo: true). No se da de baja a un docente
-   * de una clase de una propuesta Vigente. Invoca: planificacion.get_posibles_estados_de_propuestas,
-   * planificacion.get_propuestas, planificacion.get_clases.
+   * de una clase de una planificación Vigente. Invoca: planificacion.get_posibles_estados_de_planificaciones,
+   * planificacion.get_planificaciones, planificacion.get_clases.
    */
   async asignar_activo_profesor(id: number, body: AsignarActivoProfesorDto): Promise<Profesor> {
     const p = await this.a.profesor(id);
     if (!body.activo && p.activo) {
-      const vig = (await this.a.planificacion.listar<C.EstadoPropuesta>('estados-propuesta')).find((e) => e.codigo === 'VIG');
-      const vigentes = vig ? await this.a.planificacion.listar<C.Propuesta>(`propuestas?id_estado=${vig.id_estado}`) : [];
+      const vig = (await this.a.planificacion.listar<C.EstadoPlanificacion>('/planificaciones/estados')).find((e) => e.codigo === 'VIG');
+      const vigentes = vig ? await this.a.planificacion.listar<C.Planificacion>(`/planificaciones?id_estado=${vig.id_estado}`) : [];
       if (vigentes.length) {
         const suyas = await this.a.planificacion.listar<C.Clase>(`clases?id_profesor=${id}`);
         for (const prop of vigentes) {

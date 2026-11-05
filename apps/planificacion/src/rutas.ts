@@ -1,8 +1,8 @@
 // Controllers y services del servicio, uno por tag del swagger.
-import { PropuestaController } from './propuesta/propuesta.controller';
-import { PropuestaService } from './propuesta/propuesta.service';
-import { EstadoDePropuestaController } from './estado-de-propuesta/estado-de-propuesta.controller';
-import { EstadoDePropuestaService } from './estado-de-propuesta/estado-de-propuesta.service';
+import { PlanificacionController } from './planificacion/planificacion.controller';
+import { PlanificacionService } from './planificacion/planificacion.service';
+import { EstadoDePlanificacionController } from './estado-de-planificacion/estado-de-planificacion.controller';
+import { EstadoDePlanificacionService } from './estado-de-planificacion/estado-de-planificacion.service';
 import { CicloLectivoController } from './ciclo-lectivo/ciclo-lectivo.controller';
 import { CicloLectivoService } from './ciclo-lectivo/ciclo-lectivo.service';
 import { CursoController } from './curso/curso.controller';
@@ -12,5 +12,6 @@ import { ClaseService } from './clase/clase.service';
 import { AnioAcademicoController } from './anio-academico/anio-academico.controller';
 import { AnioAcademicoService } from './anio-academico/anio-academico.service';
 
-export const CONTROLLERS = [PropuestaController, EstadoDePropuestaController, CicloLectivoController, CursoController, ClaseController, AnioAcademicoController];
-export const SERVICES = [PropuestaService, EstadoDePropuestaService, CicloLectivoService, CursoService, ClaseService, AnioAcademicoService];
+// EstadoDePlanificacionController va antes: GET /planificaciones/estados tiene que ganarle a GET /planificaciones/:id.
+export const CONTROLLERS = [EstadoDePlanificacionController, PlanificacionController, CicloLectivoController, CursoController, ClaseController, AnioAcademicoController];
+export const SERVICES = [PlanificacionService, EstadoDePlanificacionService, CicloLectivoService, CursoService, ClaseService, AnioAcademicoService];

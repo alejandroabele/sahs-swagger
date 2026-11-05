@@ -2,19 +2,19 @@
 // DC.registrar("planificacionmanual") en prototipo/index.html.
 // Ruta: /planificaciones/:id y /planificaciones/:id/cursos/:idCurso. Sin curso en la ruta se abre
 // el primero del ciclo.
-// Carga por etapas: al entrar se pide la fachada get_armado_propuesta (propuesta, estados y cursos del
+// Carga por etapas: al entrar se pide la fachada get_armado_planificacion (planificación, estados y cursos del
 // ciclo con su año anidado, en una sola llamada) y las clases del curso visible (con su materia y sus
 // profesores anidados). Al elegir otro curso se piden solo sus clases. Nada queda en caché: cada
 // entrada y cada curso se piden de nuevo (SIN_CACHE). Recién con la primera
 // interacción para editar (una materia o una franja) se traen los profesores (habilitaciones y
-// disponibilidad) y todas las clases de la propuesta (choques con otros cursos). El área de cada
+// disponibilidad) y todas las clases de la planificación (choques con otros cursos). El área de cada
 // materia viene anidada en el curso.
 // "Generar automáticamente" no necesita esos datos: llama a generar_planilla (la API genera y
 // guarda todos los cursos) y con los `cambios` que devuelve se puede deshacer.
 // Cada clase (curso + materia) tiene los mismos docentes en todas sus franjas. Cada cambio en la
-// grilla se guarda en el momento en la API (crear_clase + asignar_clase_a_propuesta, editar_clase,
+// grilla se guarda en el momento en la API (crear_clase + asignar_clase_a_planificacion, editar_clase,
 // eliminar_clase); si la API lo rechaza (409), se muestra el mensaje y la grilla no cambia.
-// Desde el encabezado se cambia el estado de la propuesta, se la duplica y se abre la generación.
+// Desde el encabezado se cambia el estado de la planificación, se la duplica y se abre la generación.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CambioGeneracion, Clase, Curso, Profesor, ResultadoGeneracion } from '@sahs/contratos';
 import { planificacion, profesorSuplencias } from '../api';
@@ -36,7 +36,7 @@ import {
   codigoClase,
   codigoClaseCopia,
   combosDe,
-  crearClaseEnPropuesta,
+  crearClaseEnPlanificacion,
   dondeOcupa,
   esDeADos,
   habilitadosEn,
@@ -62,7 +62,7 @@ const COLOR_ESTADO: Record<string, { punto: string; chip: string; texto: string;
 };
 
 /**
- * Transiciones que acepta la API (asignar_estado_a_propuesta; TRANSICIONES de apps/planificacion).
+ * Transiciones que acepta la API (asignar_estado_a_planificacion; TRANSICIONES de apps/planificacion).
  * Una Vigente pasa sola a Fue vigente cuando otra del ciclo pasa a Vigente.
  */
 const TRANSICIONES: Record<string, string[]> = { BOR: ['REV'], REV: ['VIG', 'BOR'], VIG: [], FVG: [] };
@@ -82,30 +82,30 @@ const SIN_CACHE = { staleTime: 0, gcTime: 0, refetchOnWindowFocus: false } as co
 export default function A13PlanificacionManual() {
   const ir = useIr();
   const ciclo = useCiclo();
-  const idPropParam = useParamRuta('id');
+  const idPlanParam = useParamRuta('id');
   const idCursoParam = useParamRuta('idCurso');
 
   // ---- datos
-  // Fachada: propuesta + estados + cursos del ciclo (con año, turno, orientación, materias y franjas).
+  // Fachada: planificación + estados + cursos del ciclo (con año, turno, orientación, materias y franjas).
   const qArmado = useConsulta(
-    ['planificacion', 'get_armado_propuesta', idPropParam],
-    () => planificacion.get_armado_propuesta(idPropParam!),
-    { enabled: !!idPropParam, ...SIN_CACHE },
+    ['planificacion', 'get_armado_planificacion', idPlanParam],
+    () => planificacion.get_armado_planificacion(idPlanParam!),
+    { enabled: !!idPlanParam, ...SIN_CACHE },
   );
-  const propuesta = idPropParam ? qArmado.data?.propuesta : undefined;
-  const idProp = propuesta?.id_propuesta;
+  const planif = idPlanParam ? qArmado.data?.planificacion : undefined;
+  const idPlan = planif?.id_planificacion;
 
   // Etapa 1: las clases del curso visible.
   const qClasesCurso = useConsulta(
-    ['planificacion', 'get_clases', { id_propuesta: idProp, id_curso: idCursoParam }],
-    () => planificacion.get_clases({ id_propuesta: idProp!, id_curso: idCursoParam! }),
-    { enabled: !!idProp && !!idCursoParam, ...SIN_CACHE },
+    ['planificacion', 'get_clases', { id_planificacion: idPlan, id_curso: idCursoParam }],
+    () => planificacion.get_clases({ id_planificacion: idPlan!, id_curso: idCursoParam! }),
+    { enabled: !!idPlan && !!idCursoParam, ...SIN_CACHE },
   );
 
   // Etapa 2: se activa con la primera interacción para editar y queda activa.
   const [edicionActiva, setEdicionActiva] = useState(false);
-  const qClasesTodas = useConsulta(['planificacion', 'get_clases', { id_propuesta: idProp }], () => planificacion.get_clases({ id_propuesta: idProp! }), {
-    enabled: !!idProp && edicionActiva,
+  const qClasesTodas = useConsulta(['planificacion', 'get_clases', { id_planificacion: idPlan }], () => planificacion.get_clases({ id_planificacion: idPlan! }), {
+    enabled: !!idPlan && edicionActiva,
     ...SIN_CACHE,
   });
   const qProfes = useConsulta(['profesor_suplencias', 'get_profesores'], () => profesorSuplencias.get_profesores(), { enabled: edicionActiva, ...SIN_CACHE });
@@ -124,7 +124,7 @@ export default function A13PlanificacionManual() {
   const [previas, setPrevias] = useState<CambioGeneracion[] | null>(null);
   const [generando, setGenerando] = useState(false);
   const [duplicando, setDuplicando] = useState<string | null>(null);
-  /** Aviso para mostrar al llegar a otra propuesta (la duplicada). */
+  /** Aviso para mostrar al llegar a otra planificación (la duplicada). */
   const avisoAlLlegar = useRef<Aviso | null>(null);
 
   const cursos = useMemo(() => ordenarCursos(qArmado.data?.cursos ?? []), [qArmado.data]);
@@ -139,8 +139,8 @@ export default function A13PlanificacionManual() {
   // Sin curso en la ruta: se abre el primero del ciclo (reemplaza la URL, no suma un paso al historial).
   const primerCurso = cursos[0]?.id_curso;
   useEffect(() => {
-    if (idProp && !idCursoParam && primerCurso) ir(rutas.armado(idProp, primerCurso), { replace: true });
-  }, [idProp, idCursoParam, primerCurso, ir]);
+    if (idPlan && !idCursoParam && primerCurso) ir(rutas.armado(idPlan, primerCurso), { replace: true });
+  }, [idPlan, idCursoParam, primerCurso, ir]);
 
   useEffect(() => {
     setSel(null);
@@ -148,7 +148,7 @@ export default function A13PlanificacionManual() {
     setVaciando(false);
     setAviso(avisoAlLlegar.current);
     avisoAlLlegar.current = null;
-  }, [idCursoParam, idPropParam]);
+  }, [idCursoParam, idPlanParam]);
 
   // Una materia elegida antes de tener los docentes: al llegar, si hay un solo docente (o un solo
   // grupo, en las EPA) queda elegido; si hay varios, se elige en la lista.
@@ -173,7 +173,7 @@ export default function A13PlanificacionManual() {
   const errorCarga = qArmado.error;
   const errorEdicion = qClasesTodas.error ?? qProfes.error;
 
-  if (!propuesta || cargando) {
+  if (!planif || cargando) {
     return (
       <div style={css('width: 100%; min-height: 100vh; display: flex; flex-direction: column; background: #f4f6f8;')}>
         <Cabecera />
@@ -191,37 +191,37 @@ export default function A13PlanificacionManual() {
   }
 
   // ======== cálculo de la vista (como renderVals() del prototipo) ========
-  const codigoEstado = propuesta.estado?.codigo ?? 'BOR';
+  const codigoEstado = planif.estado?.codigo ?? 'BOR';
   const estadoVista = COLOR_ESTADO[codigoEstado] ?? COLOR_ESTADO.BOR;
   const nombreDe = (c: Curso) => nombreCurso(c);
-  const anioCiclo = ciclo.ciclos.find((c) => c.id_ciclo_lectivo === propuesta.id_ciclo_lectivo)?.anio_calendario;
+  const anioCiclo = ciclo.ciclos.find((c) => c.id_ciclo_lectivo === planif.id_ciclo_lectivo)?.anio_calendario;
   const enBorrador = codigoEstado === 'BOR';
 
-  /** Crea una propuesta nueva en Borrador con una copia de cada clase de esta y la abre. */
+  /** Crea una planificación nueva en Borrador con una copia de cada clase de esta y la abre. */
   const duplicar = async () => {
     if (duplicando || acc.enCurso) return;
     setAviso(null);
     setVaciando(false);
     acc.limpiarError();
-    setDuplicando('Creando la copia de ' + propuesta.codigo + '…');
+    setDuplicando('Creando la copia de ' + planif.codigo + '…');
     let nuevaId: number | null = null;
     try {
       const anio = anioCiclo ?? new Date().getFullYear();
-      const codigo = siguienteCodigo(anio, await planificacion.get_propuestas());
-      const p = await planificacion.crear_propuesta({
-        nombre: 'Planificación ' + anio + ' (a partir de ' + propuesta.codigo + ')',
-        descripcion_propuesta: 'Creada a partir de ' + propuesta.codigo,
+      const codigo = siguienteCodigo(anio, await planificacion.get_planificaciones());
+      const p = await planificacion.crear_planificacion({
+        nombre: 'Planificación ' + anio + ' (a partir de ' + planif.codigo + ')',
+        descripcion_planificacion: 'Creada a partir de ' + planif.codigo,
         codigo,
-        id_ciclo_lectivo: propuesta.id_ciclo_lectivo,
+        id_ciclo_lectivo: planif.id_ciclo_lectivo,
       });
-      nuevaId = p.id_propuesta;
-      const origen = await planificacion.get_clases({ id_propuesta: propuesta.id_propuesta });
+      nuevaId = p.id_planificacion;
+      const origen = await planificacion.get_clases({ id_planificacion: planif.id_planificacion });
       const fallas: string[] = [];
       for (let i = 0; i < origen.length; i++) {
         const c = origen[i];
         setDuplicando('Copiando la clase ' + (i + 1) + ' de ' + origen.length + ' a ' + p.codigo + '…');
         try {
-          await crearClaseEnPropuesta(p.id_propuesta, {
+          await crearClaseEnPlanificacion(p.id_planificacion, {
             codigo: codigoClaseCopia(c.codigo, p.codigo),
             descripcion: c.descripcion ?? '',
             id_curso: c.id_curso,
@@ -233,7 +233,7 @@ export default function A13PlanificacionManual() {
           fallas.push((c.descripcion || c.codigo) + ': ' + mensajeDeError(e));
         }
       }
-      let texto = p.codigo + ' se creó a partir de ' + propuesta.codigo + ', con ' + (origen.length - fallas.length) + ' de sus ' + origen.length + ' clases.';
+      let texto = p.codigo + ' se creó a partir de ' + planif.codigo + ', con ' + (origen.length - fallas.length) + ' de sus ' + origen.length + ' clases.';
       if (fallas.length) texto += ' No se copiaron: ' + fallas.slice(0, 4).join(' · ') + (fallas.length > 4 ? ' · …' : '') + '.';
       avisoAlLlegar.current = { texto, tipo: 'info' };
     } catch (e) {
@@ -257,7 +257,7 @@ export default function A13PlanificacionManual() {
         ' background: ' + (activo ? '#14181f' : '#fff') + '; color: ' + (activo ? '#fff' : '#4a5462') + ';' +
         ' border-radius: ' + (cursos.length === 1 ? '7px' : i === 0 ? '7px 0 0 7px' : i === cursos.length - 1 ? '0 7px 7px 0' : '0') + ';' +
         (i > 0 ? ' margin-left: -1px;' : ''),
-      click: () => ir(rutas.armado(propuesta.id_propuesta, c.id_curso)),
+      click: () => ir(rutas.armado(planif.id_planificacion, c.id_curso)),
     };
   });
 
@@ -280,8 +280,8 @@ export default function A13PlanificacionManual() {
           <span>Ciclo lectivo {anioCiclo ?? ''}</span>
         </div>
         <div className="r-envolver" style={css('display: flex; align-items: center; gap: 12px;')}>
-          <span className="mono" style={css('font-size: 24px; font-weight: 600; letter-spacing: -0.02em;')} title={propuesta.nombre}>
-            {propuesta.codigo}
+          <span className="mono" style={css('font-size: 24px; font-weight: 600; letter-spacing: -0.02em;')} title={planif.nombre}>
+            {planif.codigo}
           </span>
           <span
             style={css(
@@ -298,7 +298,7 @@ export default function A13PlanificacionManual() {
           </button>
           {enBorrador && (
             <button
-              onClick={() => ir(rutas.generacion(propuesta.id_propuesta, curso?.id_curso))}
+              onClick={() => ir(rutas.generacion(planif.id_planificacion, curso?.id_curso))}
               style={css('display: flex; align-items: center; height: 32px; padding: 0 13px; border-radius: 7px; font-size: 12px; font-weight: 600; white-space: nowrap; border: none; background: ' + ACCENT + '; color: #fff;')}
             >
               Generar planilla
@@ -411,8 +411,8 @@ export default function A13PlanificacionManual() {
             ids_franjas_horarias: [...(existente.ids_franjas_horarias ?? []), b.id],
             ids_profesores: existente.ids_profesores ?? [],
           })
-        : crearClaseEnPropuesta(propuesta.id_propuesta, {
-            codigo: codigoClase(propuesta.codigo, nombreCursoActual, nombreMateria(sel.mid)),
+        : crearClaseEnPlanificacion(planif.id_planificacion, {
+            codigo: codigoClase(planif.codigo, nombreCursoActual, nombreMateria(sel.mid)),
             descripcion: descripcion(sel.mid),
             id_curso: curso.id_curso,
             id_materia: sel.mid,
@@ -452,7 +452,7 @@ export default function A13PlanificacionManual() {
   const cambiarEstado = async (codigo: string, mensaje?: string) => {
     const e = (qArmado.data?.estados ?? []).find((x) => x.codigo === codigo);
     if (!e) return;
-    const ok = await ejecutar(() => planificacion.asignar_estado_a_propuesta(propuesta.id_propuesta, { id_estado: e.id_estado }));
+    const ok = await ejecutar(() => planificacion.asignar_estado_a_planificacion(planif.id_planificacion, { id_estado: e.id_estado }));
     if (ok !== undefined) {
       setSel(null);
       setCelda(null);
@@ -463,7 +463,7 @@ export default function A13PlanificacionManual() {
   /** Ubica las horas que faltan en todos los cursos: la API genera y guarda (generar_planilla). */
   const generarAutomatico = async () => {
     setGenerando(true);
-    const r = (await ejecutar(() => planificacion.generar_planilla(propuesta.id_propuesta, {}))) as ResultadoGeneracion | undefined;
+    const r = (await ejecutar(() => planificacion.generar_planilla(planif.id_planificacion, {}))) as ResultadoGeneracion | undefined;
     setGenerando(false);
     if (r === undefined) return;
     let msg =
@@ -789,7 +789,7 @@ export default function A13PlanificacionManual() {
       fondo: '#ecf5ef',
       borde: '#c2e0cd',
       icono: 'M20 6L9 17l-5-5',
-      texto: propuesta.codigo + ' es la vigente del ciclo. Pasa a Fue vigente cuando otra del ciclo pase a Vigente.',
+      texto: planif.codigo + ' es la vigente del ciclo. Pasa a Fue vigente cuando otra del ciclo pase a Vigente.',
     },
     FVG: {
       titulo: 'Fue vigente',
