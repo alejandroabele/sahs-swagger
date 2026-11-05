@@ -1,4 +1,5 @@
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
+import { NodoClase, NodoGrupo, NodoLeyendaClases } from './clases';
 import { Icono } from './iconos';
 import type { Componente, Servicio } from './modelo';
 
@@ -119,4 +120,7 @@ export const tiposDeNodo = {
   servicio: NodoServicio,
   banda: NodoBanda,
   glosario: NodoGlosario,
+  clase: NodoClase,
+  grupo: NodoGrupo,
+  leyendaClases: NodoLeyendaClases,
 };

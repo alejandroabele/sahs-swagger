@@ -1,5 +1,6 @@
 import { useEffect, type ReactNode } from 'react';
 import { MarkerType, ReactFlow, ReactFlowProvider, useReactFlow, type Edge, type Node } from '@xyflow/react';
+import { tiposDeArista } from './clases';
 import { tiposDeNodo } from './nodos';
 import type { Marca } from './modelo';
 
@@ -51,6 +52,7 @@ export function Diagrama({
         nodes={nodos}
         edges={aristas}
         nodeTypes={tiposDeNodo}
+        edgeTypes={tiposDeArista}
         nodesDraggable={false}
         nodesConnectable={false}
         elementsSelectable={false}

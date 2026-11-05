@@ -1,15 +1,17 @@
 import { useEffect, useState, type MouseEvent } from 'react';
+import { Clases } from './pantallas/Clases';
 import { Componentes } from './pantallas/Componentes';
 import { Comunicacion } from './pantallas/Comunicacion';
 import { Validar } from './pantallas/Validar';
 
-type Pantalla = 'componentes' | 'comunicacion' | 'validar';
+type Pantalla = 'componentes' | 'comunicacion' | 'clases' | 'validar';
 
 const BASE = import.meta.env.BASE_URL; // '/arquitectura/'
-const RUTA: Record<Pantalla, string> = { componentes: '', comunicacion: 'comunicacion', validar: 'validar' };
+const RUTA: Record<Pantalla, string> = { componentes: '', comunicacion: 'comunicacion', clases: 'clases', validar: 'validar' };
 const SUBTITULO: Record<Pantalla, string> = {
   componentes: '1 · Componentes: de la entrada del usuario a los datos',
   comunicacion: '2 · Comunicación entre microservicios: llamadas HTTP síncronas (REST · JSON), sin pasar por el gateway',
+  clases: '3 · Diagrama de clases: cada clase dentro del microservicio dueño de su tabla',
   validar: 'Cambios del código que todavía no validó una persona',
 };
 
@@ -17,6 +19,7 @@ const SUBTITULO: Record<Pantalla, string> = {
 const PESTANAS: [Pantalla, string][] = [
   ['componentes', 'Componentes'],
   ['comunicacion', 'Comunicación'],
+  ['clases', 'Diagrama de clases'],
 ];
 
 function leerPantalla(): Pantalla {
@@ -61,6 +64,7 @@ export function App() {
       <main className="contenido">
         {pantalla === 'componentes' && <Componentes key="c" />}
         {pantalla === 'comunicacion' && <Comunicacion key="m" />}
+        {pantalla === 'clases' && <Clases key="d" />}
         {pantalla === 'validar' && <Validar />}
       </main>
     </div>

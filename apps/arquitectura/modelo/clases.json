@@ -1,0 +1,68 @@
+{
+  "origen": "Diagrama de clases del grupo (draw.io, página diagrama_de_clases_actual). Ver docs/referencias.md.",
+  "exportado": "2026-11-05",
+  "clases": [
+    { "id": "privilegios", "nombre": "PRIVILEGIOS", "servicio": "usuario", "atributos": ["id_privilegio", "descripcion_privilegio"] },
+    { "id": "rol", "nombre": "ROL", "servicio": "usuario", "atributos": ["id_rol", "nombre_rol"] },
+    { "id": "usuario", "nombre": "USUARIO", "servicio": "usuario", "atributos": ["id_usuario", "email", "contraseña"] },
+
+    {
+      "id": "profesor",
+      "nombre": "PROFESOR",
+      "servicio": "profesor-suplencias",
+      "atributos": ["id_profesor", "nombre", "apellido", "documento", "legajo", "lista_materias_habilitadas", "correo_electronico", "telefono", "direccion", "activo"]
+    },
+    { "id": "suplencia", "nombre": "SUPLENCIA", "servicio": "profesor-suplencias", "atributos": ["id_suplencia", "fecha_inicio", "fecha_fin", "motivo"] },
+
+    { "id": "pago", "nombre": "PAGO", "servicio": "pago", "atributos": ["id_pago", "periodo", "validado"] },
+    { "id": "recibo", "nombre": "RECIBO DE SUELDO", "servicio": "pago", "atributos": ["id_recibo_sueldo", "monto", "fecha", "firma_emisor", "firma_receptor"] },
+
+    { "id": "dia_lectivo", "nombre": "DIA_LECTIVO", "servicio": "horarios", "atributos": ["id_dia_lectivo", "nombre_dia_lectivo"] },
+    { "id": "franja", "nombre": "FRANJA_HORARIO", "servicio": "horarios", "atributos": ["id_franja_horario", "hora_inicio", "hora_fin", "descripcion"] },
+    { "id": "turno", "nombre": "TURNO", "servicio": "horarios", "atributos": ["id_turno", "codigo", "nombre", "cantidad_franjas_total"] },
+
+    { "id": "estado", "nombre": "ESTADO_PLANIFICACION", "servicio": "planificacion", "atributos": ["id_estado", "nombre", "codigo"] },
+    {
+      "id": "planificacion",
+      "nombre": "PLANIFICACION",
+      "servicio": "planificacion",
+      "atributos": ["id_planificacion", "nombre", "descripcion_propuesta", "fecha_creacion", "fecha_modificacion", "codigo"]
+    },
+    { "id": "clase", "nombre": "CLASE", "servicio": "planificacion", "atributos": ["id_clase", "descripcion", "codigo"] },
+    { "id": "ciclo", "nombre": "CICLO_LECTIVO", "servicio": "planificacion", "atributos": ["id_ciclo_lectivo", "año_calendario"] },
+    { "id": "curso", "nombre": "CURSO", "servicio": "planificacion", "atributos": ["id_curso", "division"] },
+    { "id": "anio", "nombre": "AÑO_ACADEMICO", "servicio": "planificacion", "atributos": ["id_anio_academico", "año_curricular", "codigo"] },
+
+    { "id": "materia", "nombre": "MATERIA", "servicio": "orientacion", "atributos": ["id_materia", "nombre_materia", "descripcion_materia", "horas_semanales"] },
+    { "id": "area", "nombre": "ÁREA", "servicio": "orientacion", "atributos": ["id_area", "nombre_area", "descripcion_area", "profesor"] },
+    { "id": "orientacion", "nombre": "ORIENTACIÓN", "servicio": "orientacion", "atributos": ["id_orientacion", "nombre_orientacion", "descripcion_orientacion", "codigo"] }
+  ],
+  "relaciones": [
+    { "de": "usuario", "a": "rol", "cardinalidad": "1", "en": "a" },
+    { "de": "rol", "a": "privilegios", "cardinalidad": "M", "en": "a" },
+    { "de": "profesor", "a": "usuario", "cardinalidad": "1", "en": "a" },
+    { "de": "pago", "a": "profesor", "cardinalidad": "M", "en": "de" },
+    { "de": "pago", "a": "recibo", "cardinalidad": "M", "en": "a" },
+    { "de": "suplencia", "a": "profesor", "nombre": "ES CUBIERTA POR", "cardinalidad": "M", "en": "a" },
+    { "de": "suplencia", "a": "clase", "cardinalidad": "N", "en": "de" },
+    { "de": "profesor", "a": "clase", "nombre": "ES DICTADA POR", "cardinalidad": "N", "en": "de" },
+    { "de": "profesor", "a": "materia", "nombre": "ESTÁ HABILITADO PARA DICTAR", "cardinalidad": "N", "en": "a" },
+    { "de": "profesor", "a": "franja", "nombre": "DISPONIBILIDAD", "cardinalidad": "M", "en": "de" },
+    { "de": "area", "a": "profesor", "nombre": "COORDINA", "cardinalidad": "1", "en": "a" },
+    { "de": "turno", "a": "franja", "cardinalidad": "N", "en": "a" },
+    { "de": "franja", "a": "dia_lectivo", "cardinalidad": "1", "en": "a" },
+    { "de": "planificacion", "a": "estado", "cardinalidad": "1", "en": "a" },
+    { "de": "planificacion", "a": "ciclo", "cardinalidad": "M", "en": "de" },
+    { "de": "planificacion", "a": "clase", "cardinalidad": "N", "en": "a" },
+    { "de": "clase", "a": "franja", "cardinalidad": "N", "en": "a" },
+    { "de": "clase", "a": "curso", "nombre": "ES DICTADA EN", "cardinalidad": "1", "en": "a" },
+    { "de": "curso", "a": "turno", "cardinalidad": "1", "en": "a" },
+    { "de": "curso", "a": "ciclo", "cardinalidad": "N", "en": "a" },
+    { "de": "anio", "a": "curso", "cardinalidad": "M", "en": "a" },
+    { "de": "anio", "a": "orientacion", "cardinalidad": "N", "en": "a" },
+    { "de": "materia", "a": "clase", "cardinalidad": "1", "en": "de" },
+    { "de": "area", "a": "materia", "cardinalidad": "N", "en": "a" },
+    { "de": "orientacion", "a": "materia", "cardinalidad": "N", "en": "a" },
+    { "de": "orientacion", "a": "curso", "cardinalidad": "N", "en": "a" }
+  ]
+}
