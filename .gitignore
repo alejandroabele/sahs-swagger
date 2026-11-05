@@ -7,3 +7,6 @@ dist/
 data/
 .claude/settings.local.json
 .env
+
+# Modelo de arquitectura: se genera del código antes de dev y build
+apps/arquitectura/modelo/generado.json

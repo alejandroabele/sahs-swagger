@@ -26,6 +26,7 @@ docker compose down -v         # baja todo y borra la base (al volver a levantar
 - **Web:** http://localhost:8100
 - **Swagger UI:** http://localhost:8100/docs/ (elegir el servicio en "Select a definition"; "Try it out" responde de verdad)
 - **Prototipo:** http://localhost:8100/prototipo/ (referencia visual, ver "Prototipo")
+- **Arquitectura:** http://localhost:8100/arquitectura/ (diagramas de componentes y de comunicación entre servicios, ver "Vista de arquitectura")
 - **Usuarios de ejemplo:** `secretaria` (Administrativo), `jramirez` (Profesor) y `sferreyra` (Coordinador de área), entre otros. La contraseña de todos es **`sahs2026`**.
 
 Rutas de la web (las mismas que usa el prototipo, en el hash):
@@ -79,6 +80,8 @@ npm run dev:usuario           # y así cada servicio (en su puerto 808x)
 npm run dev:web               # http://localhost:5173, con proxy a los servicios
 npm test                      # pruebas e2e: levanta los 6 servicios sobre una base temporal
 npm run verificar-contratos   # compara el swagger de cada servicio con specs/*.json
+npm run dev:arquitectura      # http://localhost:5174/arquitectura/ (vista de arquitectura)
+npm run verificar-arquitectura # diferencias entre el código y el modelo de arquitectura validado
 ```
 
 ## Estructura del monorepo
@@ -88,6 +91,7 @@ apps/
   usuario/ pago/ horarios/ planificacion/ orientacion/ profesor-suplencias/   microservicios NestJS
   db/                    data source de TypeORM, migraciones y seeds (contenedor db-init)
   web/                   React + Vite; nginx.conf y Dockerfile de producción
+  arquitectura/          vista de arquitectura (React + Vite + React Flow), con su nginx y su Dockerfile
   Dockerfile.servicio    imagen de cada servicio y de db-init
 libs/
   contratos/             interfaces TypeScript de la API (las usan los servicios y la web)
@@ -387,6 +391,19 @@ Para sumar una pantalla, se agrega a `CONFIG.pantallas` con el id del `.dc.html`
   - Dependencias: para no hacer una llamada por elemento, los listados con anidados usan los listados de los otros servicios (`get_materias`, `get_franjas_horarias`, `get_profesores`, `get_turnos`, `get_orientaciones`, `get_clases`). La lista real de cada servicio está en su swagger (`x-dependencias`).
   - Las listas anidadas `clases`, `profesores`, `franjas_horarias`, `suplencia` de las clases: los listados (`get_clases`, `get_curso_clases`) no anidan la suplencia vigente; solo `get_clase`.
 
+## Vista de arquitectura
+
+http://localhost:8100/arquitectura/ muestra dos diagramas para presentar el sistema: **Componentes** (usuarios → aplicación web → API Gateway → microservicios → base de datos, cada pieza con su tipo y el recuadro "Qué es cada pieza") y **Comunicación** (`/arquitectura/comunicacion`, las llamadas HTTP entre servicios; en azul los pares que se llaman entre sí). Cada servicio muestra si responde (verde o rojo, cada 10 s). "Modo presentación" (o `?presentacion` en la URL) oculta el estado y los avisos.
+
+Los datos salen del código, pero los diagramas muestran lo que **validó una persona**:
+
+- `tools/arquitectura.mjs generar` lee los servicios y contenedores del compose, las llamadas `new ClienteServicio(...)` y las tablas de `libs/entidades`, y escribe `apps/arquitectura/modelo/generado.json` (no va al repo; se genera solo antes de `dev` y `build`).
+- `apps/arquitectura/modelo/validado.json` va al repo. Además de esos datos, tiene el nombre, el tipo, la descripción y el ícono de cada pieza, que se escriben a mano.
+- Lo que el código tiene y no está validado aparece punteado y en la pantalla **Validar** (`/arquitectura/validar`). `npm run verificar-arquitectura` lo lista y termina con error.
+- Para aprobarlo: `npm run arquitectura:validar`. Pregunta cambio por cambio y escribe `validado.json`; después se hace commit. Un servicio nuevo entra sin descripción, y su lugar en los diagramas se acomoda en `apps/arquitectura/src/layout.ts`.
+
+El diagrama dibuja el API Gateway como se diseñó: valida el token que emite Usuario. Hoy no lo hace (ver "A revisar por el grupo").
+
 ## A revisar por el grupo
 
 1. **Recibos:** el documento no tiene un command para crear recibos. Se tomó como criterio que `crear_pago` genera el único recibo del pago, con sus conceptos y el neto que da `calcular_monto_a_liquidar`. Falta definir si el emisor es un dato fijo de la institución.
@@ -406,6 +423,7 @@ Para sumar una pantalla, se agrega a `CONFIG.pantallas` con el id del `.dc.html`
     - RN-16 dice "hora de fin menor a la hora de inicio"; se tomó como "fin posterior al inicio".
     - RN-18: la descripción de la materia es opcional en la API; la regla se aplica cuando se carga. Falta definir si pasa a ser obligatoria.
     - RN-20 (otro servicio no responde), RN-21 (error interno) y RN-22 (otro servicio respondió con un error) se agregaron en la API para los errores que no son reglas. Hay que sumarlas al documento.
+12. **Validación del token en el gateway:** la vista de arquitectura muestra al API Gateway validando el token que emite Usuario, que es lo diseñado. Hoy el nginx solo reparte los pedidos y ningún componente valida el token. Falta implementarlo, por ejemplo con `auth_request` de nginx contra un endpoint de Usuario.
 
 ## Mantenimiento
 
@@ -421,6 +439,7 @@ Desde el corte, **la API se cambia en el código de cada servicio** (controllers
 
   `db-init` aplica las migraciones pendientes en el siguiente `up`. Los datos de ejemplo están en `apps/db/src/seeds/`.
 - **Cliente de la web:** `apps/web/src/api/*.ts` se genera a partir del swagger de los servicios (levantados en sus puertos de desarrollo): `node tools/generar_cliente_web.mjs`. Con la app de Docker levantada: `node tools/generar_cliente_web.mjs --url http://localhost:8100/docs`.
+- **Arquitectura:** después de cambiar los servicios, el compose o las entidades, `npm run verificar-arquitectura`. Si hay diferencias, las revisa y aprueba una persona con `npm run arquitectura:validar` (ver "Vista de arquitectura").
 - **Pruebas:** `npm test` (e2e de los servicios) y `npm run verificar-contratos` (diferencias con los contratos originales, por `operationId`; las operaciones agregadas y las diferencias de forma aceptadas están en `AGREGADOS` y `EXCEPCIONES` del script).
 - **Historial:** `tools/generar_specs.py` generó los contratos originales de `specs/` y `tools/generar_scaffold.mjs` generó el código inicial de los servicios a partir de ellos. Los dos quedan congelados; el segundo no corre si las apps ya existen, para no pisar el código.
 

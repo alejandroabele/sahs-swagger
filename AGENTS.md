@@ -17,6 +17,7 @@ Dentro del repo, **la fuente de verdad de la API es el swagger que publica cada 
 - Cada tabla tiene un servicio dueño (prefijo `usuario_`, `pago_`, ...). Un servicio solo escribe sus tablas y pide los datos de otro por HTTP (`ClienteServicio` de `@sahs/comun`). Las referencias a otro servicio son ids sin clave foránea.
 - Un cambio de entidades lleva su migración en `apps/db/src/migraciones` (ver "Mantenimiento" en el README). Nunca `synchronize`.
 - Después de cambiar un servicio, regenerá el cliente de la web (`node tools/generar_cliente_web.mjs`) y corré `npm test` y `npm run verificar-contratos`.
+- Después de cambiar los servicios, el compose o las entidades, corré `npm run verificar-arquitectura`. Si hay diferencias, avisá: el modelo de arquitectura (`apps/arquitectura/modelo/validado.json`) lo aprueba una persona con `npm run arquitectura:validar`. No lo corras ni edites ese archivo para que la verificación pase.
 - La web (`apps/web`) reproduce las pantallas del prototipo (`prototipo/index.html`), que es la referencia visual. Los estilos se copian del diseño con `css('...')`.
 - Las convenciones de la API están en el README ("Convenciones") y en `openspec/specs/api-conventions/`.
 - Toda la documentación va en español.

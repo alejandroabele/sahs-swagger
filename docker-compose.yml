@@ -7,6 +7,7 @@
 #   Web:          http://localhost:8100             (usuario secretaria, contraseña sahs2026)
 #   Swagger UI:   http://localhost:8100/docs/       (los 6 servicios)
 #   Prototipo:    http://localhost:8100/prototipo/  (referencia visual; se edita en caliente)
+#   Arquitectura: http://localhost:8100/arquitectura/ (diagramas generados del código y validados)
 #
 #   HTTPS:        https://$SAHS_DOMINIO (caddy, puertos 80 y 443). En el servidor, SAHS_DOMINIO va en
 #                 el .env; sin definir es localhost, con la CA interna de Caddy. El 8100 solo es local.
@@ -111,6 +112,17 @@ services:
     image: sahs-app/profesor-suplencias:1.0.0
     container_name: sahs-app-profesor-suplencias
 
+  # Vista de arquitectura (/arquitectura/): build de Vite con el modelo generado del código,
+  # servido por su propio nginx. Sin puertos: entra por el proxy de web.
+  arquitectura:
+    build:
+      context: .
+      dockerfile: apps/arquitectura/Dockerfile
+    image: sahs-app/arquitectura:1.0.0
+    container_name: sahs-app-arquitectura
+    restart: unless-stopped
+    networks: [interna]
+
   # nginx: build de React, proxy por prefijo hacia los servicios, Swagger UI (/docs/)
   # y prototipo (/prototipo/). Publicado solo en 127.0.0.1: desde afuera se entra por caddy.
   web:
@@ -139,6 +151,8 @@ services:
         condition: service_healthy
       profesor-suplencias:
         condition: service_healthy
+      arquitectura:
+        condition: service_started
 
   # HTTPS delante de la web: certificado automático (Let's Encrypt o ZeroSSL) y redirección de http.
   caddy:
