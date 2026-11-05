@@ -1,14 +1,14 @@
 // Generación automática de la planilla (generar_planilla). Es un cálculo puro: recibe los
-// cursos, las clases ya guardadas en la propuesta y los profesores, y devuelve qué franjas
-// agregar a cada clase (curso + materia). El guardado lo hace PropuestaService con
-// crear_clase / asignar_clase_a_propuesta / editar_clase, así corren las reglas de siempre.
+// cursos, las clases ya guardadas en la planificación y los profesores, y devuelve qué franjas
+// agregar a cada clase (curso + materia). El guardado lo hace PlanificacionService con
+// crear_clase / asignar_clase_a_planificacion / editar_clase, así corren las reglas de siempre.
 //
 // Reglas (las del generarTodo() del prototipo):
 // - Respeta lo que ya está ubicado: solo completa las horas que le faltan a cada materia.
 // - Una sola clase por franja del curso, y solo horas cátedra del turno (los recreos no).
 // - Cada docente solo en franjas que declaró disponibles (por id de franja).
 // - Un docente no puede estar en dos clases a la vez: se compara el horario real (día, inicio
-//   y fin), aunque las franjas sean de turnos distintos, contra todas las clases de la propuesta.
+//   y fin), aunque las franjas sean de turnos distintos, contra todas las clases de la planificación.
 // - Ninguna materia pasa sus horas semanales en el curso. No hay tope de horas diarias.
 // - Si la clase ya tiene docentes, usa esos; si no, el habilitado activo con más franjas posibles.
 //   Las materias EPA (nombre que empieza con "EPA") se dictan de a dos: van con todos sus
@@ -67,13 +67,13 @@ export function combosDe(idMateria: number, nombreMateria: string, profesores: C
 }
 
 /** Código de la clase: PLAN-2026-02 + 1° B + Física → 2026-02-1B-FIS. */
-export function codigoClase(codigoPropuesta: string, nombreDelCurso: string, nombreMateria: string): string {
+export function codigoClase(codigoPlanificacion: string, nombreDelCurso: string, nombreMateria: string): string {
   const letras = nombreMateria
     .normalize('NFD')
     .replace(/[^A-Za-z]/g, '')
     .slice(0, 3)
     .toUpperCase();
-  return `${codigoPropuesta.replace(/^PLAN-/i, '')}-${nombreDelCurso.replace(/\s+/g, '')}-${letras}`;
+  return `${codigoPlanificacion.replace(/^PLAN-/i, '')}-${nombreDelCurso.replace(/\s+/g, '')}-${letras}`;
 }
 
 export interface CursoGen {
@@ -84,7 +84,7 @@ export interface CursoGen {
   plan: { mid: number; nombre: string; h: number }[];
 }
 
-/** Clase ya guardada en la propuesta (de cualquier curso: sirve para los choques de docentes). */
+/** Clase ya guardada en la planificación (de cualquier curso: sirve para los choques de docentes). */
 export interface ClaseGen {
   id_curso: number;
   id_materia: number;
@@ -142,7 +142,7 @@ export function generar(entrada: { cursos: CursoGen[]; clases: ClaseGen[]; profe
     const k = clave(c.id_curso, c.id_materia);
     if (c.profes.length && !cl.has(k)) cl.set(k, [...c.profes]);
   }
-  // Horas ocupadas por cada docente en toda la propuesta.
+  // Horas ocupadas por cada docente en toda la planificación.
   const ocupado = new Map<number, Bloque[]>();
   const ocupar = (p: number, b: Bloque) => (ocupado.get(p) ?? ocupado.set(p, []).get(p)!).push(b);
   for (const c of clases) for (const b of c.bloques) for (const p of c.profes) ocupar(p, b);

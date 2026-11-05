@@ -30,7 +30,9 @@ export function configurarSwagger(app: INestApplication, info: InfoSwagger) {
     .setTitle(info.titulo)
     .setDescription(`${info.descripcion}\n\n**Dependencias (Invokes):**${info.dependencias.length ? '\n' : ' '}${deps}`)
     .setVersion(info.version)
-    .addServer('/')
+    // Por nginx las APIs van bajo /api; directo al servicio, sin prefijo.
+    .addServer('/api', 'Por nginx (http://localhost:8100)')
+    .addServer('/', 'Directo al servicio')
     .addTag('Health', 'Estado del servicio');
   for (const t of info.tags) builder.addTag(t.name, t.description);
   const doc = SwaggerModule.createDocument(app, builder.build(), {

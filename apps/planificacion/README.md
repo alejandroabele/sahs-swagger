@@ -1,8 +1,8 @@
 # Servicio Planificación
 
-Ciclos lectivos, años académicos, cursos y sus materias, clases y propuestas de planificación con sus estados.
+Ciclos lectivos, años académicos, cursos y sus materias, clases y planificaciones con sus estados.
 
-- Prefijo de las rutas: `/planificacion`. Swagger: `/docs` y `/docs-json`.
+- Prefijo de las rutas: `/planificacion`, salvo el recurso planificación, que va en `/planificaciones` (`/planificaciones/{id}`, `/planificaciones/estados`). Detrás del nginx, todo bajo `/api`. Swagger: `/docs` y `/docs-json`.
 - Puerto: 8084 en desarrollo, 3000 en Docker (`PORT`).
 - Base: `DB_PATH` (en Docker, `/data/sahs.sqlite`). No corre migraciones: las aplica `db-init`.
 
@@ -15,9 +15,9 @@ Ciclos lectivos, años académicos, cursos y sus materias, clases y propuestas d
 - `planificacion_clase`
 - `planificacion_clase_franja`
 - `planificacion_clase_profesor`
-- `planificacion_propuesta`
-- `planificacion_propuesta_clase`
-- `planificacion_estado_propuesta`
+- `planificacion_planificacion`
+- `planificacion_planificacion_clase`
+- `planificacion_estado_planificacion`
 
 Entidades en `libs/entidades/src/planificacion/`.
 
@@ -31,7 +31,7 @@ Entidades en `libs/entidades/src/planificacion/`.
 - `orientacion.asignar_clase_a_materia` → `crear_clase`
 - `horarios.get_turno` → `crear_curso`, `crear_clase`, `editar_clase`
 - `horarios.get_turnos` → `get_curso`, `get_cursos`, `get_cursos_anio_academico`
-- `horarios.get_franjas_horarias` → `get_clase`, `get_clases`, `get_curso_clases`, `crear_clase`, `editar_clase`, `asignar_clase_a_propuesta`
+- `horarios.get_franjas_horarias` → `get_clase`, `get_clases`, `get_curso_clases`, `crear_clase`, `editar_clase`, `asignar_clase_a_planificacion`
 - `profesor_suplencias.get_profesores` → `get_clase`, `get_clases`, `get_curso_clases`, `crear_clase`, `editar_clase`
 - `profesor_suplencias.get_suplencias` → `get_clase`
 - `profesor_suplencias.get_disponibilidad_profesor` → `crear_clase`, `editar_clase`

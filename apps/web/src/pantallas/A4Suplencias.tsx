@@ -1,5 +1,5 @@
 // A4 · Suplencias del período. Prototipo: <template id="tpl-suplencias"> y DC.registrar("suplencias") en prototipo/index.html.
-// Se elige el docente ausente, el período y el motivo; se listan sus clases en la propuesta vigente (VIG)
+// Se elige el docente ausente, el período y el motivo; se listan sus clases en la planificación vigente (VIG)
 // del ciclo (planificacion.get_clases), con la grilla del curso; para cada clase se elige un suplente
 // entre los activos habilitados en la materia, disponibles en todas sus franjas y sin otra clase en esas horas.
 // Registrar = profesor_suplencias.crear_suplencia (POST /profesores/{suplente}/suplencias), una por suplente. Cada clase se cubre entera.
@@ -117,23 +117,23 @@ export default function A4Suplencias() {
   const set = (p: Partial<Estado>) => setSt((s) => ({ ...s, ...p }));
 
   // ---- datos
-  const qProp = useConsulta(['planificacion', 'get_propuestas', { id_ciclo_lectivo: idCiclo }], () => planificacion.get_propuestas({ id_ciclo_lectivo: idCiclo }), {
+  const qProp = useConsulta(['planificacion', 'get_planificaciones', { id_ciclo_lectivo: idCiclo }], () => planificacion.get_planificaciones({ id_ciclo_lectivo: idCiclo }), {
     enabled: idCiclo != null,
   });
   const vigente = (qProp.data ?? []).find((p) => p.estado?.codigo === 'VIG') ?? null;
-  const idProp = vigente?.id_propuesta;
+  const idProp = vigente?.id_planificacion;
   const qProfes = useConsulta(['profesor_suplencias', 'get_profesores'], () => profesorSuplencias.get_profesores());
   const qCursos = useConsulta(['planificacion', 'get_cursos', { id_ciclo_lectivo: idCiclo }], () => planificacion.get_cursos({ id_ciclo_lectivo: idCiclo }), {
     enabled: idCiclo != null,
   });
   const qAnios = useConsulta(['planificacion', 'get_anios_academicos'], () => planificacion.get_anios_academicos());
-  // Todas las clases de la propuesta: para la carga de cada docente y los choques de los candidatos.
-  const qTodas = useConsulta(['planificacion', 'get_clases', { id_propuesta: idProp }], () => planificacion.get_clases({ id_propuesta: idProp }), {
+  // Todas las clases de la planificación: para la carga de cada docente y los choques de los candidatos.
+  const qTodas = useConsulta(['planificacion', 'get_clases', { id_planificacion: idProp }], () => planificacion.get_clases({ id_planificacion: idProp }), {
     enabled: idProp != null,
   });
   const qAusente = useConsulta(
-    ['planificacion', 'get_clases', { id_profesor: st.ausente, id_propuesta: idProp }],
-    () => planificacion.get_clases({ id_profesor: st.ausente!, id_propuesta: idProp }),
+    ['planificacion', 'get_clases', { id_profesor: st.ausente, id_planificacion: idProp }],
+    () => planificacion.get_clases({ id_profesor: st.ausente!, id_planificacion: idProp }),
     { enabled: idProp != null && st.ausente != null },
   );
   const periodoOk = diasHabiles(st.desde, st.hasta).length > 0;
@@ -148,8 +148,8 @@ export default function A4Suplencias() {
   const cursosAusIds = [...new Set(clasesAus.map((k) => k.id_curso))];
   const cursoVista = st.cursoVista != null && cursosAusIds.includes(st.cursoVista) ? st.cursoVista : (cursosAusIds[0] ?? null);
   const qGrilla = useConsulta(
-    ['planificacion', 'get_clases', { id_curso: cursoVista, id_propuesta: idProp }],
-    () => planificacion.get_clases({ id_curso: cursoVista!, id_propuesta: idProp }),
+    ['planificacion', 'get_clases', { id_curso: cursoVista, id_planificacion: idProp }],
+    () => planificacion.get_clases({ id_curso: cursoVista!, id_planificacion: idProp }),
     { enabled: idProp != null && cursoVista != null },
   );
 

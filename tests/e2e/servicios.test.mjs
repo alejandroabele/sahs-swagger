@@ -26,7 +26,9 @@ const APP = { profesor_suplencias: 'profesor-suplencias' };
 const procesos = [];
 let tmp;
 
-const url = (svc, ruta) => `http://localhost:${SERVICIOS[svc]}/${svc.replace(/_/g, '-')}/${ruta}`;
+// Una ruta que empieza con / va sin el prefijo del servicio (/planificaciones).
+const url = (svc, ruta) =>
+  ruta.startsWith('/') ? `http://localhost:${SERVICIOS[svc]}${ruta}` : `http://localhost:${SERVICIOS[svc]}/${svc.replace(/_/g, '-')}/${ruta}`;
 async function api(metodo, svc, ruta, body) {
   const r = await fetch(url(svc, ruta), {
     method: metodo,
@@ -158,10 +160,19 @@ describe('Horarios', () => {
 });
 
 describe('Planificación', () => {
+  test('el recurso planificación va en /planificaciones, sin el prefijo del servicio', async () => {
+    const estados = await get('planificacion', '/planificaciones/estados');
+    assert.equal(estados.status, 200);
+    assert.ok(Array.isArray(estados.datos) && estados.datos.some((e) => e.codigo === 'BOR'));
+    assert.equal((await get('planificacion', '/planificaciones/abc')).status, 400);
+    assert.equal((await get('planificacion', 'propuestas')).status, 404);
+    assert.equal((await get('planificacion', 'estados-propuesta')).status, 404);
+  });
+
   test('filtros combinados en get_clases', async () => {
-    const props = (await get('planificacion', 'propuestas')).datos;
-    const vigente = props.find((p) => p.codigo === 'PLAN-2026-01');
-    const r = await get('planificacion', `clases?id_profesor=1&id_propuesta=${vigente.id_propuesta}`);
+    const planificaciones = (await get('planificacion', '/planificaciones')).datos;
+    const vigente = planificaciones.find((p) => p.codigo === 'PLAN-2026-01');
+    const r = await get('planificacion', `clases?id_profesor=1&id_planificacion=${vigente.id_planificacion}`);
     assert.equal(r.status, 200);
     assert.ok(r.datos.length > 0);
     assert.ok(r.datos.every((c) => c.ids_profesores.includes(1) && vigente.ids_clases.includes(c.id_clase)));
@@ -175,28 +186,28 @@ describe('Planificación', () => {
     assert.ok(r.datos.profesores[0].apellido);
   });
 
-  test('fachada get_armado_propuesta: propuesta, estados y cursos del ciclo con su año, sin clases', async () => {
-    const prop = (await get('planificacion', 'propuestas')).datos.find((p) => p.codigo === 'PLAN-2026-01');
-    const r = await get('planificacion', `propuestas/${prop.id_propuesta}/armado`);
+  test('fachada get_armado_planificacion: planificación, estados y cursos del ciclo con su año, sin clases', async () => {
+    const prop = (await get('planificacion', '/planificaciones')).datos.find((p) => p.codigo === 'PLAN-2026-01');
+    const r = await get('planificacion', `/planificaciones/${prop.id_planificacion}/armado`);
     assert.equal(r.status, 200);
-    assert.equal(r.datos.propuesta.id_propuesta, prop.id_propuesta);
-    assert.ok(r.datos.propuesta.estado.codigo);
-    assert.deepEqual(r.datos.estados, (await get('planificacion', 'estados-propuesta')).datos);
+    assert.equal(r.datos.planificacion.id_planificacion, prop.id_planificacion);
+    assert.ok(r.datos.planificacion.estado.codigo);
+    assert.deepEqual(r.datos.estados, (await get('planificacion', '/planificaciones/estados')).datos);
     const cursos = (await get('planificacion', `cursos?id_ciclo_lectivo=${prop.id_ciclo_lectivo}`)).datos;
     assert.deepEqual(r.datos.cursos.map((c) => c.id_curso).sort(), cursos.map((c) => c.id_curso).sort());
     const c = r.datos.cursos[0];
     assert.equal(c.anio_academico.id_anio_academico, c.id_anio_academico);
     assert.ok(c.turno.nombre && c.orientacion.nombre_orientacion && c.materias.length && c.franjas_horarias.length);
     assert.equal(c.clases, undefined);
-    assert.equal((await get('planificacion', 'propuestas/99999/armado')).status, 404);
+    assert.equal((await get('planificacion', '/planificaciones/99999/armado')).status, 404);
   });
 
-  test('transición inválida de la propuesta → 409', async () => {
-    const borr = (await get('planificacion', 'propuestas')).datos.find((p) => p.estado.codigo === 'BOR');
-    const vig = (await get('planificacion', 'estados-propuesta')).datos.find((e) => e.codigo === 'VIG');
-    const r = await api('PUT', 'planificacion', `propuestas/${borr.id_propuesta}/estado`, { id_estado: vig.id_estado });
+  test('transición inválida de la planificación → 409', async () => {
+    const borr = (await get('planificacion', '/planificaciones')).datos.find((p) => p.estado.codigo === 'BOR');
+    const vig = (await get('planificacion', '/planificaciones/estados')).datos.find((e) => e.codigo === 'VIG');
+    const r = await api('PUT', 'planificacion', `/planificaciones/${borr.id_planificacion}/estado`, { id_estado: vig.id_estado });
     assert.equal(r.status, 409);
-    assert.equal((await get('planificacion', `propuestas/${borr.id_propuesta}`)).datos.estado.codigo, 'BOR');
+    assert.equal((await get('planificacion', `/planificaciones/${borr.id_planificacion}`)).datos.estado.codigo, 'BOR');
   });
 
   test('plan de estudios en tres niveles: año → orientación → materias', async () => {
@@ -220,13 +231,13 @@ describe('Planificación', () => {
     assert.equal(r.status, 404);
   });
 
-  test('propuesta incompleta no pasa a revisión → 409 con curso, materia y horas', async () => {
-    const borr = (await get('planificacion', 'propuestas')).datos.find((p) => p.estado.codigo === 'BOR');
-    const rev = (await get('planificacion', 'estados-propuesta')).datos.find((e) => e.codigo === 'REV');
-    const r = await api('PUT', 'planificacion', `propuestas/${borr.id_propuesta}/estado`, { id_estado: rev.id_estado });
+  test('planificación incompleta no pasa a revisión → 409 con curso, materia y horas', async () => {
+    const borr = (await get('planificacion', '/planificaciones')).datos.find((p) => p.estado.codigo === 'BOR');
+    const rev = (await get('planificacion', '/planificaciones/estados')).datos.find((e) => e.codigo === 'REV');
+    const r = await api('PUT', 'planificacion', `/planificaciones/${borr.id_planificacion}/estado`, { id_estado: rev.id_estado });
     assert.equal(r.status, 409);
     assert.match(r.datos.mensaje, /no está completa: [^:]+: .+ \d+ de \d+ h/);
-    assert.equal((await get('planificacion', `propuestas/${borr.id_propuesta}`)).datos.estado.codigo, 'BOR');
+    assert.equal((await get('planificacion', `/planificaciones/${borr.id_planificacion}`)).datos.estado.codigo, 'BOR');
   });
 
   test('profesor no disponible → 409 con el profesor y la franja', async () => {
@@ -285,30 +296,30 @@ describe('Profesor y Suplencias', () => {
 });
 
 describe('Reglas de negocio', () => {
-  const estado = async (codigo) => (await get('planificacion', 'estados-propuesta')).datos.find((e) => e.codigo === codigo);
-  const pasar = async (id, codigo) => api('PUT', 'planificacion', `propuestas/${id}/estado`, { id_estado: (await estado(codigo)).id_estado });
-  const propuesta = async (codigo) => (await get('planificacion', 'propuestas')).datos.find((p) => p.codigo === codigo);
+  const estado = async (codigo) => (await get('planificacion', '/planificaciones/estados')).datos.find((e) => e.codigo === codigo);
+  const pasar = async (id, codigo) => api('PUT', 'planificacion', `/planificaciones/${id}/estado`, { id_estado: (await estado(codigo)).id_estado });
+  const planificacion = async (codigo) => (await get('planificacion', '/planificaciones')).datos.find((p) => p.codigo === codigo);
   const nuevoProfesor = async (documento) =>
     (await api('POST', 'profesor_suplencias', 'profesores', { nombre: 'Prueba', apellido: 'Reglas' + documento, documento, correo_electronico: `p${documento}@x.com` })).datos;
 
   test('catálogo de estados: Borrador, En revisión, Vigente y Fue vigente', async () => {
-    const codigos = (await get('planificacion', 'estados-propuesta')).datos.map((e) => e.codigo).sort();
+    const codigos = (await get('planificacion', '/planificaciones/estados')).datos.map((e) => e.codigo).sort();
     assert.deepEqual(codigos, ['BOR', 'FVG', 'REV', 'VIG']);
   });
 
-  test('una propuesta Vigente no cambia de estado a mano → 409', async () => {
-    const vig = (await get('planificacion', 'propuestas')).datos.find((p) => p.estado.codigo === 'VIG');
+  test('una planificación Vigente no cambia de estado a mano → 409', async () => {
+    const vig = (await get('planificacion', '/planificaciones')).datos.find((p) => p.estado.codigo === 'VIG');
     for (const codigo of ['FVG', 'BOR']) {
-      const r = await pasar(vig.id_propuesta, codigo);
+      const r = await pasar(vig.id_planificacion, codigo);
       assert.equal(r.status, 409);
       assert.match(r.datos.mensaje, /Vigente/);
     }
-    assert.equal((await get('planificacion', `propuestas/${vig.id_propuesta}`)).datos.estado.codigo, 'VIG');
+    assert.equal((await get('planificacion', `/planificaciones/${vig.id_planificacion}`)).datos.estado.codigo, 'VIG');
   });
 
-  test('horas de más: la clase no puede pasar las horas semanales y la propuesta no pasa a revisión', async () => {
-    const borr = (await get('planificacion', 'propuestas')).datos.find((p) => p.estado.codigo === 'BOR');
-    const clase = (await get('planificacion', `clases?id_propuesta=${borr.id_propuesta}`)).datos.find((c) => c.ids_franjas_horarias.length >= 2);
+  test('horas de más: la clase no puede pasar las horas semanales y la planificación no pasa a revisión', async () => {
+    const borr = (await get('planificacion', '/planificaciones')).datos.find((p) => p.estado.codigo === 'BOR');
+    const clase = (await get('planificacion', `clases?id_planificacion=${borr.id_planificacion}`)).datos.find((c) => c.ids_franjas_horarias.length >= 2);
     const n = clase.ids_franjas_horarias.length;
     const curso = (await get('planificacion', `cursos/${clase.id_curso}`)).datos;
     const horas = curso.materias.find((m) => m.id_materia === clase.id_materia).horas_semanales;
@@ -318,7 +329,7 @@ describe('Reglas de negocio', () => {
       const e = await api('PUT', 'planificacion', `clases/${clase.id_clase}`, { ids_franjas_horarias: clase.ids_franjas_horarias, ids_profesores: clase.ids_profesores });
       assert.equal(e.status, 409);
       assert.match(e.datos.mensaje, new RegExp(`${clase.materia.nombre_materia} en .+ de ${n - 1} h: la clase suma ${n} más`));
-      const r = await pasar(borr.id_propuesta, 'REV');
+      const r = await pasar(borr.id_planificacion, 'REV');
       assert.equal(r.status, 409);
       assert.match(r.datos.mensaje, new RegExp(`${clase.materia.nombre_materia} ${n} de ${n - 1} h`));
     } finally {
@@ -327,7 +338,7 @@ describe('Reglas de negocio', () => {
   });
 
   test('una sola Vigente por ciclo: la anterior pasa sola a Fue vigente', async () => {
-    const vigente2026 = (await get('planificacion', 'propuestas')).datos.find((p) => p.estado.codigo === 'VIG' && p.codigo === 'PLAN-2026-01');
+    const vigente2026 = (await get('planificacion', '/planificaciones')).datos.find((p) => p.estado.codigo === 'VIG' && p.codigo === 'PLAN-2026-01');
     const ciclo = (await api('POST', 'planificacion', 'ciclos-lectivos', { anio_calendario: 2099 })).datos;
     const turno = (await get('horarios', 'turnos')).datos.find((t) => t.nombre === 'Mañana');
     const orient = (await get('orientacion', 'orientaciones')).datos[0];
@@ -351,28 +362,28 @@ describe('Reglas de negocio', () => {
     })).datos;
     const ids = [];
     for (const codigo of ['PLAN-2099-01', 'PLAN-2099-02']) {
-      const p = (await api('POST', 'planificacion', 'propuestas', { nombre: codigo, codigo, id_ciclo_lectivo: ciclo.id_ciclo_lectivo })).datos;
+      const p = (await api('POST', 'planificacion', '/planificaciones', { nombre: codigo, codigo, id_ciclo_lectivo: ciclo.id_ciclo_lectivo })).datos;
       assert.equal(p.estado.codigo, 'BOR');
-      assert.equal((await api('POST', 'planificacion', `propuestas/${p.id_propuesta}/clases`, { id_clase: clase.id_clase })).status, 200);
-      assert.equal((await pasar(p.id_propuesta, 'REV')).status, 200);
-      const r = await pasar(p.id_propuesta, 'VIG');
+      assert.equal((await api('POST', 'planificacion', `/planificaciones/${p.id_planificacion}/clases`, { id_clase: clase.id_clase })).status, 200);
+      assert.equal((await pasar(p.id_planificacion, 'REV')).status, 200);
+      const r = await pasar(p.id_planificacion, 'VIG');
       assert.equal(r.status, 200, r.datos?.mensaje);
-      ids.push(p.id_propuesta);
+      ids.push(p.id_planificacion);
     }
-    assert.equal((await get('planificacion', `propuestas/${ids[0]}`)).datos.estado.codigo, 'FVG');
-    assert.equal((await get('planificacion', `propuestas/${ids[1]}`)).datos.estado.codigo, 'VIG');
+    assert.equal((await get('planificacion', `/planificaciones/${ids[0]}`)).datos.estado.codigo, 'FVG');
+    assert.equal((await get('planificacion', `/planificaciones/${ids[1]}`)).datos.estado.codigo, 'VIG');
     const fvg = await estado('FVG');
-    const historial = (await get('planificacion', `propuestas?id_ciclo_lectivo=${ciclo.id_ciclo_lectivo}&id_estado=${fvg.id_estado}`)).datos;
-    assert.deepEqual(historial.map((p) => p.id_propuesta), [ids[0]]);
+    const historial = (await get('planificacion', `/planificaciones?id_ciclo_lectivo=${ciclo.id_ciclo_lectivo}&id_estado=${fvg.id_estado}`)).datos;
+    assert.deepEqual(historial.map((p) => p.id_planificacion), [ids[0]]);
     // Fue vigente no tiene salida, y el otro ciclo no se tocó.
     assert.equal((await pasar(ids[0], 'BOR')).status, 409);
-    assert.equal((await propuesta(vigente2026.codigo)).estado.codigo, 'VIG');
+    assert.equal((await planificacion(vigente2026.codigo)).estado.codigo, 'VIG');
   });
 
   test('baja lógica: no si está en la Vigente; inactivo fuera de habilitados, clases y suplencias; reactivar', async () => {
-    // Un docente de la propuesta Vigente de los seeds no se puede dar de baja.
-    const vig = await propuesta('PLAN-2026-01');
-    const claseVig = (await get('planificacion', `clases?id_propuesta=${vig.id_propuesta}`)).datos[0];
+    // Un docente de la planificación Vigente de los seeds no se puede dar de baja.
+    const vig = await planificacion('PLAN-2026-01');
+    const claseVig = (await get('planificacion', `clases?id_planificacion=${vig.id_planificacion}`)).datos[0];
     const titular = claseVig.ids_profesores[0];
     const r = await api('PUT', 'profesor_suplencias', `profesores/${titular}/activo`, { activo: false });
     assert.equal(r.status, 409);
@@ -413,8 +424,8 @@ describe('Reglas de negocio', () => {
   });
 
   test('el suplente tiene que estar habilitado en la materia y disponible en las franjas', async () => {
-    const vig = await propuesta('PLAN-2026-01');
-    const clase = (await get('planificacion', `clases?id_propuesta=${vig.id_propuesta}`)).datos[0];
+    const vig = await planificacion('PLAN-2026-01');
+    const clase = (await get('planificacion', `clases?id_planificacion=${vig.id_planificacion}`)).datos[0];
     const p = await nuevoProfesor('90000002');
     const body = { fecha_inicio: '2027-04-05', fecha_fin: '2027-04-09', motivo: 'Prueba', ids_clases: [clase.id_clase] };
     const ruta = `profesores/${p.id_profesor}/suplencias`;
@@ -434,7 +445,7 @@ describe('Reglas de negocio', () => {
   });
 
   test('el generador no tiene tope de horas diarias por materia', async () => {
-    const { generar } = await import(path.join(RAIZ, 'apps/planificacion/dist/propuesta/generacion.js'));
+    const { generar } = await import(path.join(RAIZ, 'apps/planificacion/dist/planificacion/generacion.js'));
     // Un curso con 4 horas, todas el lunes, y una materia de 4 horas.
     const horas = [0, 1, 2, 3].map((i) => ({ id: i + 1, d: 0, ini: 480 + 40 * i, fn: 520 + 40 * i }));
     const disponibilidad = horas.map((b) => ({ id_franja_horaria: b.id }));
@@ -478,34 +489,34 @@ describe('Pago', () => {
 });
 
 describe('Generación automática de la planilla', () => {
-  // Va al final (antes de tirar Orientación): completa la propuesta en Borrador de los seeds.
+  // Va al final (antes de tirar Orientación): completa la planificación en Borrador de los seeds.
   test('generar_planilla solo en Borrador → 409', async () => {
-    const otra = (await get('planificacion', 'propuestas')).datos.find((p) => p.estado.codigo !== 'BOR');
-    const r = await api('POST', 'planificacion', `propuestas/${otra.id_propuesta}/generacion`, {});
+    const otra = (await get('planificacion', '/planificaciones')).datos.find((p) => p.estado.codigo !== 'BOR');
+    const r = await api('POST', 'planificacion', `/planificaciones/${otra.id_planificacion}/generacion`, {});
     assert.equal(r.status, 409);
     assert.match(r.datos.mensaje, /solo se genera en Borrador/);
-    assert.equal((await api('POST', 'planificacion', 'propuestas/99999/generacion', {})).status, 404);
+    assert.equal((await api('POST', 'planificacion', '/planificaciones/99999/generacion', {})).status, 404);
   });
 
   test('id_curso de otro ciclo → 400', async () => {
-    const borr = (await get('planificacion', 'propuestas')).datos.find((p) => p.estado.codigo === 'BOR');
-    const r = await api('POST', 'planificacion', `propuestas/${borr.id_propuesta}/generacion`, { id_curso: 99999 });
+    const borr = (await get('planificacion', '/planificaciones')).datos.find((p) => p.estado.codigo === 'BOR');
+    const r = await api('POST', 'planificacion', `/planificaciones/${borr.id_planificacion}/generacion`, { id_curso: 99999 });
     assert.equal(r.status, 400);
   });
 
-  test('genera en la propuesta en Borrador: cada materia queda completa o se informa en sin_ubicar', async () => {
-    const borr = (await get('planificacion', 'propuestas')).datos.find((p) => p.estado.codigo === 'BOR');
+  test('genera en la planificación en Borrador: cada materia queda completa o se informa en sin_ubicar', async () => {
+    const borr = (await get('planificacion', '/planificaciones')).datos.find((p) => p.estado.codigo === 'BOR');
     const cursos = (await get('planificacion', `cursos?id_ciclo_lectivo=${borr.id_ciclo_lectivo}`)).datos;
     const horas = async () => {
       const m = new Map();
-      for (const c of (await get('planificacion', `clases?id_propuesta=${borr.id_propuesta}`)).datos) {
+      for (const c of (await get('planificacion', `clases?id_planificacion=${borr.id_planificacion}`)).datos) {
         const k = c.id_curso + '|' + c.id_materia;
         m.set(k, (m.get(k) ?? 0) + c.ids_franjas_horarias.length);
       }
       return m;
     };
     const antes = await horas();
-    const r = await api('POST', 'planificacion', `propuestas/${borr.id_propuesta}/generacion`, {});
+    const r = await api('POST', 'planificacion', `/planificaciones/${borr.id_planificacion}/generacion`, {});
     assert.equal(r.status, 200);
     assert.ok(r.datos.horas_ubicadas > 0);
     assert.ok(Array.isArray(r.datos.cambios) && Array.isArray(r.datos.errores));
@@ -523,7 +534,7 @@ describe('Generación automática de la planilla', () => {
     }
     assert.equal(total, r.datos.horas_ubicadas);
     // Una segunda generación no tiene nada nuevo que ubicar en lo que ya quedó completo.
-    const r2 = await api('POST', 'planificacion', `propuestas/${borr.id_propuesta}/generacion`, { id_curso: cursos[0].id_curso });
+    const r2 = await api('POST', 'planificacion', `/planificaciones/${borr.id_planificacion}/generacion`, { id_curso: cursos[0].id_curso });
     assert.equal(r2.status, 200);
   });
 });

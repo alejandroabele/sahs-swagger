@@ -1,7 +1,7 @@
 import { Column, Entity, Index, JoinColumn, ManyToOne, OneToMany, PrimaryColumn, PrimaryGeneratedColumn } from 'typeorm';
 
-@Entity('planificacion_estado_propuesta')
-export class EstadoPropuestaEntidad {
+@Entity('planificacion_estado_planificacion')
+export class EstadoPlanificacionEntidad {
   @PrimaryGeneratedColumn()
   id_estado!: number;
 
@@ -36,16 +36,16 @@ export class AnioAcademicoEntidad {
   codigo!: string;
 }
 
-@Entity('planificacion_propuesta')
-export class PropuestaEntidad {
+@Entity('planificacion_planificacion')
+export class PlanificacionEntidad {
   @PrimaryGeneratedColumn()
-  id_propuesta!: number;
+  id_planificacion!: number;
 
   @Column({ type: 'varchar', length: 120 })
   nombre!: string;
 
   @Column({ type: 'varchar', length: 400, nullable: true })
-  descripcion_propuesta!: string | null;
+  descripcion_planificacion!: string | null;
 
   @Column({ type: 'varchar', length: 30 })
   fecha_creacion!: string;
@@ -67,12 +67,12 @@ export class PropuestaEntidad {
   @Column({ type: 'integer' })
   id_estado!: number;
 
-  @ManyToOne(() => EstadoPropuestaEntidad, { onDelete: 'RESTRICT' })
+  @ManyToOne(() => EstadoPlanificacionEntidad, { onDelete: 'RESTRICT' })
   @JoinColumn({ name: 'id_estado' })
-  estado?: EstadoPropuestaEntidad;
+  estado?: EstadoPlanificacionEntidad;
 
-  @OneToMany(() => PropuestaClaseEntidad, (c) => c.propuesta)
-  clases?: PropuestaClaseEntidad[];
+  @OneToMany(() => PlanificacionClaseEntidad, (c) => c.planificacion)
+  clases?: PlanificacionClaseEntidad[];
 }
 
 /**
@@ -156,8 +156,8 @@ export class ClaseEntidad {
   @OneToMany(() => ClaseProfesorEntidad, (p) => p.clase, { cascade: true })
   profesores?: ClaseProfesorEntidad[];
 
-  @OneToMany(() => PropuestaClaseEntidad, (p) => p.clase)
-  propuestas?: PropuestaClaseEntidad[];
+  @OneToMany(() => PlanificacionClaseEntidad, (p) => p.clase)
+  planificaciones?: PlanificacionClaseEntidad[];
 }
 
 /** Franjas de una clase. id_franja_horaria referencia a Horarios (sin FK). */
@@ -190,34 +190,34 @@ export class ClaseProfesorEntidad {
   clase?: ClaseEntidad;
 }
 
-/** Clases de cada propuesta (ids_clases). */
-@Entity('planificacion_propuesta_clase')
-export class PropuestaClaseEntidad {
+/** Clases de cada planificación (ids_clases). */
+@Entity('planificacion_planificacion_clase')
+export class PlanificacionClaseEntidad {
   @PrimaryColumn({ type: 'integer' })
-  id_propuesta!: number;
+  id_planificacion!: number;
 
   @Index()
   @PrimaryColumn({ type: 'integer' })
   id_clase!: number;
 
-  @ManyToOne(() => PropuestaEntidad, (p) => p.clases, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'id_propuesta' })
-  propuesta?: PropuestaEntidad;
+  @ManyToOne(() => PlanificacionEntidad, (p) => p.clases, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'id_planificacion' })
+  planificacion?: PlanificacionEntidad;
 
-  @ManyToOne(() => ClaseEntidad, (c) => c.propuestas, { onDelete: 'CASCADE' })
+  @ManyToOne(() => ClaseEntidad, (c) => c.planificaciones, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'id_clase' })
   clase?: ClaseEntidad;
 }
 
 export const ENTIDADES_PLANIFICACION = [
-  EstadoPropuestaEntidad,
+  EstadoPlanificacionEntidad,
   CicloLectivoEntidad,
   AnioAcademicoEntidad,
-  PropuestaEntidad,
+  PlanificacionEntidad,
   CursoEntidad,
   MateriaCursoEntidad,
   ClaseEntidad,
   ClaseFranjaEntidad,
   ClaseProfesorEntidad,
-  PropuestaClaseEntidad,
+  PlanificacionClaseEntidad,
 ];

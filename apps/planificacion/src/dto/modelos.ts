@@ -95,9 +95,9 @@ export class MateriaCurso implements C.MateriaCurso {
   nombre_area?: string | null;
 }
 
-/** Catálogo gestionado con crear_estado_propuesta. Carga inicial: Borrador (BOR), En revisión (REV), Vigente (VIG) y Fue vigente (FVG). El estado es de toda la propuesta, no de cada curso. Hay una sola Vigente por ciclo lectivo; las que lo fueron quedan en Fue vigente. */
-@ApiSchema({ name: "EstadoPropuesta" })
-export class EstadoPropuesta implements C.EstadoPropuesta {
+/** Catálogo gestionado con crear_estado_planificacion. Carga inicial: Borrador (BOR), En revisión (REV), Vigente (VIG) y Fue vigente (FVG). El estado es de toda la planificación, no de cada curso. Hay una sola Vigente por ciclo lectivo; las que lo fueron quedan en Fue vigente. */
+@ApiSchema({ name: "EstadoPlanificacion" })
+export class EstadoPlanificacion implements C.EstadoPlanificacion {
   @ApiProperty({"type":"integer","format":"int64","example":1,"readOnly":true,"required":true})
   id_estado!: number;
   @ApiProperty({"type":"string","example":"Borrador","required":true})
@@ -124,14 +124,14 @@ export class AnioAcademico implements C.AnioAcademico {
   codigo!: string;
 }
 
-@ApiSchema({ name: "Propuesta" })
-export class Propuesta implements C.Propuesta {
+@ApiSchema({ name: "Planificacion" })
+export class Planificacion implements C.Planificacion {
   @ApiProperty({"type":"integer","format":"int64","example":5,"readOnly":true,"required":true})
-  id_propuesta!: number;
-  @ApiProperty({"type":"string","example":"Propuesta 2026 v1","required":true})
+  id_planificacion!: number;
+  @ApiProperty({"type":"string","example":"Planificación 2026 v1","required":true})
   nombre!: string;
   @ApiProperty({"type":"string","example":"Primera versión de la grilla 2026","required":false})
-  descripcion_propuesta?: string;
+  descripcion_planificacion?: string;
   @ApiProperty({"type":"string","format":"date-time","example":"2026-02-10T09:00:00-03:00","readOnly":true,"required":false})
   fecha_creacion?: string;
   @ApiProperty({"type":"string","format":"date-time","example":"2026-02-12T18:30:00-03:00","readOnly":true,"required":false})
@@ -140,8 +140,8 @@ export class Propuesta implements C.Propuesta {
   codigo!: string;
   @ApiProperty({"type":"integer","format":"int64","example":2026,"required":true})
   id_ciclo_lectivo!: number;
-  @ApiProperty({ type: () => EstadoPropuesta,"readOnly":true,"required":false})
-  estado?: EstadoPropuesta;
+  @ApiProperty({ type: () => EstadoPlanificacion,"readOnly":true,"required":false})
+  estado?: EstadoPlanificacion;
   @ApiProperty({"type":"integer","format":"int64","isArray":true,"required":false})
   ids_clases?: number[];
 }
@@ -240,13 +240,13 @@ export class ResultadoGeneracion implements C.ResultadoGeneracion {
   errores!: string[];
 }
 
-/** Respuesta de get_armado_propuesta: lo que necesita la pantalla de armado (A13) para abrir. */
-@ApiSchema({ name: "ArmadoPropuesta" })
-export class ArmadoPropuesta implements C.ArmadoPropuesta {
-  @ApiProperty({ type: () => Propuesta, description: "La propuesta con su estado actual", "required":true})
-  propuesta!: Propuesta;
-  @ApiProperty({ type: () => [EstadoPropuesta], description: "Estados posibles (botones del encabezado)", "required":true})
-  estados!: EstadoPropuesta[];
-  @ApiProperty({ type: () => [Curso], description: "Cursos del ciclo de la propuesta, ordenados por año y división, con año académico, turno, orientación, materias y franjas anidados. Sin clases: esas se piden por curso con get_clases?id_propuesta&id_curso", "required":true})
+/** Respuesta de get_armado_planificacion: lo que necesita la pantalla de armado (A13) para abrir. */
+@ApiSchema({ name: "ArmadoPlanificacion" })
+export class ArmadoPlanificacion implements C.ArmadoPlanificacion {
+  @ApiProperty({ type: () => Planificacion, description: "La planificación con su estado actual", "required":true})
+  planificacion!: Planificacion;
+  @ApiProperty({ type: () => [EstadoPlanificacion], description: "Estados posibles (botones del encabezado)", "required":true})
+  estados!: EstadoPlanificacion[];
+  @ApiProperty({ type: () => [Curso], description: "Cursos del ciclo de la planificación, ordenados por año y división, con año académico, turno, orientación, materias y franjas anidados. Sin clases: esas se piden por curso con get_clases?id_planificacion&id_curso", "required":true})
   cursos!: Curso[];
 }

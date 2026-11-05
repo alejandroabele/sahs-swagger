@@ -1,6 +1,6 @@
 // P2 · Mi grilla horaria. Prototipo: <template id="tpl-mihorario"> y DC.registrar("mihorario") en prototipo/index.html.
-// Clases del profesor de la sesión en la propuesta vigente (VIG) del ciclo del año actual
-// (planificacion.get_clases con id_profesor e id_propuesta), una grilla por turno, y las
+// Clases del profesor de la sesión en la planificación vigente (VIG) del ciclo del año actual
+// (planificacion.get_clases con id_profesor e id_planificacion), una grilla por turno, y las
 // suplencias que cubre en la semana (profesor_suplencias.get_suplencias).
 import type { Clase, Curso, FranjaHoraria, Turno } from '@sahs/contratos';
 import { horarios, planificacion, profesorSuplencias } from '../api';
@@ -58,13 +58,13 @@ export default function P2MiHorario() {
   const idProfesor = profesor?.id_profesor;
   const semana = semanaActual();
 
-  const qProp = useConsulta(['planificacion', 'get_propuestas', { id_ciclo_lectivo: idCiclo }], () => planificacion.get_propuestas({ id_ciclo_lectivo: idCiclo }), {
+  const qProp = useConsulta(['planificacion', 'get_planificaciones', { id_ciclo_lectivo: idCiclo }], () => planificacion.get_planificaciones({ id_ciclo_lectivo: idCiclo }), {
     enabled: idCiclo != null,
   });
   const vigente = (qProp.data ?? []).find((p) => p.estado?.codigo === 'VIG') ?? null;
-  const idProp = vigente?.id_propuesta;
+  const idProp = vigente?.id_planificacion;
 
-  const qMias = useConsulta(['planificacion', 'get_clases', { id_profesor: idProfesor, id_propuesta: idProp }], () => planificacion.get_clases({ id_profesor: idProfesor, id_propuesta: idProp }), {
+  const qMias = useConsulta(['planificacion', 'get_clases', { id_profesor: idProfesor, id_planificacion: idProp }], () => planificacion.get_clases({ id_profesor: idProfesor, id_planificacion: idProp }), {
     enabled: idProfesor != null && idProp != null,
   });
   const qSup = useConsulta(
@@ -73,8 +73,8 @@ export default function P2MiHorario() {
     { enabled: idProfesor != null },
   );
   const suplencias = qSup.data ?? [];
-  // Las clases que cubre: se buscan en la propuesta vigente (la suplencia solo trae el resumen).
-  const qTodas = useConsulta(['planificacion', 'get_clases', { id_propuesta: idProp }], () => planificacion.get_clases({ id_propuesta: idProp }), {
+  // Las clases que cubre: se buscan en la planificación vigente (la suplencia solo trae el resumen).
+  const qTodas = useConsulta(['planificacion', 'get_clases', { id_planificacion: idProp }], () => planificacion.get_clases({ id_planificacion: idProp }), {
     enabled: idProp != null && suplencias.length > 0,
   });
   const qCursos = useConsulta(['planificacion', 'get_cursos', { id_ciclo_lectivo: idCiclo }], () => planificacion.get_cursos({ id_ciclo_lectivo: idCiclo }), {

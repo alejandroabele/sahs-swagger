@@ -61,11 +61,11 @@ export class Reglas {
   }
 
   /**
-   * Choques dentro de una propuesta: el curso no puede tener dos clases en la misma franja
+   * Choques dentro de una planificación: el curso no puede tener dos clases en la misma franja
    * y un docente no puede estar en dos clases a la vez.
    */
-  async validarChoques(idPropuesta: number, idClase: number, idCurso: number, idsFranjas: number[], idsProfesores: number[]) {
-    const otras = (await this.a.propuestaClases.findBy({ id_propuesta: idPropuesta })).map((x) => x.id_clase).filter((x) => x !== idClase);
+  async validarChoques(idPlanificacion: number, idClase: number, idCurso: number, idsFranjas: number[], idsProfesores: number[]) {
+    const otras = (await this.a.planificacionClases.findBy({ id_planificacion: idPlanificacion })).map((x) => x.id_clase).filter((x) => x !== idClase);
     if (!otras.length) return;
     const [clases, fr, pr] = await Promise.all([
       this.a.clases.findBy({ id_clase: In(otras) }),
@@ -89,13 +89,13 @@ export class Reglas {
   }
 
   /**
-   * Dentro de la propuesta, las franjas de las clases de una materia en un curso no superan
+   * Dentro de la planificación, las franjas de las clases de una materia en un curso no superan
    * sus horas semanales en el curso. `franjas` es la cantidad de franjas de la clase `idClase`.
    */
-  async validarHorasMateria(idPropuesta: number, idClase: number, idCurso: number, idMateria: number, franjas: number) {
+  async validarHorasMateria(idPlanificacion: number, idClase: number, idCurso: number, idMateria: number, franjas: number) {
     const dicta = await this.a.materiasCurso.findOneBy({ id_curso: idCurso, id_materia: idMateria });
     if (!dicta) return;
-    const otras = (await this.a.propuestaClases.findBy({ id_propuesta: idPropuesta })).map((x) => x.id_clase).filter((x) => x !== idClase);
+    const otras = (await this.a.planificacionClases.findBy({ id_planificacion: idPlanificacion })).map((x) => x.id_clase).filter((x) => x !== idClase);
     const mismas = otras.length
       ? await this.a.clases.find({ where: { id_clase: In(otras), id_curso: idCurso, id_materia: idMateria }, relations: { franjas: true } })
       : [];
@@ -111,13 +111,13 @@ export class Reglas {
     }
   }
 
-  /** Una clase solo se modifica si todas las propuestas que la incluyen están en Borrador. */
+  /** Una clase solo se modifica si todas las planificaciones que la incluyen están en Borrador. */
   async exigirEditable(idClase: number) {
-    const pcs = await this.a.propuestaClases.find({ where: { id_clase: idClase }, relations: { propuesta: { estado: true } } });
-    const bloqueada = pcs.find((x) => x.propuesta?.estado?.codigo !== 'BOR');
+    const pcs = await this.a.planificacionClases.find({ where: { id_clase: idClase }, relations: { planificacion: { estado: true } } });
+    const bloqueada = pcs.find((x) => x.planificacion?.estado?.codigo !== 'BOR');
     if (bloqueada) {
-      throw conflicto(`La clase es de la propuesta ${bloqueada.propuesta?.codigo} (${bloqueada.propuesta?.estado?.nombre}): solo se edita en Borrador`);
+      throw conflicto(`La clase es de la planificación ${bloqueada.planificacion?.codigo} (${bloqueada.planificacion?.estado?.nombre}): solo se edita en Borrador`);
     }
-    return pcs.map((x) => x.id_propuesta);
+    return pcs.map((x) => x.id_planificacion);
   }
 }

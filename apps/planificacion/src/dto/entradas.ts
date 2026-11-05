@@ -4,16 +4,16 @@ import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsArray, IsInt, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 import type * as C from '@sahs/contratos';
-/** Body de POST /planificacion/propuestas */
-export class CrearPropuestaDto implements C.CrearPropuestaBody {
-  @ApiProperty({"type":"string","example":"Propuesta 2026 v1","required":true})
+/** Body de POST /planificaciones */
+export class CrearPlanificacionDto implements C.CrearPlanificacionBody {
+  @ApiProperty({"type":"string","example":"Planificación 2026 v1","required":true})
   @IsString()
   @IsNotEmpty()
   nombre!: string;
   @ApiProperty({"type":"string","example":"Primera versión","required":false})
   @IsOptional()
   @IsString()
-  descripcion_propuesta?: string;
+  descripcion_planificacion?: string;
   @ApiProperty({"type":"string","example":"P-2026-01","required":true})
   @IsString()
   @IsNotEmpty()
@@ -24,8 +24,8 @@ export class CrearPropuestaDto implements C.CrearPropuestaBody {
   id_ciclo_lectivo!: number;
 }
 
-/** Body de POST /planificacion/estados-propuesta */
-export class CrearEstadoPropuestaDto implements C.CrearEstadoPropuestaBody {
+/** Body de POST /planificaciones/estados */
+export class CrearEstadoPlanificacionDto implements C.CrearEstadoPlanificacionBody {
   @ApiProperty({"type":"string","example":"Vigente","required":true})
   @IsString()
   @IsNotEmpty()
@@ -36,8 +36,8 @@ export class CrearEstadoPropuestaDto implements C.CrearEstadoPropuestaBody {
   codigo!: string;
 }
 
-/** Body de PUT /planificacion/propuestas/{id}/estado */
-export class AsignarEstadoAPropuestaDto implements C.AsignarEstadoAPropuestaBody {
+/** Body de PUT /planificaciones/{id}/estado */
+export class AsignarEstadoAPlanificacionDto implements C.AsignarEstadoAPlanificacionBody {
   @ApiProperty({"type":"integer","format":"int64","example":2,"required":true})
   @Type(() => Number)
   @IsInt()
@@ -141,8 +141,8 @@ export class CrearAnioAcademicoDto implements C.CrearAnioAcademicoBody {
   codigo!: string;
 }
 
-/** Body de POST /planificacion/propuestas/{id}/clases */
-export class AsignarClaseAPropuestaDto implements C.AsignarClaseAPropuestaBody {
+/** Body de POST /planificaciones/{id}/clases */
+export class AsignarClaseAPlanificacionDto implements C.AsignarClaseAPlanificacionBody {
   @ApiProperty({"type":"integer","format":"int64","example":40,"required":true})
   @Type(() => Number)
   @IsInt()
@@ -157,14 +157,14 @@ export class AsignarCursoAAnioAcademicoDto implements C.AsignarCursoAAnioAcademi
   id_curso!: number;
 }
 
-/** Query de GET /planificacion/propuestas */
-export class GetPropuestasQuery implements C.GetPropuestasQuery {
-  @ApiProperty({"type":"integer","format":"int64","description":"Ciclo lectivo de la propuesta (filtro opcional)","example":2026,"required":false})
+/** Query de GET /planificaciones */
+export class GetPlanificacionesQuery implements C.GetPlanificacionesQuery {
+  @ApiProperty({"type":"integer","format":"int64","description":"Ciclo lectivo de la planificación (filtro opcional)","example":2026,"required":false})
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   id_ciclo_lectivo?: number;
-  @ApiProperty({"type":"integer","format":"int64","description":"Estado actual de la propuesta (filtro opcional)","example":1,"required":false})
+  @ApiProperty({"type":"integer","format":"int64","description":"Estado actual de la planificación (filtro opcional)","example":1,"required":false})
   @IsOptional()
   @Type(() => Number)
   @IsInt()
@@ -192,11 +192,11 @@ export class GetClasesQuery implements C.GetClasesQuery {
   @Type(() => Number)
   @IsInt()
   id_curso?: number;
-  @ApiProperty({"type":"integer","format":"int64","description":"Propuesta que incluye la clase (filtro opcional)","example":5,"required":false})
+  @ApiProperty({"type":"integer","format":"int64","description":"Planificación que incluye la clase (filtro opcional)","example":5,"required":false})
   @IsOptional()
   @Type(() => Number)
   @IsInt()
-  id_propuesta?: number;
+  id_planificacion?: number;
 }
 
 /** Body de PUT /planificacion/clases/{id} (agregado: no está en el documento). */
@@ -215,9 +215,9 @@ export class EditarClaseDto implements C.EditarClaseBody {
   ids_profesores!: number[];
 }
 
-/** Body de POST /planificacion/propuestas/{id}/generacion (agregado: no está en el documento). */
+/** Body de POST /planificaciones/{id}/generacion (agregado: no está en el documento). */
 export class GenerarPlanillaDto implements C.GenerarPlanillaBody {
-  @ApiProperty({"type":"integer","format":"int64","description":"Solo ese curso (tiene que ser del ciclo de la propuesta). Sin él, todos los cursos del ciclo.","example":1,"required":false})
+  @ApiProperty({"type":"integer","format":"int64","description":"Solo ese curso (tiene que ser del ciclo de la planificación). Sin él, todos los cursos del ciclo.","example":1,"required":false})
   @IsOptional()
   @Type(() => Number)
   @IsInt()

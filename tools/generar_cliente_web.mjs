@@ -22,6 +22,8 @@ const SERVICIOS = [
   ['orientacion', 8085],
   ['profesor_suplencias', 8086],
 ];
+/** Rutas sin el prefijo del servicio que también son suyas (ver "Convenciones" en el README). */
+const PREFIJOS_EXTRA = { planificacion: ['/planificaciones'] };
 const iUrl = process.argv.indexOf('--url');
 const BASE_PROXY = iUrl > 0 ? process.argv[iUrl + 1] : null;
 
@@ -52,7 +54,8 @@ async function main() {
     const tipos = new Set();
     const funciones = [];
     for (const [ruta, metodos] of Object.entries(doc.paths)) {
-      if (!ruta.startsWith(`/${prefijo}/`)) continue;
+      const propias = [`/${prefijo}/`, ...(PREFIJOS_EXTRA[svc] ?? [])];
+      if (!propias.some((p) => ruta.startsWith(p))) continue;
       for (const [metodo, op] of Object.entries(metodos)) {
         const params = (op.parameters || []).filter((p) => p.in === 'path');
         const query = (op.parameters || []).filter((p) => p.in === 'query');

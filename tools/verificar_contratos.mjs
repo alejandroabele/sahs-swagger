@@ -10,7 +10,7 @@
  * se comparan por nombre, sin mirar en qué segmento están) y las propiedades y los
  * obligatorios de los bodies y de las respuestas. La ruta en sí no se compara.
  *
- * Las diferencias aceptadas a propósito están abajo (AGREGADOS, CODIGOS_AGREGADOS y
+ * Las diferencias aceptadas a propósito están abajo (RENOMBRES, AGREGADOS, CODIGOS_AGREGADOS y
  * EXCEPCIONES) y documentadas en el README, "Cambios respecto del documento".
  *
  * Uso:
@@ -39,8 +39,54 @@ const SERVICIOS = [
  * Diferencias aceptadas a propósito (documentadas en el README, "Cambios respecto del documento"):
  * operaciones agregadas (por operationId) y los códigos 409 y 503, que el contrato original no tenía.
  */
-const AGREGADOS = new Set(['editar_clase', 'eliminar_clase', 'get_plan_de_estudios', 'generar_planilla', 'get_armado_propuesta', 'asignar_activo_profesor']);
+const AGREGADOS = new Set(['editar_clase', 'eliminar_clase', 'get_plan_de_estudios', 'generar_planilla', 'get_armado_planificacion', 'asignar_activo_profesor']);
 const CODIGOS_AGREGADOS = ['409', '503'];
+
+/**
+ * Renombres documentados ("propuesta" pasó a "planificación"). Se aplican al contrato congelado
+ * antes de comparar, así se siguen controlando verbo, códigos, parámetros y schemas. Para cada
+ * operación renombrada también se controla la ruta, que va sin el prefijo del servicio.
+ */
+const RENOMBRES = {
+  operaciones: {
+    crear_propuesta: 'POST /planificaciones',
+    get_propuestas: 'GET /planificaciones',
+    get_propuesta: 'GET /planificaciones/{id}',
+    get_estado_actual_de_propuesta: 'GET /planificaciones/{id}/estado',
+    asignar_estado_a_propuesta: 'PUT /planificaciones/{id}/estado',
+    asignar_clase_a_propuesta: 'POST /planificaciones/{id}/clases',
+    crear_estado_propuesta: 'POST /planificaciones/estados',
+    get_posibles_estados_de_propuestas: 'GET /planificaciones/estados',
+  },
+  nombres: {
+    crear_propuesta: 'crear_planificacion',
+    get_propuestas: 'get_planificaciones',
+    get_propuesta: 'get_planificacion',
+    get_estado_actual_de_propuesta: 'get_estado_actual_de_planificacion',
+    asignar_estado_a_propuesta: 'asignar_estado_a_planificacion',
+    asignar_clase_a_propuesta: 'asignar_clase_a_planificacion',
+    crear_estado_propuesta: 'crear_estado_planificacion',
+    get_posibles_estados_de_propuestas: 'get_posibles_estados_de_planificaciones',
+    Propuesta: 'Planificacion',
+    EstadoPropuesta: 'EstadoPlanificacion',
+    id_propuesta: 'id_planificacion',
+    descripcion_propuesta: 'descripcion_planificacion',
+  },
+};
+
+/** Contrato congelado con los nombres nuevos (operationId, schemas, propiedades y parámetros). */
+function aplicarRenombres(doc) {
+  let texto = JSON.stringify(doc);
+  for (const [viejo, nuevo] of Object.entries(RENOMBRES.nombres)) {
+    texto = texto.split(`"${viejo}"`).join(`"${nuevo}"`).split(`"#/components/schemas/${viejo}"`).join(`"#/components/schemas/${nuevo}"`);
+  }
+  return JSON.parse(texto);
+}
+
+/** Ruta que tiene que publicar cada operación renombrada, por su operationId nuevo. */
+const RUTAS_RENOMBRADAS = Object.fromEntries(
+  Object.entries(RENOMBRES.operaciones).map(([viejo, ruta]) => [RENOMBRES.nombres[viejo], ruta]),
+);
 /**
  * Propiedades agregadas a propósito a un schema (por nombre del schema), también documentadas:
  * el área de la materia anidada en el curso y en la clase, para no pedir el catálogo de materias,
@@ -200,6 +246,9 @@ function compararDocs(contrato, servicio) {
     const s = os_.get(k);
     if (!s) continue;
     if (k === 'health') continue;
+    if (RUTAS_RENOMBRADAS[k] && `${s.metodo} ${s.ruta}` !== RUTAS_RENOMBRADAS[k]) {
+      difs.push(`${k}: el renombre documentado espera ${RUTAS_RENOMBRADAS[k]} y el servicio publica ${s.metodo} ${s.ruta}`);
+    }
     const excepcion = EXCEPCIONES[k];
     if (excepcion && `${s.metodo} ${s.ruta}` !== excepcion.ruta) {
       difs.push(`${k}: la excepción documentada espera ${excepcion.ruta} y el servicio publica ${s.metodo} ${s.ruta}`);
@@ -268,7 +317,7 @@ async function main() {
       const base = urlsDadas[s.spec];
       await esperar(`${base}/actuator/health`);
       const servicio = await (await fetch(`${base}/docs-json`)).json();
-      const contrato = JSON.parse(fs.readFileSync(path.join(RAIZ, 'specs', s.spec + '.json'), 'utf8'));
+      const contrato = aplicarRenombres(JSON.parse(fs.readFileSync(path.join(RAIZ, 'specs', s.spec + '.json'), 'utf8')));
       const difs = compararDocs(contrato, servicio);
       total += difs.length;
       console.log(`${difs.length ? '✗' : '✓'} ${s.spec}: ${operaciones(servicio).size} operaciones, ${difs.length} diferencias`);

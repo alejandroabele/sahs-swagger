@@ -36,8 +36,8 @@ export interface MateriaCurso {
   nombre_area?: string | null;
 }
 
-/** Catálogo gestionado con crear_estado_propuesta. Carga inicial: Borrador (BOR), En revisión (REV), Vigente (VIG) y Fue vigente (FVG). El estado es de toda la propuesta, no de cada curso. Hay una sola Vigente por ciclo lectivo; las que lo fueron quedan en Fue vigente. */
-export interface EstadoPropuesta {
+/** Catálogo gestionado con crear_estado_planificacion. Carga inicial: Borrador (BOR), En revisión (REV), Vigente (VIG) y Fue vigente (FVG). El estado es de toda la planificación, no de cada curso. Hay una sola Vigente por ciclo lectivo; las que lo fueron quedan en Fue vigente. */
+export interface EstadoPlanificacion {
   readonly id_estado: number;
   nombre: string;
   codigo: string;
@@ -54,15 +54,15 @@ export interface AnioAcademico {
   codigo: string;
 }
 
-export interface Propuesta {
-  readonly id_propuesta: number;
+export interface Planificacion {
+  readonly id_planificacion: number;
   nombre: string;
-  descripcion_propuesta?: string;
+  descripcion_planificacion?: string;
   readonly fecha_creacion?: string;
   readonly fecha_modificacion?: string;
   codigo: string;
   id_ciclo_lectivo: number;
-  readonly estado?: EstadoPropuesta;
+  readonly estado?: EstadoPlanificacion;
   ids_clases?: number[];
 }
 
@@ -97,22 +97,22 @@ export interface Clase {
   readonly suplencia?: SuplenciaResumen | null;
 }
 
-/** Body de POST /planificacion/propuestas */
-export interface CrearPropuestaBody {
+/** Body de POST /planificaciones */
+export interface CrearPlanificacionBody {
   nombre: string;
-  descripcion_propuesta?: string;
+  descripcion_planificacion?: string;
   codigo: string;
   id_ciclo_lectivo: number;
 }
 
-/** Body de POST /planificacion/estados-propuesta */
-export interface CrearEstadoPropuestaBody {
+/** Body de POST /planificaciones/estados */
+export interface CrearEstadoPlanificacionBody {
   nombre: string;
   codigo: string;
 }
 
-/** Body de PUT /planificacion/propuestas/{id}/estado */
-export interface AsignarEstadoAPropuestaBody {
+/** Body de PUT /planificaciones/{id}/estado */
+export interface AsignarEstadoAPlanificacionBody {
   id_estado: number;
 }
 
@@ -164,8 +164,8 @@ export interface CrearAnioAcademicoBody {
   codigo: string;
 }
 
-/** Body de POST /planificacion/propuestas/{id}/clases */
-export interface AsignarClaseAPropuestaBody {
+/** Body de POST /planificaciones/{id}/clases */
+export interface AsignarClaseAPlanificacionBody {
   id_clase: number;
 }
 
@@ -174,11 +174,11 @@ export interface AsignarCursoAAnioAcademicoBody {
   id_curso: number;
 }
 
-/** Query de GET /planificacion/propuestas */
-export interface GetPropuestasQuery {
-  /** Ciclo lectivo de la propuesta (filtro opcional) */
+/** Query de GET /planificaciones */
+export interface GetPlanificacionesQuery {
+  /** Ciclo lectivo de la planificación (filtro opcional) */
   id_ciclo_lectivo?: number;
-  /** Estado actual de la propuesta (filtro opcional) */
+  /** Estado actual de la planificación (filtro opcional) */
   id_estado?: number;
 }
 
@@ -194,8 +194,8 @@ export interface GetClasesQuery {
   id_profesor?: number;
   /** Curso de la clase (filtro opcional) */
   id_curso?: number;
-  /** Propuesta que incluye la clase (filtro opcional) */
-  id_propuesta?: number;
+  /** Planificación que incluye la clase (filtro opcional) */
+  id_planificacion?: number;
 }
 
 /** Body de PUT /planificacion/clases/{id} (agregado: no está en el documento) */
@@ -207,9 +207,9 @@ export interface EditarClaseBody {
   ids_profesores: number[];
 }
 
-/** Body de POST /planificacion/propuestas/{id}/generacion (agregado: no está en el documento). */
+/** Body de POST /planificaciones/{id}/generacion (agregado: no está en el documento). */
 export interface GenerarPlanillaBody {
-  /** Solo ese curso. Sin él, todos los cursos del ciclo de la propuesta. */
+  /** Solo ese curso. Sin él, todos los cursos del ciclo de la planificación. */
   id_curso?: number;
 }
 
@@ -244,10 +244,10 @@ export interface ResultadoGeneracion {
   errores: string[];
 }
 
-/** Resultado de get_armado_propuesta (fachada de la pantalla de armado). */
-export interface ArmadoPropuesta {
-  propuesta: Propuesta;
-  estados: EstadoPropuesta[];
-  /** Cursos del ciclo de la propuesta, sin clases. */
+/** Resultado de get_armado_planificacion (fachada de la pantalla de armado). */
+export interface ArmadoPlanificacion {
+  planificacion: Planificacion;
+  estados: EstadoPlanificacion[];
+  /** Cursos del ciclo de la planificación, sin clases. */
   cursos: Curso[];
 }

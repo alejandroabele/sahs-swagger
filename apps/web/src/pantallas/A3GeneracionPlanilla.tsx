@@ -2,7 +2,7 @@
 // en prototipo/index.html.
 // Ruta: /planificaciones/:id/generacion y /planificaciones/:id/generacion/:idCurso. Sin curso en la
 // ruta se abre el primero del ciclo. Muestra la grilla del curso con sus clases guardadas en la
-// propuesta y la carga horaria de cada materia. "Generar planilla automáticamente" llama a
+// planificación y la carga horaria de cada materia. "Generar planilla automáticamente" llama a
 // generar_planilla con el curso: la API completa las horas que faltan (siempre respetando la
 // disponibilidad declarada) y guarda el resultado; acá solo se recarga y se muestra el resumen.
 import { useEffect, useMemo, useState } from 'react';
@@ -33,16 +33,16 @@ const AREA: Record<string, { linea: string; fondo: string; borde: string; texto:
 
 export default function A3GeneracionPlanilla() {
   const ir = useIr();
-  const idPropParam = useParamRuta('id');
+  const idPlanParam = useParamRuta('id');
   const idCursoParam = useParamRuta('idCurso');
 
-  // ---- datos: propuesta, cursos del ciclo, años y las clases del curso visible en la propuesta.
-  const qPropuesta = useConsulta(['planificacion', 'get_propuesta', idPropParam], () => planificacion.get_propuesta(idPropParam!), {
-    enabled: !!idPropParam,
+  // ---- datos: planificación, cursos del ciclo, años y las clases del curso visible en la planificación.
+  const qPlanificacion = useConsulta(['planificacion', 'get_planificacion', idPlanParam], () => planificacion.get_planificacion(idPlanParam!), {
+    enabled: !!idPlanParam,
   });
-  const propuesta = idPropParam ? qPropuesta.data : undefined;
-  const idCiclo = propuesta?.id_ciclo_lectivo;
-  const idProp = propuesta?.id_propuesta;
+  const planif = idPlanParam ? qPlanificacion.data : undefined;
+  const idCiclo = planif?.id_ciclo_lectivo;
+  const idPlan = planif?.id_planificacion;
 
   const qCursos = useConsulta(['planificacion', 'get_cursos', idCiclo], () => planificacion.get_cursos({ id_ciclo_lectivo: idCiclo! }), {
     enabled: !!idCiclo,
@@ -55,9 +55,9 @@ export default function A3GeneracionPlanilla() {
   const idCurso = curso?.id_curso;
 
   const qClases = useConsulta(
-    ['planificacion', 'get_clases', { id_propuesta: idProp, id_curso: idCurso }],
-    () => planificacion.get_clases({ id_propuesta: idProp!, id_curso: idCurso! }),
-    { enabled: !!idProp && !!idCurso },
+    ['planificacion', 'get_clases', { id_planificacion: idPlan, id_curso: idCurso }],
+    () => planificacion.get_clases({ id_planificacion: idPlan!, id_curso: idCurso! }),
+    { enabled: !!idPlan && !!idCurso },
   );
   const clasesCurso = qClases.data ?? [];
 
@@ -77,13 +77,13 @@ export default function A3GeneracionPlanilla() {
   // Sin curso en la ruta: se abre el primero del ciclo (reemplaza la URL, no suma un paso al historial).
   const primerCurso = qAnios.data ? cursos[0]?.id_curso : undefined; // el orden necesita los años
   useEffect(() => {
-    if (idProp && !idCursoParam && primerCurso) ir(rutas.generacion(idProp, primerCurso), { replace: true });
-  }, [idProp, idCursoParam, primerCurso, ir]);
+    if (idPlan && !idCursoParam && primerCurso) ir(rutas.generacion(idPlan, primerCurso), { replace: true });
+  }, [idPlan, idCursoParam, primerCurso, ir]);
 
-  const cargando = qPropuesta.isLoading || qCursos.isLoading || qAnios.isLoading;
-  const errorCarga = qPropuesta.error ?? qCursos.error;
+  const cargando = qPlanificacion.isLoading || qCursos.isLoading || qAnios.isLoading;
+  const errorCarga = qPlanificacion.error ?? qCursos.error;
 
-  if (!propuesta || cargando) {
+  if (!planif || cargando) {
     return (
       <div style={css('width: 100%; min-height: 100vh; display: flex; flex-direction: column; background: #f4f6f8;')}>
         <Cabecera />
@@ -107,7 +107,7 @@ export default function A3GeneracionPlanilla() {
         Planificaciones
       </span>
       <span style={css('color: #c3cad4;')}>/</span>
-      <span className="mono">{propuesta.codigo}</span>
+      <span className="mono">{planif.codigo}</span>
       {curso && (
         <>
           <span style={css('color: #c3cad4;')}>/</span>
@@ -125,7 +125,7 @@ export default function A3GeneracionPlanilla() {
         return (
           <button
             key={c.id_curso}
-            onClick={() => ir(rutas.generacion(propuesta.id_propuesta, c.id_curso))}
+            onClick={() => ir(rutas.generacion(planif.id_planificacion, c.id_curso))}
             style={css(
               'display: flex; align-items: center; height: 34px; padding: 0 13px; font-size: 12.5px; font-weight: 500; white-space: nowrap;' +
                 ' border: 1px solid ' + (activo ? '#14181f' : '#e2e6ec') + '; background: ' + (activo ? '#14181f' : '#fff') + '; color: ' + (activo ? '#fff' : '#4a5462') + ';' +
@@ -161,11 +161,11 @@ export default function A3GeneracionPlanilla() {
 
   // ======== cálculo de la vista (como renderVals() del prototipo) ========
   const nomCurso = nombreCurso(curso, anios);
-  const editable = propuesta.estado?.codigo === 'BOR';
+  const editable = planif.estado?.codigo === 'BOR';
   const ocupado = acc.enCurso;
   const materias = curso.materias ?? [];
 
-  // Lo que el curso tiene guardado en la propuesta: franja → clase.
+  // Lo que el curso tiene guardado en la planificación: franja → clase.
   interface Celda {
     n: string;
     area: string;
@@ -237,7 +237,7 @@ export default function A3GeneracionPlanilla() {
   const puedeGenerar = editable && !ocupado;
   const generar = async () => {
     if (!puedeGenerar) return;
-    const r = (await acc.ejecutar(() => planificacion.generar_planilla(propuesta.id_propuesta, { id_curso: curso.id_curso }))) as ResultadoGeneracion | undefined;
+    const r = (await acc.ejecutar(() => planificacion.generar_planilla(planif.id_planificacion, { id_curso: curso.id_curso }))) as ResultadoGeneracion | undefined;
     if (r) setRes(r);
   };
 
@@ -256,7 +256,7 @@ export default function A3GeneracionPlanilla() {
           <div className="a3-estado" style={css('display: flex; flex-direction: column; align-items: flex-end; gap: 5px;')}>
             <div style={css('display: flex; align-items: center; gap: 7px; padding: 6px 12px; border-radius: 20px; border: 1px solid #f0dcbe; background: #fdf6ec; color: #a56a10; font-size: 12px; font-weight: 600;')}>
               <span style={css('width: 7px; height: 7px; border-radius: 50%; background: #a56a10;')}></span>
-              Planificación <span className="mono">{propuesta.codigo}</span> · {propuesta.estado?.nombre ?? ''}
+              Planificación <span className="mono">{planif.codigo}</span> · {planif.estado?.nombre ?? ''}
             </div>
           </div>
         </div>

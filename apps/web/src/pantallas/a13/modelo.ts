@@ -1,7 +1,7 @@
 // Modelo compartido por A13 (armado de la planificación) y A3 (generación de la planilla):
 // grilla de un curso a partir de las franjas de su turno, ocupación de los docentes,
 // colores de las áreas y nombres que muestra el diseño.
-import type { AnioAcademico, Clase, Curso, FranjaHorariaResumen, Profesor, Propuesta } from '@sahs/contratos';
+import type { AnioAcademico, Clase, Curso, FranjaHorariaResumen, Profesor, Planificacion } from '@sahs/contratos';
 import { planificacion } from '../../api';
 import { DIAS } from '../../lib/formato';
 
@@ -88,7 +88,7 @@ export function bloqueDeFranja(f: FranjaHorariaResumen): Bloque | null {
 export const solapan = (a: { d: number; ini: number; fn: number }, b: { d: number; ini: number; fn: number }) =>
   a.d === b.d && a.ini < b.fn && b.ini < a.fn;
 
-/** Una hora ocupada por una clase de la propuesta, con sus docentes. */
+/** Una hora ocupada por una clase de la planificación, con sus docentes. */
 export interface Ocupacion {
   id_clase: number;
   id_curso: number;
@@ -108,7 +108,7 @@ export function ocupaciones(clases: Clase[]): Ocupacion[] {
   return out;
 }
 
-/** Dónde da clase el docente a esa hora (otra clase de la propuesta), o null si está libre. */
+/** Dónde da clase el docente a esa hora (otra clase de la planificación), o null si está libre. */
 export function dondeOcupa(ocs: Ocupacion[], idProfesor: number, b: Bloque, excluirClase?: number): Ocupacion | null {
   for (const o of ocs) {
     if (o.id_clase === excluirClase) continue;
@@ -155,19 +155,19 @@ export function combosDe(idMateria: number, nombreMateria: string, profesores: P
 }
 
 /** Código sugerido de la clase: PLAN-2026-02 + 1° B + Física → 2026-02-1B-FIS. */
-export function codigoClase(codigoPropuesta: string, nombreDelCurso: string, nombreMateria: string): string {
+export function codigoClase(codigoPlanificacion: string, nombreDelCurso: string, nombreMateria: string): string {
   const letras = nombreMateria
     .normalize('NFD')
     .replace(/[^A-Za-z]/g, '')
     .slice(0, 3)
     .toUpperCase();
-  return `${codigoPropuesta.replace(/^PLAN-/i, '')}-${nombreDelCurso.replace(/\s+/g, '')}-${letras}`;
+  return `${codigoPlanificacion.replace(/^PLAN-/i, '')}-${nombreDelCurso.replace(/\s+/g, '')}-${letras}`;
 }
 
-/** Siguiente código libre PLAN-<año>-NN entre todas las propuestas. */
-export function siguienteCodigo(anio: number, propuestas: Propuesta[]): string {
+/** Siguiente código libre PLAN-<año>-NN entre todas las planificaciones. */
+export function siguienteCodigo(anio: number, planificaciones: Planificacion[]): string {
   const re = new RegExp('^PLAN-' + anio + '-(\\d+)$');
-  const max = propuestas.reduce((m, p) => {
+  const max = planificaciones.reduce((m, p) => {
     const r = re.exec(p.codigo);
     return r ? Math.max(m, Number(r[1])) : m;
   }, 0);
@@ -182,16 +182,16 @@ export function codigoClaseCopia(viejo: string, nuevoPlan: string): string {
 }
 
 /**
- * Crea la clase y la agrega a la propuesta. Si la propuesta la rechaza (choque, 409),
+ * Crea la clase y la agrega a la planificación. Si la planificación la rechaza (choque, 409),
  * borra la clase recién creada para no dejarla suelta y vuelve a lanzar el error.
  */
-export async function crearClaseEnPropuesta(
-  idPropuesta: number,
+export async function crearClaseEnPlanificacion(
+  idPlanificacion: number,
   datos: { codigo: string; descripcion: string; id_curso: number; id_materia: number; ids_franjas_horarias: number[]; ids_profesores: number[] },
 ): Promise<Clase> {
   const c = await planificacion.crear_clase(datos);
   try {
-    await planificacion.asignar_clase_a_propuesta(idPropuesta, { id_clase: c.id_clase });
+    await planificacion.asignar_clase_a_planificacion(idPlanificacion, { id_clase: c.id_clase });
   } catch (e) {
     await planificacion.eliminar_clase(c.id_clase).catch(() => undefined);
     throw e;

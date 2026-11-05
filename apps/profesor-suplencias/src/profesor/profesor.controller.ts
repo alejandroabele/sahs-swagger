@@ -62,7 +62,7 @@ export class ProfesorController {
   }
 
   @Put("profesores/:id/activo")
-  @ApiOperation({"operationId":"asignar_activo_profesor","summary":"Dar de baja o reactivar al profesor","description":"Con `activo: false` da de baja al profesor (baja lógica: se conservan sus datos, suplencias y recibos) y deja de aparecer como habilitado para sus materias. Responde `409` si es docente de alguna clase de una planificación Vigente. Con `activo: true` lo reactiva. (Agregado: el documento nombra `eliminarProfesor()`.)\n\nInvoca: planificacion.get_posibles_estados_de_propuestas, planificacion.get_propuestas, planificacion.get_clases"})
+  @ApiOperation({"operationId":"asignar_activo_profesor","summary":"Dar de baja o reactivar al profesor","description":"Con `activo: false` da de baja al profesor (baja lógica: se conservan sus datos, suplencias y recibos) y deja de aparecer como habilitado para sus materias. Responde `409` si es docente de alguna clase de una planificación Vigente. Con `activo: true` lo reactiva. (Agregado: el documento nombra `eliminarProfesor()`.)\n\nInvoca: planificacion.get_posibles_estados_de_planificaciones, planificacion.get_planificaciones, planificacion.get_clases"})
   @ApiParam({"name":"id","description":"Id del profesor","type":"integer","format":"int64"})
   @ApiResponse({ status: 200, description: "OK", type: Profesor })
   @ApiResponse({ status: 400, description: 'Datos inválidos', type: ErrorApi })
